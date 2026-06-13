@@ -61,6 +61,19 @@
         width: 100%;
       }
     }
+    &.repo-health-button {
+      // Compact, content-sized button pinned to the right edge of the
+      // toolbar so it never competes for space with the resizable
+      // branch / push-pull buttons.
+      width: auto;
+      flex-shrink: 0;
+      margin-left: auto;
+      padding: 0 var(--spacing);
+
+      &.resizable {
+        flex-grow: 0;
+      }
+    }
     &.toolbar-dropdown-arrow-button {
       width: 39px;
       &.resizable {

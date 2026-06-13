@@ -3038,6 +3038,8 @@ export class AppStore extends TypedBaseStore<IAppState> {
       await this.stashStore.loadStashes(repository)
     } else if (selectedSection === RepositorySectionTab.Worktrees) {
       await this.worktreeStore.loadWorktrees(repository)
+    } else if (selectedSection === RepositorySectionTab.Actions) {
+      await this._loadWorkflowRuns(repository)
     }
 
     if (forceButtonFocus) {

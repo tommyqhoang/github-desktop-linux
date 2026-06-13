@@ -901,6 +901,9 @@ export class RepositoryView extends React.Component<
     if (next === RepositorySectionTab.Worktrees) {
       this.props.dispatcher.loadWorktrees(this.props.repository)
     }
+    if (next === RepositorySectionTab.Actions) {
+      this.props.dispatcher.loadWorkflowRuns(this.props.repository)
+    }
   }
 
   private onTabClicked = (tab: Tab) => {
@@ -924,6 +927,9 @@ export class RepositoryView extends React.Component<
     }
     if (section === RepositorySectionTab.Worktrees) {
       this.props.dispatcher.loadWorktrees(this.props.repository)
+    }
+    if (section === RepositorySectionTab.Actions) {
+      this.props.dispatcher.loadWorkflowRuns(this.props.repository)
     }
     if (section === RepositorySectionTab.History) {
       this.props.dispatcher.updateCompareForm(this.props.repository, {

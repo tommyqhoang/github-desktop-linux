@@ -55,6 +55,7 @@ import {
   PushPullButton,
   BranchDropdown,
   RevertProgress,
+  ToolbarButton,
 } from './toolbar'
 import { iconForRepository, OcticonSymbol } from './octicons'
 import * as octicons from './octicons/octicons.generated'
@@ -3509,8 +3510,26 @@ export class App extends React.Component<IAppProps, IAppState> {
         </div>
         {this.renderBranchToolbarButton()}
         {this.renderPushPullToolbarButton()}
+        {this.renderRepoHealthToolbarButton()}
       </Toolbar>
     )
+  }
+
+  private renderRepoHealthToolbarButton() {
+    return (
+      <ToolbarButton
+        className="repo-health-button"
+        icon={octicons.pulse}
+        title="Health"
+        ariaLabel="Repository health dashboard"
+        tooltip="Repository health dashboard"
+        onClick={this.showRepoHealthDashboard}
+      />
+    )
+  }
+
+  private showRepoHealthDashboard = () => {
+    this.props.dispatcher.showPopup({ type: PopupType.RepoHealthDashboard })
   }
 
   private renderRepository() {
