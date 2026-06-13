@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Account } from '../../models/account'
+import { Account, accountEquals } from '../../models/account'
 import { IAvatarUser } from '../../models/avatar'
 import { API, OrganizationAccessResult } from '../../lib/api'
 import { lookupPreferredEmail } from '../../lib/email'
@@ -34,6 +34,17 @@ interface IAccountsState {
   readonly organizationLookup: Map<string, OrganizationLookupState>
 }
 
+/** Compares two account lists by account identity rather than array reference. */
+function sameAccounts(
+  a: ReadonlyArray<Account>,
+  b: ReadonlyArray<Account>
+): boolean {
+  return (
+    a.length === b.length &&
+    a.every((account, i) => accountEquals(account, b[i]))
+  )
+}
+
 const OrganizationApprovalDocsURL =
   'https://docs.github.com/en/account-and-profile/setting-up-and-managing-your-personal-account-on-github/managing-your-membership-in-organizations/requesting-organization-approval-for-oauth-apps'
 
@@ -48,9 +59,14 @@ export class Accounts extends React.Component<IAccountsProps, IAccountsState> {
   }
 
   public componentWillReceiveProps(nextProps: IAccountsProps) {
+    // App.render() rebuilds these arrays with `accounts.filter(...)` on every
+    // render, so the references differ even when the accounts are unchanged.
+    // Comparing by account identity instead of array reference avoids
+    // re-fetching (and flashing the organization list back to "Loading...")
+    // every time an unrelated background state update re-renders the app.
     if (
-      this.props.dotComAccounts !== nextProps.dotComAccounts ||
-      this.props.enterpriseAccounts !== nextProps.enterpriseAccounts
+      !sameAccounts(this.props.dotComAccounts, nextProps.dotComAccounts) ||
+      !sameAccounts(this.props.enterpriseAccounts, nextProps.enterpriseAccounts)
     ) {
       this.refreshOrganizations(nextProps)
     }
@@ -60,30 +76,40 @@ export class Accounts extends React.Component<IAccountsProps, IAccountsState> {
     return (
       <DialogContent className="accounts-tab">
         <h2>GitHub.com</h2>
-        {this.props.dotComAccounts.length > 0
-          ? this.props.dotComAccounts.map((a, i) =>
+        {this.props.dotComAccounts.length > 0 ? (
+          <>
+            {this.props.dotComAccounts.map((a, i) =>
               this.renderAccount(a, 'dotcom', i === 0)
-            )
-          : this.renderSignIn('dotcom')}
-        <div className="account-add-row">
-          <Button onClick={this.props.onDotComSignIn}>
-            {__DARWIN__ ? 'Add GitHub.com Account' : 'Add GitHub.com account'}
-          </Button>
-        </div>
+            )}
+            <div className="account-add-row">
+              <Button onClick={this.props.onDotComSignIn}>
+                {__DARWIN__
+                  ? 'Add GitHub.com Account'
+                  : 'Add GitHub.com account'}
+              </Button>
+            </div>
+          </>
+        ) : (
+          this.renderSignIn('dotcom')
+        )}
 
         <h2>GitHub Enterprise</h2>
-        {this.props.enterpriseAccounts.length > 0
-          ? this.props.enterpriseAccounts.map((a, i) =>
+        {this.props.enterpriseAccounts.length > 0 ? (
+          <>
+            {this.props.enterpriseAccounts.map((a, i) =>
               this.renderAccount(a, 'enterprise', i === 0)
-            )
-          : this.renderSignIn('enterprise')}
-        <div className="account-add-row">
-          <Button onClick={this.props.onEnterpriseSignIn}>
-            {__DARWIN__
-              ? 'Add GitHub Enterprise Account'
-              : 'Add GitHub Enterprise account'}
-          </Button>
-        </div>
+            )}
+            <div className="account-add-row">
+              <Button onClick={this.props.onEnterpriseSignIn}>
+                {__DARWIN__
+                  ? 'Add GitHub Enterprise Account'
+                  : 'Add GitHub Enterprise account'}
+              </Button>
+            </div>
+          </>
+        ) : (
+          this.renderSignIn('enterprise')
+        )}
       </DialogContent>
     )
   }
