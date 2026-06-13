@@ -450,6 +450,42 @@ describe('git/stash', () => {
         applyStash(repository, stashes[0].stashSha)
       ).rejects.toThrowError()
     })
+
+    it('leaves a resolvable content conflict in the working directory without throwing', async () => {
+      // Establish a base line both sides will edit differently.
+      await FSE.writeFile(readme, 'base line\n')
+      await exec(['add', 'README.md'], repository.path)
+      await exec(['commit', '-m', 'base line'], repository.path)
+
+      // Stash an edit to that line, returning the working tree to the base.
+      await FSE.writeFile(readme, 'stashed line\n')
+      await exec(
+        ['stash', 'push', '-m', createDesktopStashMessage('master')],
+        repository.path
+      )
+
+      // Commit a *different* edit to the same line so applying the stash is a
+      // 3-way merge that conflicts rather than a clean apply or a hard refusal.
+      await FSE.writeFile(readme, 'committed line\n')
+      await exec(['add', 'README.md'], repository.path)
+      await exec(['commit', '-m', 'committed line'], repository.path)
+
+      const stashes = await getAllStashes(repository)
+      expect(stashes).toHaveLength(1)
+
+      // A resolvable conflict is not an error: applyStash resolves silently.
+      await applyStash(repository, stashes[0].stashSha)
+
+      // The conflict surfaces in the working directory for the user to resolve.
+      const status = await getStatusOrThrow(repository)
+      const conflicted = status.workingDirectory.files.filter(
+        f => f.status.kind === AppFileStatusKind.Conflicted
+      )
+      expect(conflicted.length).toBeGreaterThan(0)
+
+      // apply never drops the entry.
+      expect(await getAllStashes(repository)).toHaveLength(1)
+    })
   })
 
   describe('createStashWithMessage', () => {

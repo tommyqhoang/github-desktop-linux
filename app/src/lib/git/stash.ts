@@ -328,8 +328,13 @@ function extractBranchFromCliMessage(message: string): string | null {
 /**
  * Apply a stash entry without dropping it.
  *
- * Returns silently if the SHA does not match any known stash. Throws on merge
- * conflicts so the caller can route the user into the conflict resolution flow.
+ * Returns silently if the SHA does not match any known stash. Throws a
+ * `GitError` on a hard apply failure (e.g. local changes would be
+ * overwritten), which `git` reports on stderr. A *resolvable* content
+ * conflict is not an error: git leaves the conflict markers in the working
+ * directory and reports `CONFLICT` on stdout with an empty stderr, so this
+ * resolves without throwing — the conflicted files then surface in the
+ * Changes view for the user to resolve, exactly as for any other conflict.
  *
  * `git stash apply` accepts a stash commit SHA directly — passing the
  * reflog selector (`stash@{N}`) would race against any concurrent stash op
