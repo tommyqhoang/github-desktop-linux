@@ -397,6 +397,8 @@ const RecentRepositoriesKey = 'recently-selected-repositories'
  */
 const RecentRepositoriesLength = 3
 
+const FavoriteRepositoriesKey = 'favorite-repositories'
+
 const defaultSidebarWidth: number = 250
 const sidebarWidthConfigKey: string = 'sidebar-width'
 
@@ -524,6 +526,9 @@ export class AppStore extends TypedBaseStore<IAppState> {
   })
   private repositories: ReadonlyArray<Repository> = new Array<Repository>()
   private recentRepositories: ReadonlyArray<number> = new Array<number>()
+  private favoriteRepositories: ReadonlyArray<number> = getNumberArray(
+    FavoriteRepositoriesKey
+  )
 
   private selectedRepository: Repository | CloningRepository | null = null
 
@@ -1115,6 +1120,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
       repoHealth: this.repoHealthStore.getSnapshot(),
       repositories,
       recentRepositories: this.recentRepositories,
+      favoriteRepositories: this.favoriteRepositories,
       localRepositoryStateLookup: this.localRepositoryStateLookup,
       windowState: this.windowState,
       windowZoomFactor: this.windowZoomFactor,
@@ -2041,6 +2047,26 @@ export class AppStore extends TypedBaseStore<IAppState> {
       this.repositories.filter(r => this.recentRepositories.includes(r.id))
     )
     this.emitUpdate()
+  }
+
+  /** Mark or unmark a repository as a favorite, persisting the change. */
+  public _setRepositoryFavorite(
+    repository: Repository,
+    favorite: boolean
+  ): Promise<void> {
+    const existing = this.favoriteRepositories.includes(repository.id)
+    if (existing === favorite) {
+      return Promise.resolve()
+    }
+
+    const favorites = favorite
+      ? [repository.id, ...this.favoriteRepositories]
+      : this.favoriteRepositories.filter(id => id !== repository.id)
+
+    setNumberArray(FavoriteRepositoriesKey, favorites)
+    this.favoriteRepositories = favorites
+    this.emitUpdate()
+    return Promise.resolve()
   }
 
   // finish `_selectRepository`s refresh tasks

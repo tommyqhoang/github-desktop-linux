@@ -8,6 +8,7 @@ import {
   RepositoryGroupIdentifier,
   KnownRepositoryGroup,
   makeRecentRepositoriesGroup,
+  makeFavoriteRepositoriesGroup,
 } from './group-repositories'
 import { IFilterListGroup } from '../lib/filter-list'
 import { IMatches } from '../../lib/fuzzy-find'
@@ -34,6 +35,9 @@ interface IRepositoriesListProps {
   readonly selectedRepository: Repositoryish | null
   readonly repositories: ReadonlyArray<Repositoryish>
   readonly recentRepositories: ReadonlyArray<number>
+
+  /** The IDs of repositories the user has marked as favorites */
+  readonly favoriteRepositories: ReadonlyArray<number>
 
   /** A cache of the latest repository state values, keyed by the repository id */
   readonly localRepositoryStateLookup: ReadonlyMap<
@@ -136,6 +140,11 @@ export class RepositoriesList extends React.Component<
    */
   private getSelectedListItem = memoizeOne(findMatchingListItem)
 
+  private getFavoriteIdSet = memoizeOne(
+    (favoriteRepositories: ReadonlyArray<number>) =>
+      new Set(favoriteRepositories)
+  )
+
   public constructor(props: IRepositoriesListProps) {
     super(props)
 
@@ -146,6 +155,7 @@ export class RepositoriesList extends React.Component<
 
   private renderItem = (item: IRepositoryListItem, matches: IMatches) => {
     const repository = item.repository
+    const favoriteIds = this.getFavoriteIdSet(this.props.favoriteRepositories)
     return (
       <RepositoryListItem
         key={repository.id}
@@ -154,8 +164,16 @@ export class RepositoriesList extends React.Component<
         matches={matches}
         aheadBehind={item.aheadBehind}
         changedFilesCount={item.changedFilesCount}
+        isFavorite={favoriteIds.has(repository.id)}
+        onToggleFavorite={this.onToggleFavorite}
       />
     )
+  }
+
+  private onToggleFavorite = (repository: Repositoryish, favorite: boolean) => {
+    if (repository instanceof Repository) {
+      this.props.dispatcher.setRepositoryFavorite(repository, favorite)
+    }
   }
 
   private getGroupLabel(identifier: RepositoryGroupIdentifier) {
@@ -236,17 +254,25 @@ export class RepositoriesList extends React.Component<
       this.props.selectedRepository
     )
 
-    const groups =
-      this.props.repositories.length > recentRepositoriesThreshold
+    const favoritesGroup = makeFavoriteRepositoriesGroup(
+      this.props.favoriteRepositories,
+      this.props.repositories,
+      this.props.localRepositoryStateLookup
+    )
+
+    const groups = [
+      ...(favoritesGroup.items.length > 0 ? [favoritesGroup] : []),
+      ...(this.props.repositories.length > recentRepositoriesThreshold
         ? [
             makeRecentRepositoriesGroup(
               this.props.recentRepositories,
               this.props.repositories,
               this.props.localRepositoryStateLookup
             ),
-            ...baseGroups,
           ]
-        : baseGroups
+        : []),
+      ...baseGroups,
+    ]
 
     return (
       <div className="repository-list">

@@ -13,6 +13,32 @@ interface IRepoHealthDashboardProps {
 type SortMode = 'attention' | 'name' | 'recent'
 type FilterMode = 'all' | 'attention' | 'has-prs' | 'behind' | 'clean'
 
+const SortModeKey = 'repo-health-dashboard-sort'
+const FilterModeKey = 'repo-health-dashboard-filter'
+
+const sortModes: ReadonlyArray<SortMode> = ['attention', 'name', 'recent']
+const filterModes: ReadonlyArray<FilterMode> = [
+  'all',
+  'attention',
+  'has-prs',
+  'behind',
+  'clean',
+]
+
+function getStoredSortMode(): SortMode {
+  const stored = localStorage.getItem(SortModeKey)
+  return sortModes.includes(stored as SortMode)
+    ? (stored as SortMode)
+    : 'attention'
+}
+
+function getStoredFilterMode(): FilterMode {
+  const stored = localStorage.getItem(FilterModeKey)
+  return filterModes.includes(stored as FilterMode)
+    ? (stored as FilterMode)
+    : 'all'
+}
+
 interface IRepoHealthDashboardState {
   readonly sort: SortMode
   readonly filter: FilterMode
@@ -25,7 +51,11 @@ export class RepoHealthDashboard extends React.Component<
 > {
   public constructor(props: IRepoHealthDashboardProps) {
     super(props)
-    this.state = { sort: 'attention', filter: 'all', query: '' }
+    this.state = {
+      sort: getStoredSortMode(),
+      filter: getStoredFilterMode(),
+      query: '',
+    }
   }
 
   public render() {
@@ -132,11 +162,15 @@ export class RepoHealthDashboard extends React.Component<
   }
 
   private onSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    this.setState({ sort: e.currentTarget.value as SortMode })
+    const sort = e.currentTarget.value as SortMode
+    localStorage.setItem(SortModeKey, sort)
+    this.setState({ sort })
   }
 
   private onFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    this.setState({ filter: e.currentTarget.value as FilterMode })
+    const filter = e.currentTarget.value as FilterMode
+    localStorage.setItem(FilterModeKey, filter)
+    this.setState({ filter })
   }
 
   private applySortFilter(): ReadonlyArray<Repository> {

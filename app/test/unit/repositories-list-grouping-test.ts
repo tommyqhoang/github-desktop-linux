@@ -1,5 +1,6 @@
 import {
   groupRepositories,
+  makeFavoriteRepositoriesGroup,
   KnownRepositoryGroup,
 } from '../../src/ui/repositories-list/group-repositories'
 import { Repository, ILocalRepositoryState } from '../../src/models/repository'
@@ -148,5 +149,28 @@ describe('repository list grouping', () => {
 
     expect(grouped[2].items[1].text[0]).toBe('enterprise-repo')
     expect(grouped[2].items[1].needsDisambiguation).toBe(true)
+  })
+
+  describe('favorite repositories group', () => {
+    it('builds a Favorites group preserving the favorite id order', () => {
+      const group = makeFavoriteRepositoriesGroup([3, 1], repositories, cache)
+
+      expect(group.identifier).toBe('Favorites')
+      expect(group.items.map(i => i.repository.id)).toEqual([3, 1])
+    })
+
+    it('skips favorite ids that are not in the repository list', () => {
+      const group = makeFavoriteRepositoriesGroup([99, 2], repositories, cache)
+
+      expect(group.items).toHaveLength(1)
+      expect(group.items[0].repository.id).toBe(2)
+    })
+
+    it('returns an empty group when there are no favorites', () => {
+      const group = makeFavoriteRepositoriesGroup([], repositories, cache)
+
+      expect(group.identifier).toBe('Favorites')
+      expect(group.items).toHaveLength(0)
+    })
   })
 })

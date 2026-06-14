@@ -74,6 +74,51 @@
       margin-right: var(--spacing-half);
     }
 
+    // Pin the favorite toggle to the trailing edge. When the row has no
+    // ahead/behind or change indicators there is nothing else with an auto
+    // margin, so let the toggle claim it and sit flush right.
+    .repo-indicators:empty + .favorite-toggle {
+      margin-left: auto;
+    }
+
+    .favorite-toggle {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      margin-left: var(--spacing-half);
+      border: none;
+      background: transparent;
+      color: var(--text-secondary-color);
+      cursor: pointer;
+
+      // Only favorited rows show the star at rest; the rest reveal it on
+      // hover/focus so the row stays uncluttered.
+      opacity: 0;
+
+      .octicon {
+        width: 16px;
+        height: 16px;
+      }
+
+      &.is-favorite {
+        opacity: 1;
+        color: var(--list-item-badge-color, var(--text-secondary-color));
+      }
+
+      &:hover,
+      &:focus {
+        opacity: 1;
+        color: var(--text-color);
+      }
+    }
+
+    &:hover .favorite-toggle,
+    &:focus-within .favorite-toggle {
+      opacity: 1;
+    }
+
     .change-indicator-wrapper {
       display: flex;
       min-width: 12px;

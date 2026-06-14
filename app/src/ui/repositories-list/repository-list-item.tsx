@@ -26,6 +26,15 @@ interface IRepositoryListItemProps {
 
   /** Number of uncommitted changes */
   readonly changedFilesCount: number
+
+  /** Whether this repository is marked as a favorite */
+  readonly isFavorite: boolean
+
+  /** Called when the favorite star is toggled */
+  readonly onToggleFavorite: (
+    repository: Repositoryish,
+    favorite: boolean
+  ) => void
 }
 
 /** A repository item. */
@@ -75,8 +84,36 @@ export class RepositoryListItem extends React.Component<
             aheadBehind: this.props.aheadBehind,
             hasChanges: hasChanges,
           })}
+
+        {repository instanceof Repository && this.renderFavoriteToggle()}
       </div>
     )
+  }
+
+  private renderFavoriteToggle() {
+    const { isFavorite } = this.props
+    const label = isFavorite ? 'Remove from favorites' : 'Add to favorites'
+
+    return (
+      <button
+        type="button"
+        className={classNames('favorite-toggle', { 'is-favorite': isFavorite })}
+        aria-label={label}
+        aria-pressed={isFavorite}
+        onClick={this.onToggleFavoriteClick}
+      >
+        <Octicon symbol={isFavorite ? octicons.starFill : octicons.star} />
+      </button>
+    )
+  }
+
+  private onToggleFavoriteClick = (
+    event: React.MouseEvent<HTMLButtonElement>
+  ) => {
+    // Don't let the click select the repository row.
+    event.stopPropagation()
+    event.preventDefault()
+    this.props.onToggleFavorite(this.props.repository, !this.props.isFavorite)
   }
   private renderTooltip() {
     const repo = this.props.repository
@@ -102,7 +139,8 @@ export class RepositoryListItem extends React.Component<
     ) {
       return (
         nextProps.repository.id !== this.props.repository.id ||
-        nextProps.matches !== this.props.matches
+        nextProps.matches !== this.props.matches ||
+        nextProps.isFavorite !== this.props.isFavorite
       )
     } else {
       return true

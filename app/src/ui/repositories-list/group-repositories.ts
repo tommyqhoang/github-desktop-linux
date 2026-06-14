@@ -130,8 +130,47 @@ export function makeRecentRepositoriesGroup(
   repositories: ReadonlyArray<Repositoryish>,
   localRepositoryStateLookup: ReadonlyMap<number, ILocalRepositoryState>
 ): IFilterListGroup<IRepositoryListItem> {
+  return makeRepositoryIdGroup(
+    'Recent',
+    recentRepositories,
+    repositories,
+    localRepositoryStateLookup
+  )
+}
+
+/**
+ * Creates the group `Favorites` of repositories the user has pinned for use
+ * with the `FilterList` component.
+ *
+ * @param favoriteRepositories list of favorited repositories' ids
+ * @param repositories full list of repositories (we use this to get data about the `favoriteRepositories`)
+ * @param localRepositoryStateLookup cache of local state about full list of repositories
+ */
+export function makeFavoriteRepositoriesGroup(
+  favoriteRepositories: ReadonlyArray<number>,
+  repositories: ReadonlyArray<Repositoryish>,
+  localRepositoryStateLookup: ReadonlyMap<number, ILocalRepositoryState>
+): IFilterListGroup<IRepositoryListItem> {
+  return makeRepositoryIdGroup(
+    'Favorites',
+    favoriteRepositories,
+    repositories,
+    localRepositoryStateLookup
+  )
+}
+
+/**
+ * Build a `FilterList` group from an ordered list of repository ids, preserving
+ * that order. Shared by the `Recent` and `Favorites` groups.
+ */
+function makeRepositoryIdGroup(
+  identifier: string,
+  ids: ReadonlyArray<number>,
+  repositories: ReadonlyArray<Repositoryish>,
+  localRepositoryStateLookup: ReadonlyMap<number, ILocalRepositoryState>
+): IFilterListGroup<IRepositoryListItem> {
   const names = new Map<string, number>()
-  for (const id of recentRepositories) {
+  for (const id of ids) {
     const repository = repositories.find(r => r.id === id)
     if (repository !== undefined) {
       const alias = repository instanceof Repository ? repository.alias : null
@@ -143,7 +182,7 @@ export function makeRecentRepositoriesGroup(
 
   const items = new Array<IRepositoryListItem>()
 
-  for (const id of recentRepositories) {
+  for (const id of ids) {
     const repository = repositories.find(r => r.id === id)
     if (repository === undefined) {
       continue
@@ -169,7 +208,7 @@ export function makeRecentRepositoriesGroup(
   }
 
   return {
-    identifier: 'Recent',
+    identifier,
     items,
   }
 }

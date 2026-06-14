@@ -110,6 +110,11 @@ export interface IAppState {
   readonly recentRepositories: ReadonlyArray<number>
 
   /**
+   * List of IDs of the repositories the user has marked as favorites
+   */
+  readonly favoriteRepositories: ReadonlyArray<number>
+
+  /**
    * A cache of the latest repository state values, keyed by the repository id
    */
   readonly localRepositoryStateLookup: Map<number, ILocalRepositoryState>

@@ -853,6 +853,14 @@ export class Dispatcher {
     return this.appStore._changeRepositoryAlias(repository, newAlias)
   }
 
+  /** Mark or unmark a repository as a favorite. */
+  public setRepositoryFavorite(
+    repository: Repository,
+    favorite: boolean
+  ): Promise<void> {
+    return this.appStore._setRepositoryFavorite(repository, favorite)
+  }
+
   /** Rename the branch to a new name. */
   public renameBranch(
     repository: Repository,
