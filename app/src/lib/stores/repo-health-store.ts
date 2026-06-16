@@ -64,8 +64,17 @@ export class RepoHealthStore extends BaseStore {
       // then run a follow-up. We force=true on the follow-up because the
       // dedup window would otherwise skip the run we just promised to
       // perform — leaving the new repos with stale (or absent) statuses.
+      //
+      // Swallow the in-flight run's rejection before chaining: if it
+      // rejected (e.g. an `emitUpdate` subscriber threw inside the run's
+      // `finally`), a bare `.then()` would skip the follow-up entirely —
+      // silently abandoning the repos we just promised to refresh — and
+      // surface the rejection to this caller as an unhandled rejection.
+      // The follow-up must run regardless of how the previous run settled.
       const previous = this.inFlight.promise
-      const followUp = previous.then(() => this.refreshAll(repos, true))
+      const followUp = previous
+        .catch(() => undefined)
+        .then(() => this.refreshAll(repos, true))
       return followUp
     }
 

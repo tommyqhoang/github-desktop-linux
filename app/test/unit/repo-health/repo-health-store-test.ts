@@ -101,6 +101,38 @@ describe('RepoHealthStore', () => {
     expect(store.getSnapshot().statuses.get(2)?.uncommittedCount).toBe(2)
   })
 
+  it('still runs the promised follow-up when the in-flight run rejects', async () => {
+    const p: IRepoHealthProbes = {
+      ...probes(),
+      uncommittedCount: async r => {
+        await new Promise(res => setTimeout(res, 5))
+        return r.id
+      },
+    }
+    const store = new RepoHealthStore({ collectorOptions: { probes: p } })
+
+    // Make the first run's terminal `emitUpdate` (the one in its `finally`)
+    // throw, exactly as a misbehaving `onDidUpdate` subscriber would. That
+    // rejects the in-flight promise; the follow-up for the uncovered repo
+    // must still run rather than being silently abandoned.
+    let updateCount = 0
+    store.onDidUpdate(() => {
+      updateCount++
+      if (updateCount === 2) {
+        throw new Error('subscriber boom')
+      }
+    })
+
+    const a = store.refreshAll([repo(1)]) // emitUpdate #1 = mark refreshing
+    const b = store.refreshAll([repo(2)]) // queued follow-up (not covered)
+
+    // The in-flight run rejects because its finally emitUpdate threw…
+    await expect(a).rejects.toThrow('subscriber boom')
+    // …but the follow-up still completes and refreshes repo(2).
+    await expect(b).resolves.toBeUndefined()
+    expect(store.getSnapshot().statuses.get(2)?.uncommittedCount).toBe(2)
+  })
+
   it('refreshOne updates only the specified repo and emits twice', async () => {
     const store = new RepoHealthStore({
       collectorOptions: { probes: probes(5) },
