@@ -241,6 +241,53 @@ The Changes tab shows aggregate diff stats alongside the file count.
 - `ChangeSummaryBadge` renders the added/removed line counts; the stats are
   threaded through repository status updates as `IWorkingDirectoryStats`.
 
+### Files browser (`app/src/lib/file-tree/`, `app/src/lib/stores/file-tree-store.ts`, `app/src/ui/file-tree/`)
+
+A read-only Files tab: a working-tree file tree alongside a multi-tab,
+format-aware viewer. Lives inside `RepositoryView`
+(`RepositorySectionTab.Files`).
+
+- **Lib layer** (`app/src/lib/file-tree/`): `list-directory.ts`
+  (`readWorkingDirectory` — lazy per-directory listing, honours `.gitignore`),
+  `read-file.ts` (`readFileForViewer` + `readMediaForViewer` → `data:` URL,
+  `statMtimeMs`; size-capped), `media.ts` (`getMediaDescriptor` classifies
+  image/video by extension), `parse-delimited.ts` (`getDelimitedKind` +
+  RFC-4180 `parseDelimited` for CSV/TSV), `open-in-browser.ts`
+  (`isBrowserViewable` + `openInBrowser` via `shell.openExternal` for
+  HTML/PDF), `file-operations.ts` (pure path helpers + `renameEntry` /
+  `deleteEntry` — `deleteEntry` uses `shell.moveItemToTrash`, `renameEntry`
+  refuses to overwrite an existing target).
+- **`FileTreeStore`**: per-`repositoryId` `IRepoFileTreeState`
+  (`childrenByPath`, `expandedPaths`, `loadingPaths`, `openFilePaths`,
+  `activeFilePath`, `renamingPath`, `refreshToken`). Tabs are an ordered
+  `openFilePaths` array + `activeFilePath`. Methods: `openFile`/`activateFile`/
+  `revealFile` (expands ancestors then focuses), `moveFile` (drag-reorder),
+  `closeFile`/`closeFilesToLeft`/`closeFilesToRight`/`closeOtherFiles`/
+  `closeAllFiles`/`closeFilesUnder`, `beginRename`/`cancelRename`/
+  `reconcileRename` (rewrites open tabs incl. directory descendants by prefix),
+  `refreshTree` (reloads root + expanded dirs, bumps `refreshToken`),
+  `hasState`. Surfaced via `IAppState.fileTreeByRepoId`.
+- **UI** (`app/src/ui/file-tree/`): `FileTree` + `FileTreeItem` render the
+  sidebar (lazy expand, inline rename, right-click context menu, scrolls the
+  selected row into view via `innerRef`). `FileTabs` is the tab strip —
+  drag-to-reorder (HTML5 DnD), horizontal overflow scrolling, per-tab close +
+  middle-click close + a right-click close menu (Close / Others / Left / Right /
+  All). `FileViewer` switches on file kind: code table (`cm-s-default` reuses
+  the diff syntax theme), `SandboxedMarkdown` (needs the `emoji` map), delimited
+  table, `<img>`/`<video>` media, browser-open card, or a stale-reload guard
+  keyed on `reloadToken` + mtime.
+- **Dispatcher**: `openFileTreeFile`, `activateFileTreeTab`,
+  `revealFileTreeFile`, `moveFileTreeTab`, `closeFileTreeTab` (+
+  `…ToLeft`/`…ToRight`/`closeOther…`/`closeAll…`), `expandFileTreeFolder`,
+  `collapseFileTreeFolder`, `beginFileTreeRename`, `cancelFileTreeRename`,
+  `renameFileTreeEntry`, `deleteFileTreeEntry`, `refreshFileTree`. The tab
+  is refreshed on activation and as part of `_refreshRepository` (so fetch/pull
+  keep the tree + open viewers current even when Files isn't the active tab).
+- **Keyboard** (in `RepositoryView.onGlobalKeyDown`, only while Files is
+  active): Ctrl/Cmd+W closes the active tab; Ctrl+PageDown/PageUp cycle tabs
+  (Ctrl+Tab is reserved for switching repository sections).
+- Tests: 90 unit tests across 10 files in `app/test/unit/file-tree/`.
+
 ## Commit & Pull Request Guidelines
 
 Recent history uses short imperative subjects, often with scoped prefixes for

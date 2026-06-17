@@ -15,6 +15,8 @@ interface IFileTreeItemProps {
   readonly onContextMenu: (entry: FileTreeEntry) => void
   readonly onSubmitRename: (entry: FileTreeEntry, newName: string) => void
   readonly onCancelRename: () => void
+  /** Attaches to the row's root element so the tree can scroll it into view. */
+  readonly innerRef?: (element: HTMLElement | null) => void
 }
 
 /** A single row in the Files tree: a folder (with chevron) or a file. */
@@ -91,6 +93,7 @@ export class FileTreeItem extends React.Component<IFileTreeItemProps> {
           style={{ paddingLeft: `${depth * 12 + 8}px` }}
           role="treeitem"
           aria-selected={isSelected}
+          ref={this.props.innerRef}
         >
           <Octicon className="file-tree-icon" symbol={icon} />
           <input
@@ -114,6 +117,7 @@ export class FileTreeItem extends React.Component<IFileTreeItemProps> {
         role="treeitem"
         aria-selected={isSelected}
         aria-expanded={isDirectory ? isExpanded : undefined}
+        ref={this.props.innerRef}
         onClick={this.onClick}
         onContextMenu={this.onContextMenu}
       >

@@ -3713,11 +3713,23 @@ export class AppStore extends TypedBaseStore<IAppState> {
       return assertNever(section, `Unknown section: ${section}`)
     }
 
+    // Keep the Files tab's tree and any open file viewers current after a
+    // refresh (e.g. a fetch/pull that changes files on disk) even when Files
+    // isn't the active section, so switching to it shows the latest state.
+    // Skip repos whose Files tab has never been opened to avoid listing
+    // directories no one is looking at.
+    const fileTreePromise =
+      section !== RepositorySectionTab.Files &&
+      this.fileTreeStore.hasState(repository)
+        ? this.fileTreeStore.refreshTree(repository)
+        : Promise.resolve()
+
     await Promise.all([
       gitStore.updateLastFetched(),
       gitStore.loadStashEntries(),
       this._refreshAuthor(repository),
       refreshSectionPromise,
+      fileTreePromise,
     ])
 
     await gitStore.refreshTags()
@@ -7175,9 +7187,41 @@ export class AppStore extends TypedBaseStore<IAppState> {
     this.fileTreeStore.activateFile(repository, path)
   }
 
+  /** Focus a tab and reveal its file in the tree (expanding ancestors). */
+  public _revealFileTreeFile(
+    repository: Repository,
+    path: string
+  ): Promise<void> {
+    return this.fileTreeStore.revealFile(repository, path)
+  }
+
+  /** Reorder Files-viewer tabs (drag-to-reorder). */
+  public _moveFileTreeTab(
+    repository: Repository,
+    fromPath: string,
+    toPath: string
+  ): void {
+    this.fileTreeStore.moveFile(repository, fromPath, toPath)
+  }
+
   /** Close a single tab in the Files viewer. */
   public _closeFileTreeTab(repository: Repository, path: string): void {
     this.fileTreeStore.closeFile(repository, path)
+  }
+
+  /** Close every Files-viewer tab to the left of `path`. */
+  public _closeFileTreeTabsToLeft(repository: Repository, path: string): void {
+    this.fileTreeStore.closeFilesToLeft(repository, path)
+  }
+
+  /** Close every Files-viewer tab to the right of `path`. */
+  public _closeFileTreeTabsToRight(repository: Repository, path: string): void {
+    this.fileTreeStore.closeFilesToRight(repository, path)
+  }
+
+  /** Close every Files-viewer tab except `path`. */
+  public _closeOtherFileTreeTabs(repository: Repository, path: string): void {
+    this.fileTreeStore.closeOtherFiles(repository, path)
   }
 
   /** Close every open tab in the Files viewer. */

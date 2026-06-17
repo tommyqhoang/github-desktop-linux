@@ -80,6 +80,42 @@ describe('FileTreeStore', () => {
     expect(store.getState(repo).activeFilePath).toBe('a.ts')
   })
 
+  it('moveFile reorders an open tab into another tab slot', () => {
+    const store = new FileTreeStore()
+    const repo = makeRepo(1)
+    store.openFile(repo, 'a.ts')
+    store.openFile(repo, 'b.ts')
+    store.openFile(repo, 'c.ts')
+
+    store.moveFile(repo, 'a.ts', 'c.ts')
+    expect(store.getState(repo).openFilePaths).toEqual(['b.ts', 'c.ts', 'a.ts'])
+    // The active tab is preserved across a reorder.
+    expect(store.getState(repo).activeFilePath).toBe('c.ts')
+  })
+
+  it('moveFile ignores unknown or identical paths', () => {
+    const store = new FileTreeStore()
+    const repo = makeRepo(1)
+    store.openFile(repo, 'a.ts')
+    store.openFile(repo, 'b.ts')
+
+    store.moveFile(repo, 'a.ts', 'a.ts')
+    store.moveFile(repo, 'a.ts', 'missing.ts')
+    expect(store.getState(repo).openFilePaths).toEqual(['a.ts', 'b.ts'])
+  })
+
+  it('revealFile expands ancestor folders and focuses the file', async () => {
+    const store = new FileTreeStore()
+    const repo = makeRepo(1)
+    store.openFile(repo, 'app/lib/a.ts')
+
+    await store.revealFile(repo, 'app/lib/a.ts')
+    const state = store.getState(repo)
+    expect(state.expandedPaths.has('app')).toBe(true)
+    expect(state.expandedPaths.has('app/lib')).toBe(true)
+    expect(state.activeFilePath).toBe('app/lib/a.ts')
+  })
+
   it('closeFile removes a tab and focuses the right-hand neighbour', () => {
     const store = new FileTreeStore()
     const repo = makeRepo(1)
@@ -123,6 +159,78 @@ describe('FileTreeStore', () => {
     store.closeAllFiles(repo)
     expect(store.getState(repo).openFilePaths).toEqual([])
     expect(store.getState(repo).activeFilePath).toBeNull()
+  })
+
+  it('hasState reports whether the tree has been loaded', () => {
+    const store = new FileTreeStore()
+    const repo = makeRepo(1)
+    expect(store.hasState(repo)).toBe(false)
+    store.openFile(repo, 'a.ts')
+    expect(store.hasState(repo)).toBe(true)
+  })
+
+  it('closeFilesToLeft closes only the tabs left of the target', () => {
+    const store = new FileTreeStore()
+    const repo = makeRepo(1)
+    store.openFile(repo, 'a.ts')
+    store.openFile(repo, 'b.ts')
+    store.openFile(repo, 'c.ts')
+    store.activateFile(repo, 'a.ts')
+
+    store.closeFilesToLeft(repo, 'b.ts')
+    expect(store.getState(repo).openFilePaths).toEqual(['b.ts', 'c.ts'])
+    // The active tab was removed, so it falls back to the target.
+    expect(store.getState(repo).activeFilePath).toBe('b.ts')
+  })
+
+  it('closeFilesToLeft is a no-op for the leftmost tab', () => {
+    const store = new FileTreeStore()
+    const repo = makeRepo(1)
+    store.openFile(repo, 'a.ts')
+    store.openFile(repo, 'b.ts')
+
+    store.closeFilesToLeft(repo, 'a.ts')
+    expect(store.getState(repo).openFilePaths).toEqual(['a.ts', 'b.ts'])
+  })
+
+  it('closeFilesToRight closes only the tabs right of the target', () => {
+    const store = new FileTreeStore()
+    const repo = makeRepo(1)
+    store.openFile(repo, 'a.ts')
+    store.openFile(repo, 'b.ts')
+    store.openFile(repo, 'c.ts')
+    store.activateFile(repo, 'c.ts')
+
+    store.closeFilesToRight(repo, 'b.ts')
+    expect(store.getState(repo).openFilePaths).toEqual(['a.ts', 'b.ts'])
+    // The active tab was removed, so it falls back to the target.
+    expect(store.getState(repo).activeFilePath).toBe('b.ts')
+  })
+
+  it('closeFilesToRight keeps the active tab when it survives', () => {
+    const store = new FileTreeStore()
+    const repo = makeRepo(1)
+    store.openFile(repo, 'a.ts')
+    store.openFile(repo, 'b.ts')
+    store.openFile(repo, 'c.ts')
+    store.activateFile(repo, 'a.ts')
+
+    store.closeFilesToRight(repo, 'b.ts')
+    expect(store.getState(repo).openFilePaths).toEqual(['a.ts', 'b.ts'])
+    expect(store.getState(repo).activeFilePath).toBe('a.ts')
+  })
+
+  it('closeOtherFiles leaves only the target tab, active', () => {
+    const store = new FileTreeStore()
+    const repo = makeRepo(1)
+    store.openFile(repo, 'a.ts')
+    store.openFile(repo, 'b.ts')
+    store.openFile(repo, 'c.ts')
+    store.activateFile(repo, 'a.ts')
+
+    store.closeOtherFiles(repo, 'b.ts')
+    expect(store.getState(repo).openFilePaths).toEqual(['b.ts'])
+    expect(store.getState(repo).activeFilePath).toBe('b.ts')
   })
 
   it('closeFilesUnder closes a directory and its descendants', () => {

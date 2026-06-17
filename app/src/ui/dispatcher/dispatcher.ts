@@ -2720,9 +2720,41 @@ export class Dispatcher {
     this.appStore._activateFileTreeTab(repository, path)
   }
 
+  /** Focus a tab and reveal its file in the tree (expanding ancestors). */
+  public revealFileTreeFile(
+    repository: Repository,
+    path: string
+  ): Promise<void> {
+    return this.appStore._revealFileTreeFile(repository, path)
+  }
+
+  /** Reorder Files-viewer tabs (drag-to-reorder). */
+  public moveFileTreeTab(
+    repository: Repository,
+    fromPath: string,
+    toPath: string
+  ): void {
+    this.appStore._moveFileTreeTab(repository, fromPath, toPath)
+  }
+
   /** Close a single tab in the Files viewer. */
   public closeFileTreeTab(repository: Repository, path: string): void {
     this.appStore._closeFileTreeTab(repository, path)
+  }
+
+  /** Close every Files-viewer tab to the left of `path`. */
+  public closeFileTreeTabsToLeft(repository: Repository, path: string): void {
+    this.appStore._closeFileTreeTabsToLeft(repository, path)
+  }
+
+  /** Close every Files-viewer tab to the right of `path`. */
+  public closeFileTreeTabsToRight(repository: Repository, path: string): void {
+    this.appStore._closeFileTreeTabsToRight(repository, path)
+  }
+
+  /** Close every Files-viewer tab except `path`. */
+  public closeOtherFileTreeTabs(repository: Repository, path: string): void {
+    this.appStore._closeOtherFileTreeTabs(repository, path)
   }
 
   /** Close every open tab in the Files viewer. */

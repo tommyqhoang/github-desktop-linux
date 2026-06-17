@@ -22,6 +22,24 @@ interface IFlatRow {
  * depth-ordered list, expanding only the folders the user has opened.
  */
 export class FileTree extends React.Component<IFileTreeProps> {
+  /** The currently selected row's element, for reveal-on-select scrolling. */
+  private selectedItemRef: HTMLElement | null = null
+
+  public componentDidUpdate(prevProps: IFileTreeProps) {
+    // When the active file changes (e.g. switching tabs), scroll its tree row
+    // into view so the sidebar tracks what's being viewed.
+    if (
+      prevProps.state.activeFilePath !== this.props.state.activeFilePath &&
+      this.selectedItemRef !== null
+    ) {
+      this.selectedItemRef.scrollIntoView({ block: 'nearest' })
+    }
+  }
+
+  private onSelectedItemRef = (element: HTMLElement | null) => {
+    this.selectedItemRef = element
+  }
+
   /** Depth-first flatten starting at the root key (''). */
   private flatten(): ReadonlyArray<IFlatRow> {
     const { childrenByPath, expandedPaths } = this.props.state
@@ -54,22 +72,26 @@ export class FileTree extends React.Component<IFileTreeProps> {
 
     return (
       <div className="file-tree" role="tree">
-        {rows.map(row => (
-          <FileTreeItem
-            key={row.entry.path}
-            entry={row.entry}
-            depth={row.depth}
-            isExpanded={state.expandedPaths.has(row.entry.path)}
-            isSelected={state.activeFilePath === row.entry.path}
-            isLoading={state.loadingPaths.has(row.entry.path)}
-            isRenaming={state.renamingPath === row.entry.path}
-            onToggleFolder={this.props.onToggleFolder}
-            onSelectFile={this.props.onSelectFile}
-            onContextMenu={this.props.onContextMenu}
-            onSubmitRename={this.props.onSubmitRename}
-            onCancelRename={this.props.onCancelRename}
-          />
-        ))}
+        {rows.map(row => {
+          const isSelected = state.activeFilePath === row.entry.path
+          return (
+            <FileTreeItem
+              key={row.entry.path}
+              entry={row.entry}
+              depth={row.depth}
+              isExpanded={state.expandedPaths.has(row.entry.path)}
+              isSelected={isSelected}
+              isLoading={state.loadingPaths.has(row.entry.path)}
+              isRenaming={state.renamingPath === row.entry.path}
+              innerRef={isSelected ? this.onSelectedItemRef : undefined}
+              onToggleFolder={this.props.onToggleFolder}
+              onSelectFile={this.props.onSelectFile}
+              onContextMenu={this.props.onContextMenu}
+              onSubmitRename={this.props.onSubmitRename}
+              onCancelRename={this.props.onCancelRename}
+            />
+          )
+        })}
       </div>
     )
   }

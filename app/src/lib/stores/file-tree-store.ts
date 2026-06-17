@@ -47,6 +47,15 @@ export class FileTreeStore extends BaseStore {
     return this.state.get(repository.id) ?? EMPTY_STATE
   }
 
+  /**
+   * Whether the Files tree for this repository has been loaded at least once.
+   * Used to avoid listing directories for repos whose Files tab was never
+   * opened during a background refresh.
+   */
+  public hasState(repository: Repository): boolean {
+    return this.state.has(repository.id)
+  }
+
   /** The full state map (consumed by the app store for IAppState). */
   public getAllState(): ReadonlyMap<number, IRepoFileTreeState> {
     return this.state
@@ -99,6 +108,44 @@ export class FileTreeStore extends BaseStore {
   }
 
   /**
+   * Expand every ancestor folder of `path` and focus its tab, so the Files
+   * tree reveals (scrolls to + highlights) the file backing the active tab.
+   * Expansion is lazy — already-loaded ancestors are cheap no-ops.
+   */
+  public async revealFile(repository: Repository, path: string): Promise<void> {
+    const segments = path.split('/')
+    let prefix = ''
+    for (let i = 0; i < segments.length - 1; i++) {
+      prefix = prefix === '' ? segments[i] : `${prefix}/${segments[i]}`
+      await this.expand(repository, prefix)
+    }
+    this.activateFile(repository, path)
+  }
+
+  /**
+   * Reorder tabs by moving `fromPath` into the slot currently occupied by
+   * `toPath` (drag-to-reorder). No-op when either tab is unknown or identical.
+   */
+  public moveFile(
+    repository: Repository,
+    fromPath: string,
+    toPath: string
+  ): void {
+    const current = this.state.get(repository.id) ?? EMPTY_STATE
+    const fromIndex = current.openFilePaths.indexOf(fromPath)
+    const toIndex = current.openFilePaths.indexOf(toPath)
+    if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) {
+      return
+    }
+
+    const openFilePaths = [...current.openFilePaths]
+    const [moved] = openFilePaths.splice(fromIndex, 1)
+    openFilePaths.splice(toIndex, 0, moved)
+
+    this.update(repository.id, current, { openFilePaths })
+  }
+
+  /**
    * Close a single tab. If the closed tab was active, focus the neighbour to
    * its right, falling back to the one on its left (or null when none remain).
    */
@@ -117,6 +164,63 @@ export class FileTreeStore extends BaseStore {
     }
 
     this.update(repository.id, current, { openFilePaths, activeFilePath })
+  }
+
+  /**
+   * Close every tab to the left of `path`. The closed tabs' neighbour falls
+   * back to `path` when the active tab was among those removed.
+   */
+  public closeFilesToLeft(repository: Repository, path: string): void {
+    const current = this.state.get(repository.id) ?? EMPTY_STATE
+    const index = current.openFilePaths.indexOf(path)
+    if (index <= 0) {
+      return
+    }
+
+    const openFilePaths = current.openFilePaths.slice(index)
+    const stillActive =
+      current.activeFilePath !== null &&
+      openFilePaths.includes(current.activeFilePath)
+    const activeFilePath = stillActive ? current.activeFilePath : path
+
+    this.update(repository.id, current, { openFilePaths, activeFilePath })
+  }
+
+  /**
+   * Close every tab to the right of `path`. The active tab falls back to
+   * `path` when it was among those removed.
+   */
+  public closeFilesToRight(repository: Repository, path: string): void {
+    const current = this.state.get(repository.id) ?? EMPTY_STATE
+    const index = current.openFilePaths.indexOf(path)
+    if (index === -1 || index === current.openFilePaths.length - 1) {
+      return
+    }
+
+    const openFilePaths = current.openFilePaths.slice(0, index + 1)
+    const stillActive =
+      current.activeFilePath !== null &&
+      openFilePaths.includes(current.activeFilePath)
+    const activeFilePath = stillActive ? current.activeFilePath : path
+
+    this.update(repository.id, current, { openFilePaths, activeFilePath })
+  }
+
+  /**
+   * Close every tab except `path`, leaving it as the sole, active tab.
+   */
+  public closeOtherFiles(repository: Repository, path: string): void {
+    const current = this.state.get(repository.id) ?? EMPTY_STATE
+    if (
+      !current.openFilePaths.includes(path) ||
+      current.openFilePaths.length === 1
+    ) {
+      return
+    }
+    this.update(repository.id, current, {
+      openFilePaths: [path],
+      activeFilePath: path,
+    })
   }
 
   /** Close every open tab. */

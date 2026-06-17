@@ -40,8 +40,17 @@ Desktop codebase:
 
 - **Integrated terminal**: a repo-scoped terminal panel docked at the bottom of
   the window, toggled with `` Ctrl+` ``. It runs real shell sessions
-  (`node-pty` + `xterm.js`) with multiple tabs, split panes, command-block
-  markers, and per-repository session persistence.
+  (`node-pty` + `xterm.js`) with multiple tabs and per-repository session
+  persistence.
+- **Files browser**: a read-only Files tab with a working-tree file tree and a
+  multi-tab viewer. Open several files at once (reorder tabs by dragging, close
+  via the per-tab button, middle-click, or a right-click menu with close
+  others/left/right/all), with syntax highlighting, rendered Markdown, CSV/TSV
+  tables, inline image/video preview, and "open in browser" for HTML/PDF.
+  Right-click tree entries to rename, trash, copy paths, or open in your editor.
+- **Interactive rebase**: a planning dialog to reorder, squash, fixup, and drop
+  a range of recent commits, then run a single `git rebase -i` through Desktop's
+  multi-commit-operation machinery with progress and undo.
 - **Repository health dashboard**: a cross-repository status view showing
   uncommitted files, ahead/behind counts, open pull request count,
   default-branch CI status, and a per-repository attention score, with sorting,

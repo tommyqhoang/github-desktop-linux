@@ -545,12 +545,67 @@ export class RepositoryView extends React.Component<
     this.props.dispatcher.openFileTreeFile(this.props.repository, path)
   }
 
+  /** Selecting an existing tab focuses it and reveals its file in the tree. */
+  private onActivateFileTreeTab = (path: string) => {
+    this.props.dispatcher.revealFileTreeFile(this.props.repository, path)
+  }
+
+  private onReorderFileTreeTab = (fromPath: string, toPath: string) => {
+    this.props.dispatcher.moveFileTreeTab(
+      this.props.repository,
+      fromPath,
+      toPath
+    )
+  }
+
   private onCloseFileTreeTab = (path: string) => {
     this.props.dispatcher.closeFileTreeTab(this.props.repository, path)
   }
 
   private onCloseAllFileTreeTabs = () => {
     this.props.dispatcher.closeAllFileTreeTabs(this.props.repository)
+  }
+
+  private onFileTreeTabContextMenu = (path: string) => {
+    const { dispatcher, repository } = this.props
+    const { openFilePaths } = this.props.fileTreeState
+    const index = openFilePaths.indexOf(path)
+    if (index === -1) {
+      return
+    }
+
+    const hasLeft = index > 0
+    const hasRight = index < openFilePaths.length - 1
+    const hasOthers = openFilePaths.length > 1
+
+    const items: IMenuItem[] = [
+      {
+        label: 'Close',
+        action: () => dispatcher.closeFileTreeTab(repository, path),
+      },
+      {
+        label: 'Close Others',
+        enabled: hasOthers,
+        action: () => dispatcher.closeOtherFileTreeTabs(repository, path),
+      },
+      {
+        label: 'Close to the Left',
+        enabled: hasLeft,
+        action: () => dispatcher.closeFileTreeTabsToLeft(repository, path),
+      },
+      {
+        label: 'Close to the Right',
+        enabled: hasRight,
+        action: () => dispatcher.closeFileTreeTabsToRight(repository, path),
+      },
+      { type: 'separator' },
+      {
+        label: 'Close All',
+        action: () => dispatcher.closeAllFileTreeTabs(repository),
+      },
+    ]
+
+    showContextualMenu(items)
   }
 
   private renderActionsSidebar(): JSX.Element {
@@ -900,9 +955,11 @@ export class RepositoryView extends React.Component<
         <FileTabs
           openFilePaths={openFilePaths}
           activeFilePath={activeFilePath}
-          onSelectTab={this.onSelectFileTreeFile}
+          onSelectTab={this.onActivateFileTreeTab}
           onCloseTab={this.onCloseFileTreeTab}
           onCloseAll={this.onCloseAllFileTreeTabs}
+          onTabContextMenu={this.onFileTreeTabContextMenu}
+          onReorderTab={this.onReorderFileTreeTab}
         />
         <FileViewer
           repository={this.props.repository}
@@ -1068,6 +1125,15 @@ export class RepositoryView extends React.Component<
       return
     }
 
+    // File-tab shortcuts apply only while the Files section is active, so they
+    // don't clash with the same keys elsewhere in the app.
+    if (
+      this.props.state.selectedSection === RepositorySectionTab.Files &&
+      this.handleFilesKeyDown(event)
+    ) {
+      return
+    }
+
     // Toggle tab selection on Ctrl+Tab. Note that we don't care
     // about the shift key here, we can get away with that as long
     // as there's only two tabs.
@@ -1075,6 +1141,42 @@ export class RepositoryView extends React.Component<
       this.changeTab()
       event.preventDefault()
     }
+  }
+
+  /**
+   * Keyboard shortcuts for the Files viewer's tabs: Ctrl/Cmd+W closes the
+   * active tab, Ctrl+PageDown/PageUp cycle through tabs (Ctrl+Tab is reserved
+   * for switching repository sections). Returns true when the event was
+   * handled.
+   */
+  private handleFilesKeyDown(event: KeyboardEvent): boolean {
+    const { repository, dispatcher } = this.props
+    const { openFilePaths, activeFilePath } = this.props.fileTreeState
+
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'w') {
+      if (activeFilePath !== null) {
+        dispatcher.closeFileTreeTab(repository, activeFilePath)
+        event.preventDefault()
+      }
+      return true
+    }
+
+    if (
+      event.ctrlKey &&
+      (event.key === 'PageDown' || event.key === 'PageUp') &&
+      openFilePaths.length > 1
+    ) {
+      const index =
+        activeFilePath === null ? -1 : openFilePaths.indexOf(activeFilePath)
+      const delta = event.key === 'PageDown' ? 1 : -1
+      const count = openFilePaths.length
+      const next = openFilePaths[(index + delta + count) % count]
+      dispatcher.revealFileTreeFile(repository, next)
+      event.preventDefault()
+      return true
+    }
+
+    return false
   }
 
   private changeTab() {
