@@ -1,0 +1,116 @@
+.file-tree {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--spacing-half) 0;
+
+  &.empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary-color);
+    font-size: var(--font-size-sm);
+  }
+}
+
+.file-tree-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text-color);
+  text-align: left;
+  padding: 2px 8px;
+  cursor: pointer;
+  font-size: var(--font-size);
+  line-height: 20px;
+
+  &:hover {
+    background: var(--list-item-hover-background-color);
+  }
+
+  &.selected {
+    background: var(--box-selected-background-color);
+    color: var(--box-selected-text-color);
+  }
+
+  .file-tree-icon {
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    margin-right: var(--spacing-half);
+    color: var(--text-secondary-color);
+  }
+
+  .file-tree-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .file-tree-spinner {
+    margin-left: auto;
+    animation: spin 1s linear infinite;
+  }
+}
+
+.repository-tabs {
+  display: flex;
+  align-items: stretch;
+
+  .tab-bar {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .repository-tabs-overflow {
+    flex-shrink: 0;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary-color);
+    cursor: pointer;
+    padding: 0 var(--spacing);
+
+    &:hover,
+    &.active {
+      color: var(--text-color);
+    }
+  }
+}
+
+.file-viewer {
+  flex: 1;
+  overflow: auto;
+  background: var(--background-color);
+
+  &.notice {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary-color);
+    font-size: var(--font-size-sm);
+  }
+
+  .file-viewer-code {
+    border-collapse: collapse;
+    width: 100%;
+    font-family: var(--font-family-monospace);
+    font-size: var(--font-size-sm);
+
+    .line-number {
+      user-select: none;
+      text-align: right;
+      padding: 0 var(--spacing-half);
+      color: var(--text-secondary-color);
+      background: var(--diff-gutter-background-color, transparent);
+      width: 1%;
+      white-space: nowrap;
+      vertical-align: top;
+    }
+
+    .line-content {
+      padding: 0 var(--spacing-half);
+      white-space: pre;
+    }
+  }
+}
