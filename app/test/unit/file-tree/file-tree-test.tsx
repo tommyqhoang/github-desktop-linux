@@ -25,6 +25,7 @@ function makeState(
     openFilePaths: [],
     activeFilePath: null,
     renamingPath: null,
+    refreshToken: 0,
     error: null,
     ...partial,
   }

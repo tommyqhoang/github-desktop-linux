@@ -1,7 +1,17 @@
-import { rename } from 'fs/promises'
+import { rename, access } from 'fs/promises'
 import * as Path from 'path'
 import { Repository } from '../../models/repository'
 import { shell } from '../app-shell'
+
+/** Whether a path exists on disk. */
+async function pathExists(absolutePath: string): Promise<boolean> {
+  try {
+    await access(absolutePath)
+    return true
+  } catch {
+    return false
+  }
+}
 
 /**
  * The repo-relative parent directory of a path, POSIX-style. Returns '' (the
@@ -53,10 +63,14 @@ export async function renameEntry(
     return oldRelativePath
   }
 
-  await rename(
-    Path.join(repository.path, oldRelativePath),
-    Path.join(repository.path, newRelativePath)
-  )
+  const newAbsolutePath = Path.join(repository.path, newRelativePath)
+  // fs.rename would silently overwrite an existing target — refuse instead so
+  // a rename can't clobber another file.
+  if (await pathExists(newAbsolutePath)) {
+    throw new Error(`A file named "${trimmed}" already exists.`)
+  }
+
+  await rename(Path.join(repository.path, oldRelativePath), newAbsolutePath)
   return newRelativePath
 }
 

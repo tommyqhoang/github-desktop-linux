@@ -17,6 +17,11 @@ export interface IRepoFileTreeState {
   readonly activeFilePath: string | null
   /** The tree entry currently being renamed inline, or null. */
   readonly renamingPath: string | null
+  /**
+   * Bumped whenever the working tree is re-scanned (e.g. after a pull or
+   * checkout) so the viewer can re-check its open file for on-disk changes.
+   */
+  readonly refreshToken: number
   readonly error: Error | null
 }
 
@@ -27,6 +32,7 @@ const EMPTY_STATE: IRepoFileTreeState = Object.freeze({
   openFilePaths: [],
   activeFilePath: null,
   renamingPath: null,
+  refreshToken: 0,
   error: null,
 })
 
@@ -197,6 +203,25 @@ export class FileTreeStore extends BaseStore {
   /** Re-read a directory listing, overwriting any cached entries. */
   public reloadDirectory(repository: Repository, path: string): Promise<void> {
     return this.loadDirectory(repository, path)
+  }
+
+  /**
+   * Re-scan the working tree: reload the root and every currently-expanded
+   * directory so new/removed files surface, then bump `refreshToken` to signal
+   * open viewers to re-check their files. Called when the working tree may have
+   * changed underneath us (pull, checkout, discard, …).
+   */
+  public async refreshTree(repository: Repository): Promise<void> {
+    const current = this.state.get(repository.id) ?? EMPTY_STATE
+    const paths = ['', ...current.expandedPaths]
+    await Promise.all(paths.map(p => this.loadDirectory(repository, p)))
+
+    // The repository may have been removed while the listings were in flight.
+    if (!this.state.has(repository.id)) {
+      return
+    }
+    const next = this.state.get(repository.id) ?? EMPTY_STATE
+    this.update(repository.id, next, { refreshToken: next.refreshToken + 1 })
   }
 
   /** Drop all cached state for a repository. */

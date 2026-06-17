@@ -3634,6 +3634,7 @@ export class App extends React.Component<IAppProps, IAppState> {
               openFilePaths: [],
               activeFilePath: null,
               renamingPath: null,
+              refreshToken: 0,
               error: null,
             }
           }

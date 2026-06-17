@@ -908,6 +908,7 @@ export class RepositoryView extends React.Component<
           repository={this.props.repository}
           filePath={activeFilePath}
           emoji={this.props.emoji}
+          reloadToken={this.props.fileTreeState.refreshToken}
         />
       </div>
     )
@@ -1090,7 +1091,7 @@ export class RepositoryView extends React.Component<
     const next = order[(idx + 1) % order.length]
     this.props.dispatcher.changeRepositorySection(this.props.repository, next)
     if (next === RepositorySectionTab.Files) {
-      this.props.dispatcher.loadFileTreeRoot(this.props.repository)
+      this.props.dispatcher.refreshFileTree(this.props.repository)
     }
     if (next === RepositorySectionTab.Stashes) {
       this.props.dispatcher.loadStashes(this.props.repository)
@@ -1118,7 +1119,7 @@ export class RepositoryView extends React.Component<
       section
     )
     if (section === RepositorySectionTab.Files) {
-      this.props.dispatcher.loadFileTreeRoot(this.props.repository)
+      this.props.dispatcher.refreshFileTree(this.props.repository)
     }
     if (section === RepositorySectionTab.Actions) {
       this.props.dispatcher.loadWorkflowRuns(this.props.repository)

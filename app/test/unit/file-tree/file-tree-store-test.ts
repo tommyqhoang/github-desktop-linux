@@ -173,6 +173,20 @@ describe('FileTreeStore', () => {
     ])
   })
 
+  it('refreshTree reloads expanded directories and bumps refreshToken', async () => {
+    const store = new FileTreeStore()
+    const repo = makeRepo(1)
+    await store.expand(repo, 'app')
+    const before = store.getState(repo).refreshToken
+    readSpy.mockClear()
+
+    await store.refreshTree(repo)
+
+    // Root ('') and the expanded 'app' directory are both re-listed.
+    expect(readSpy).toHaveBeenCalledTimes(2)
+    expect(store.getState(repo).refreshToken).toBe(before + 1)
+  })
+
   it('does not resurrect state cleared during an in-flight load', async () => {
     const store = new FileTreeStore()
     const repo = makeRepo(1)

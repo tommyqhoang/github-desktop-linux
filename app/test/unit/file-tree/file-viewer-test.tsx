@@ -14,6 +14,7 @@ function makeViewer(filePath: string | null): FileViewer {
     repository: repo,
     filePath,
     emoji: new Map(),
+    reloadToken: 0,
   })
   ;(viewer as any).setState = function (
     partial: Partial<{ [k: string]: unknown }>
@@ -199,6 +200,36 @@ describe('FileViewer rendering', () => {
 
 describe('FileViewer load', () => {
   afterEach(() => jest.restoreAllMocks())
+
+  it('reloads the open file when its on-disk mtime changed', async () => {
+    jest.spyOn(readFile, 'statMtimeMs').mockResolvedValue(200)
+    const readSpy = jest
+      .spyOn(readFile, 'readFileForViewer')
+      .mockResolvedValue({
+        content: 'updated',
+        isBinary: false,
+        tooLarge: false,
+      })
+    jest.spyOn(worker, 'highlight').mockResolvedValue({})
+
+    const viewer = makeViewer('a.ts')
+    ;(viewer as any).loadedMtimeMs = 100
+    await (viewer as any).reloadIfChanged('a.ts')
+
+    expect(readSpy).toHaveBeenCalled()
+    expect(viewer.state.contents?.content).toBe('updated')
+  })
+
+  it('does not reload when the mtime is unchanged', async () => {
+    jest.spyOn(readFile, 'statMtimeMs').mockResolvedValue(100)
+    const readSpy = jest.spyOn(readFile, 'readFileForViewer')
+
+    const viewer = makeViewer('a.ts')
+    ;(viewer as any).loadedMtimeMs = 100
+    await (viewer as any).reloadIfChanged('a.ts')
+
+    expect(readSpy).not.toHaveBeenCalled()
+  })
 
   it('flags HTML/PDF for the browser without reading the file', async () => {
     const textSpy = jest.spyOn(readFile, 'readFileForViewer')

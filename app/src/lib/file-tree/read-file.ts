@@ -7,6 +7,23 @@ import { getMediaDescriptor } from './media'
 /** Largest file the read-only viewer will render (2 MB). */
 const MaxViewerFileSize = 2 * 1024 * 1024
 
+/**
+ * The last-modified time of a working-tree file in milliseconds, or null when
+ * it can't be stat'd (e.g. it was deleted). Used to detect on-disk changes to
+ * an already-open file without re-reading its contents.
+ */
+export async function statMtimeMs(
+  repository: Repository,
+  relativePath: string
+): Promise<number | null> {
+  try {
+    const stats = await stat(Path.join(repository.path, relativePath))
+    return stats.mtimeMs
+  } catch {
+    return null
+  }
+}
+
 /** Largest media file rendered inline as a data URL (50 MB). */
 const MaxMediaFileSize = 50 * 1024 * 1024
 

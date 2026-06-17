@@ -2692,6 +2692,11 @@ export class Dispatcher {
     return this.appStore._loadFileTreeRoot(repository)
   }
 
+  /** Re-scan the Files tree (root + expanded dirs) and re-check open files. */
+  public refreshFileTree(repository: Repository): Promise<void> {
+    return this.appStore._refreshFileTree(repository)
+  }
+
   /** Expand a folder in the Files tree, lazily loading its children. */
   public expandFileTreeFolder(
     repository: Repository,

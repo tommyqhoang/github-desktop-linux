@@ -5,6 +5,7 @@ import { FileViewerContents, MediaViewerContents } from '../../models/file-tree'
 import {
   readFileForViewer,
   readMediaForViewer,
+  statMtimeMs,
 } from '../../lib/file-tree/read-file'
 import { getMediaDescriptor } from '../../lib/file-tree/media'
 import {
@@ -38,6 +39,12 @@ interface IFileViewerProps {
   readonly filePath: string | null
   /** Emoji lookup used when rendering Markdown files. */
   readonly emoji: Map<string, Emoji>
+  /**
+   * Changes whenever the working tree is re-scanned. When it changes the viewer
+   * re-checks the open file's modification time and reloads if it changed on
+   * disk (e.g. after a pull or checkout).
+   */
+  readonly reloadToken: number
 }
 
 interface IFileViewerState {
@@ -61,6 +68,9 @@ export class FileViewer extends React.Component<
   /** Guards against stale async results when the selection changes mid-load. */
   private loadToken = 0
 
+  /** mtime (ms) of the file currently displayed, for change detection. */
+  private loadedMtimeMs: number | null = null
+
   public constructor(props: IFileViewerProps) {
     super(props)
     this.state = {
@@ -80,15 +90,28 @@ export class FileViewer extends React.Component<
   }
 
   public componentDidUpdate(prevProps: IFileViewerProps) {
-    if (
-      prevProps.filePath !== this.props.filePath &&
-      this.props.filePath !== null
-    ) {
-      this.load(this.props.filePath)
+    const { filePath, reloadToken } = this.props
+    if (prevProps.filePath !== filePath && filePath !== null) {
+      this.load(filePath)
+    } else if (prevProps.reloadToken !== reloadToken && filePath !== null) {
+      this.reloadIfChanged(filePath)
+    }
+  }
+
+  /** Reload the open file only if its on-disk modification time has changed. */
+  private async reloadIfChanged(filePath: string) {
+    const mtimeMs = await statMtimeMs(this.props.repository, filePath)
+    // Same path may have been swapped out while we stat'd.
+    if (this.props.filePath !== filePath) {
+      return
+    }
+    if (mtimeMs !== this.loadedMtimeMs) {
+      await this.load(filePath)
     }
   }
 
   private async load(filePath: string) {
+    const { repository } = this.props
     const token = ++this.loadToken
     this.setState({ loading: true, error: null })
 
@@ -96,6 +119,11 @@ export class FileViewer extends React.Component<
       // HTML/PDF files aren't read inline; they're opened in the browser on
       // demand, so short-circuit before touching the file.
       if (isBrowserViewable(filePath)) {
+        const mtimeMs = await statMtimeMs(repository, filePath)
+        if (token !== this.loadToken) {
+          return
+        }
+        this.loadedMtimeMs = mtimeMs
         this.setState({
           loading: false,
           contents: null,
@@ -108,12 +136,17 @@ export class FileViewer extends React.Component<
       }
 
       // Image/video files are rendered inline as data URLs rather than read
-      // as text and reported as binary.
+      // as text and reported as binary. The mtime stat runs alongside the read
+      // so the read is still issued synchronously (preserving load ordering).
       if (getMediaDescriptor(filePath) !== null) {
-        const media = await readMediaForViewer(this.props.repository, filePath)
+        const [media, mtimeMs] = await Promise.all([
+          readMediaForViewer(repository, filePath),
+          statMtimeMs(repository, filePath),
+        ])
         if (token !== this.loadToken) {
           return
         }
+        this.loadedMtimeMs = mtimeMs
         this.setState({
           loading: false,
           contents: null,
@@ -125,10 +158,14 @@ export class FileViewer extends React.Component<
         return
       }
 
-      const contents = await readFileForViewer(this.props.repository, filePath)
+      const [contents, mtimeMs] = await Promise.all([
+        readFileForViewer(repository, filePath),
+        statMtimeMs(repository, filePath),
+      ])
       if (token !== this.loadToken) {
         return
       }
+      this.loadedMtimeMs = mtimeMs
 
       let tokens: ITokens = {}
       if (
@@ -164,6 +201,7 @@ export class FileViewer extends React.Component<
       if (token !== this.loadToken) {
         return
       }
+      this.loadedMtimeMs = null
       const error = e instanceof Error ? e : new Error(String(e))
       this.setState({
         loading: false,

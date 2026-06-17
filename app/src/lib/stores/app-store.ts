@@ -3708,7 +3708,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
     } else if (section === RepositorySectionTab.Actions) {
       refreshSectionPromise = this._loadWorkflowRuns(repository)
     } else if (section === RepositorySectionTab.Files) {
-      refreshSectionPromise = this.fileTreeStore.loadRoot(repository)
+      refreshSectionPromise = this.fileTreeStore.refreshTree(repository)
     } else {
       return assertNever(section, `Unknown section: ${section}`)
     }
@@ -7145,6 +7145,11 @@ export class AppStore extends TypedBaseStore<IAppState> {
   /** Load the repository's working-tree root for the Files tab. */
   public _loadFileTreeRoot(repository: Repository): Promise<void> {
     return this.fileTreeStore.loadRoot(repository)
+  }
+
+  /** Re-scan the Files tree and signal viewers to re-check their open files. */
+  public _refreshFileTree(repository: Repository): Promise<void> {
+    return this.fileTreeStore.refreshTree(repository)
   }
 
   /** Expand a folder in the Files tree, lazily loading its children. */
