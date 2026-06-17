@@ -246,6 +246,7 @@ import { ExternalEditorError, suggestedExternalEditor } from '../editors/shared'
 import { ApiRepositoriesStore } from './api-repositories-store'
 import { StashStore } from './stash-store'
 import { WorktreeStore } from './worktree-store'
+import { FileTreeStore } from './file-tree-store'
 import { WorkflowRunsStore } from './workflow-runs-store'
 import {
   addWorktree,
@@ -497,6 +498,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
   private activeAccountByEndpoint: ReadonlyMap<string, number> = new Map()
   private readonly stashStore: StashStore = new StashStore()
   private readonly worktreeStore: WorktreeStore = new WorktreeStore()
+  private readonly fileTreeStore: FileTreeStore = new FileTreeStore()
   private readonly workflowRunsStore = new WorkflowRunsStore()
   private readonly terminalStore: TerminalStore =
     typeof window !== 'undefined'
@@ -1003,6 +1005,9 @@ export class AppStore extends TypedBaseStore<IAppState> {
     this.worktreeStore.onDidUpdate(() => this.emitUpdate())
     this.worktreeStore.onDidError(error => this.emitError(error))
 
+    this.fileTreeStore.onDidUpdate(() => this.emitUpdate())
+    this.fileTreeStore.onDidError(error => this.emitError(error))
+
     this.terminalStore.onDidUpdate(() => this.emitUpdate())
     this.terminalStore.onDidError(error => this.emitError(error))
 
@@ -1112,6 +1117,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
       activeAccountByEndpoint: this.activeAccountByEndpoint,
       stashesByRepoId: this.stashStore.getAllState(),
       worktreesByRepoId: this.worktreeStore.getAllState(),
+      fileTreeByRepoId: this.fileTreeStore.getAllState(),
       workflowRunsByRepoId: this.workflowRunsStore.getAllState(),
       terminal: this.terminalStore.getState(),
       terminalFontSize: this.terminalSettings.getFontSize(),
@@ -3696,6 +3702,8 @@ export class AppStore extends TypedBaseStore<IAppState> {
       refreshSectionPromise = this.worktreeStore.loadWorktrees(repository)
     } else if (section === RepositorySectionTab.Actions) {
       refreshSectionPromise = this._loadWorkflowRuns(repository)
+    } else if (section === RepositorySectionTab.Files) {
+      refreshSectionPromise = this.fileTreeStore.loadRoot(repository)
     } else {
       return assertNever(section, `Unknown section: ${section}`)
     }
@@ -7127,6 +7135,29 @@ export class AppStore extends TypedBaseStore<IAppState> {
   /** Refresh the cached worktree list for the given repository. */
   public async _loadWorktrees(repository: Repository): Promise<void> {
     await this.worktreeStore.loadWorktrees(repository)
+  }
+
+  /** Load the repository's working-tree root for the Files tab. */
+  public _loadFileTreeRoot(repository: Repository): Promise<void> {
+    return this.fileTreeStore.loadRoot(repository)
+  }
+
+  /** Expand a folder in the Files tree, lazily loading its children. */
+  public _expandFileTreeFolder(
+    repository: Repository,
+    path: string
+  ): Promise<void> {
+    return this.fileTreeStore.expand(repository, path)
+  }
+
+  /** Collapse a folder in the Files tree. */
+  public _collapseFileTreeFolder(repository: Repository, path: string): void {
+    this.fileTreeStore.collapse(repository, path)
+  }
+
+  /** Select a file to display in the Files viewer. */
+  public _selectFileTreeFile(repository: Repository, path: string): void {
+    this.fileTreeStore.selectFile(repository, path)
   }
 
   /** Refresh the cached workflow runs for the given repository. */

@@ -3626,6 +3626,15 @@ export class App extends React.Component<IAppProps, IAppState> {
             state.worktreesByRepoId.get(selectedState.repository.id)?.loading ??
             false
           }
+          fileTreeState={
+            state.fileTreeByRepoId.get(selectedState.repository.id) ?? {
+              expandedPaths: new Set<string>(),
+              childrenByPath: new Map(),
+              loadingPaths: new Set<string>(),
+              selectedFilePath: null,
+              error: null,
+            }
+          }
           workflowRunEntries={
             state.workflowRunsByRepoId.get(selectedState.repository.id)?.runs ??
             []

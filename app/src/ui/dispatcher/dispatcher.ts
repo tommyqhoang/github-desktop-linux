@@ -2687,6 +2687,29 @@ export class Dispatcher {
     return this.appStore._loadWorktrees(repository)
   }
 
+  /** Load the repository's working-tree root for the Files tab. */
+  public loadFileTreeRoot(repository: Repository): Promise<void> {
+    return this.appStore._loadFileTreeRoot(repository)
+  }
+
+  /** Expand a folder in the Files tree, lazily loading its children. */
+  public expandFileTreeFolder(
+    repository: Repository,
+    path: string
+  ): Promise<void> {
+    return this.appStore._expandFileTreeFolder(repository, path)
+  }
+
+  /** Collapse a folder in the Files tree. */
+  public collapseFileTreeFolder(repository: Repository, path: string): void {
+    this.appStore._collapseFileTreeFolder(repository, path)
+  }
+
+  /** Select a file to display in the Files viewer. */
+  public selectFileTreeFile(repository: Repository, path: string): void {
+    this.appStore._selectFileTreeFile(repository, path)
+  }
+
   /** Refresh the cached workflow runs for the given repository. */
   public loadWorkflowRuns(repository: Repository): Promise<void> {
     return this.appStore._loadWorkflowRuns(repository)

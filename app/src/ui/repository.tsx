@@ -10,6 +10,12 @@ import { FilesChangedBadge } from './changes/files-changed-badge'
 import { SelectedCommits, CompareSidebar } from './history'
 import { Resizable } from './resizable'
 import { TabBar } from './tab-bar'
+import { Octicon } from './octicons'
+import * as octicons from './octicons/octicons.generated'
+import { showContextualMenu } from '../lib/menu-item'
+import { FileTree } from './file-tree/file-tree'
+import { FileViewer } from './file-tree/file-viewer'
+import { IRepoFileTreeState } from '../lib/stores/file-tree-store'
 import {
   IRepositoryState,
   RepositorySectionTab,
@@ -67,6 +73,9 @@ interface IRepositoryViewProps {
   readonly accounts: ReadonlyArray<Account>
   readonly worktreeEntries: ReadonlyArray<IWorktreeEntry>
   readonly worktreesLoading: boolean
+
+  /** Cached working-tree file structure for this repository (Files tab). */
+  readonly fileTreeState: IRepoFileTreeState
 
   /** Cached workflow run entries for this repository (Actions tab). */
   readonly workflowRunEntries: ReadonlyArray<IWorkflowRun>
@@ -137,9 +146,8 @@ interface IRepositoryViewState {
 const enum Tab {
   Changes = 0,
   History = 1,
-  Stashes = 2,
-  Worktrees = 3,
-  Actions = 4,
+  Files = 2,
+  Actions = 3,
 }
 
 export class RepositoryView extends React.Component<
@@ -212,36 +220,75 @@ export class RepositoryView extends React.Component<
         ? Tab.Changes
         : section === RepositorySectionTab.History
         ? Tab.History
-        : section === RepositorySectionTab.Stashes
-        ? Tab.Stashes
-        : section === RepositorySectionTab.Worktrees
-        ? Tab.Worktrees
-        : Tab.Actions
+        : section === RepositorySectionTab.Files
+        ? Tab.Files
+        : section === RepositorySectionTab.Actions
+        ? Tab.Actions
+        : -1 // Stashes / Worktrees live in the overflow menu.
+
+    const overflowActive =
+      section === RepositorySectionTab.Stashes ||
+      section === RepositorySectionTab.Worktrees
 
     return (
-      <TabBar selectedIndex={selectedTab} onTabClicked={this.onTabClicked}>
-        <span className="with-indicator" id="changes-tab">
-          <span>Changes</span>
-          {this.renderChangesBadge()}
-        </span>
+      <div className="repository-tabs">
+        <TabBar selectedIndex={selectedTab} onTabClicked={this.onTabClicked}>
+          <span className="with-indicator" id="changes-tab">
+            <span>Changes</span>
+            {this.renderChangesBadge()}
+          </span>
 
-        <div className="with-indicator" id="history-tab">
-          <span>History</span>
-        </div>
+          <div className="with-indicator" id="history-tab">
+            <span>History</span>
+          </div>
 
-        <div className="with-indicator" id="stashes-tab">
-          <span>Stashes</span>
-        </div>
+          <div className="with-indicator" id="files-tab">
+            <span>Files</span>
+          </div>
 
-        <div className="with-indicator" id="worktrees-tab">
-          <span>Worktrees</span>
-        </div>
-
-        <div className="with-indicator" id="actions-tab">
-          <span>Actions</span>
-        </div>
-      </TabBar>
+          <div className="with-indicator" id="actions-tab">
+            <span>Actions</span>
+          </div>
+        </TabBar>
+        <button
+          type="button"
+          className={
+            'repository-tabs-overflow' + (overflowActive ? ' active' : '')
+          }
+          onClick={this.onOverflowClick}
+          aria-haspopup="menu"
+        >
+          <span className="sr-only">More tabs</span>
+          <Octicon symbol={octicons.kebabHorizontal} aria-hidden={true} />
+        </button>
+      </div>
     )
+  }
+
+  private onOverflowClick = () => {
+    showContextualMenu([
+      {
+        label: 'Stashes',
+        action: () => this.switchToSection(RepositorySectionTab.Stashes),
+      },
+      {
+        label: 'Worktrees',
+        action: () => this.switchToSection(RepositorySectionTab.Worktrees),
+      },
+    ])
+  }
+
+  private switchToSection(section: RepositorySectionTab) {
+    this.props.dispatcher.changeRepositorySection(
+      this.props.repository,
+      section
+    )
+    if (section === RepositorySectionTab.Stashes) {
+      this.props.dispatcher.loadStashes(this.props.repository)
+    }
+    if (section === RepositorySectionTab.Worktrees) {
+      this.props.dispatcher.loadWorktrees(this.props.repository)
+    }
   }
 
   private renderChangesSidebar(): JSX.Element {
@@ -377,9 +424,34 @@ export class RepositoryView extends React.Component<
       return this.renderWorktreesSidebar()
     } else if (selectedSection === RepositorySectionTab.Actions) {
       return this.renderActionsSidebar()
+    } else if (selectedSection === RepositorySectionTab.Files) {
+      return this.renderFilesSidebar()
     } else {
       return assertNever(selectedSection, 'Unknown repository section')
     }
+  }
+
+  private renderFilesSidebar(): JSX.Element {
+    return (
+      <FileTree
+        state={this.props.fileTreeState}
+        onToggleFolder={this.onToggleFileTreeFolder}
+        onSelectFile={this.onSelectFileTreeFile}
+      />
+    )
+  }
+
+  private onToggleFileTreeFolder = (path: string) => {
+    const { dispatcher, repository, fileTreeState } = this.props
+    if (fileTreeState.expandedPaths.has(path)) {
+      dispatcher.collapseFileTreeFolder(repository, path)
+    } else {
+      dispatcher.expandFileTreeFolder(repository, path)
+    }
+  }
+
+  private onSelectFileTreeFile = (path: string) => {
+    this.props.dispatcher.selectFileTreeFile(this.props.repository, path)
   }
 
   private renderActionsSidebar(): JSX.Element {
@@ -715,9 +787,20 @@ export class RepositoryView extends React.Component<
       return this.renderContentForWorktrees()
     } else if (selectedSection === RepositorySectionTab.Actions) {
       return this.renderContentForActions()
+    } else if (selectedSection === RepositorySectionTab.Files) {
+      return this.renderContentForFiles()
     } else {
       return assertNever(selectedSection, 'Unknown repository section')
     }
+  }
+
+  private renderContentForFiles(): JSX.Element {
+    return (
+      <FileViewer
+        repository={this.props.repository}
+        filePath={this.props.fileTreeState.selectedFilePath}
+      />
+    )
   }
 
   private renderContentForActions(): JSX.Element {
@@ -887,14 +970,18 @@ export class RepositoryView extends React.Component<
     const order = [
       RepositorySectionTab.Changes,
       RepositorySectionTab.History,
+      RepositorySectionTab.Files,
+      RepositorySectionTab.Actions,
       RepositorySectionTab.Stashes,
       RepositorySectionTab.Worktrees,
-      RepositorySectionTab.Actions,
     ]
     const current = this.props.state.selectedSection
     const idx = order.indexOf(current)
     const next = order[(idx + 1) % order.length]
     this.props.dispatcher.changeRepositorySection(this.props.repository, next)
+    if (next === RepositorySectionTab.Files) {
+      this.props.dispatcher.loadFileTreeRoot(this.props.repository)
+    }
     if (next === RepositorySectionTab.Stashes) {
       this.props.dispatcher.loadStashes(this.props.repository)
     }
@@ -910,10 +997,8 @@ export class RepositoryView extends React.Component<
     const section =
       tab === Tab.History
         ? RepositorySectionTab.History
-        : tab === Tab.Stashes
-        ? RepositorySectionTab.Stashes
-        : tab === Tab.Worktrees
-        ? RepositorySectionTab.Worktrees
+        : tab === Tab.Files
+        ? RepositorySectionTab.Files
         : tab === Tab.Actions
         ? RepositorySectionTab.Actions
         : RepositorySectionTab.Changes
@@ -922,11 +1007,8 @@ export class RepositoryView extends React.Component<
       this.props.repository,
       section
     )
-    if (section === RepositorySectionTab.Stashes) {
-      this.props.dispatcher.loadStashes(this.props.repository)
-    }
-    if (section === RepositorySectionTab.Worktrees) {
-      this.props.dispatcher.loadWorktrees(this.props.repository)
+    if (section === RepositorySectionTab.Files) {
+      this.props.dispatcher.loadFileTreeRoot(this.props.repository)
     }
     if (section === RepositorySectionTab.Actions) {
       this.props.dispatcher.loadWorkflowRuns(this.props.repository)
