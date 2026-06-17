@@ -10,7 +10,11 @@ const repo = new Repository('/tmp/repo-1', 1, null, false)
 
 /** Build a FileViewer instance whose setState mutates state synchronously. */
 function makeViewer(filePath: string | null): FileViewer {
-  const viewer = new FileViewer({ repository: repo, filePath })
+  const viewer = new FileViewer({
+    repository: repo,
+    filePath,
+    emoji: new Map(),
+  })
   ;(viewer as any).setState = function (
     partial: Partial<{ [k: string]: unknown }>
   ) {
@@ -28,6 +32,8 @@ function setContents(viewer: FileViewer, contents: FileViewerContents) {
   ;(viewer as any).state = {
     loading: false,
     contents,
+    media: null,
+    browserViewable: false,
     tokens: {},
     error: null,
   }
@@ -72,20 +78,160 @@ describe('FileViewer rendering', () => {
     expect(renderViewer(viewer).toLowerCase()).toContain('empty')
   })
 
+  it('renders Markdown files through the sandboxed renderer', () => {
+    const viewer = makeViewer('README.md')
+    setContents(viewer, {
+      content: '# Hello',
+      isBinary: false,
+      tooLarge: false,
+    })
+    const html = renderViewer(viewer)
+    // The Markdown branch renders an iframe (SandboxedMarkdown), not a code
+    // table, so there is no line-number gutter.
+    expect(html).toContain('file-viewer-markdown')
+    expect(html).not.toContain('file-viewer-code')
+  })
+
+  it('offers to open HTML/PDF files in the browser', () => {
+    const viewer = makeViewer('report.pdf')
+    ;(viewer as any).state = {
+      loading: false,
+      contents: null,
+      media: null,
+      browserViewable: true,
+      tokens: {},
+      error: null,
+    }
+    const html = renderViewer(viewer)
+    expect(html).toContain('file-viewer-browser')
+    expect(html.toLowerCase()).toContain('open in browser')
+  })
+
+  it('renders CSV files as a table', () => {
+    const viewer = makeViewer('data.csv')
+    setContents(viewer, {
+      content: 'name,age\nAda,36',
+      isBinary: false,
+      tooLarge: false,
+    })
+    const html = renderViewer(viewer)
+    expect(html).toContain('file-viewer-table')
+    expect(html).toContain('delimited-table')
+    expect(html).toContain('<th>name</th>')
+    expect(html).toContain('<td>Ada</td>')
+    // Not rendered as the code table.
+    expect(html).not.toContain('file-viewer-code')
+  })
+
+  it('renders non-Markdown files as a highlighted code table', () => {
+    const viewer = makeViewer('a.ts')
+    setContents(viewer, {
+      content: 'const x = 1',
+      isBinary: false,
+      tooLarge: false,
+    })
+    const html = renderViewer(viewer)
+    expect(html).toContain('file-viewer-code')
+    // cm-s-default scopes the syntax theme so token colours apply.
+    expect(html).toContain('cm-s-default')
+  })
+
   it('shows an error notice', () => {
     const viewer = makeViewer('gone.txt')
     ;(viewer as any).state = {
       loading: false,
       contents: null,
+      media: null,
       tokens: {},
       error: new Error('ENOENT'),
     }
     expect(renderViewer(viewer).toLowerCase()).toContain('could not open')
   })
+
+  it('renders an image file inline', () => {
+    const viewer = makeViewer('logo.png')
+    ;(viewer as any).state = {
+      loading: false,
+      contents: null,
+      media: {
+        kind: 'image',
+        dataUrl: 'data:image/png;base64,AAAA',
+        tooLarge: false,
+      },
+      tokens: {},
+      error: null,
+    }
+    const html = renderViewer(viewer)
+    expect(html).toContain('file-viewer-image')
+    expect(html).toContain('data:image/png;base64,AAAA')
+  })
+
+  it('renders a video file with controls', () => {
+    const viewer = makeViewer('clip.mp4')
+    ;(viewer as any).state = {
+      loading: false,
+      contents: null,
+      media: {
+        kind: 'video',
+        dataUrl: 'data:video/mp4;base64,AAAA',
+        tooLarge: false,
+      },
+      tokens: {},
+      error: null,
+    }
+    const html = renderViewer(viewer)
+    expect(html).toContain('file-viewer-video')
+    expect(html).toContain('controls')
+  })
+
+  it('shows a too-large notice for oversized media', () => {
+    const viewer = makeViewer('huge.mp4')
+    ;(viewer as any).state = {
+      loading: false,
+      contents: null,
+      media: { kind: 'video', dataUrl: '', tooLarge: true },
+      tokens: {},
+      error: null,
+    }
+    expect(renderViewer(viewer).toLowerCase()).toContain('too large')
+  })
 })
 
 describe('FileViewer load', () => {
   afterEach(() => jest.restoreAllMocks())
+
+  it('flags HTML/PDF for the browser without reading the file', async () => {
+    const textSpy = jest.spyOn(readFile, 'readFileForViewer')
+    const mediaSpy = jest.spyOn(readFile, 'readMediaForViewer')
+
+    const viewer = makeViewer('index.html')
+    await (viewer as any).load('index.html')
+
+    expect(textSpy).not.toHaveBeenCalled()
+    expect(mediaSpy).not.toHaveBeenCalled()
+    expect(viewer.state.browserViewable).toBe(true)
+  })
+
+  it('reads media files as a data URL and skips highlighting', async () => {
+    const mediaSpy = jest
+      .spyOn(readFile, 'readMediaForViewer')
+      .mockResolvedValue({
+        kind: 'image',
+        dataUrl: 'data:image/png;base64,AAAA',
+        tooLarge: false,
+      })
+    const textSpy = jest.spyOn(readFile, 'readFileForViewer')
+    const highlightSpy = jest.spyOn(worker, 'highlight')
+
+    const viewer = makeViewer('logo.png')
+    await (viewer as any).load('logo.png')
+
+    expect(mediaSpy).toHaveBeenCalledTimes(1)
+    expect(textSpy).not.toHaveBeenCalled()
+    expect(highlightSpy).not.toHaveBeenCalled()
+    expect(viewer.state.media?.kind).toBe('image')
+    expect(viewer.state.contents).toBeNull()
+  })
 
   it('reads and highlights a text file', async () => {
     jest.spyOn(readFile, 'readFileForViewer').mockResolvedValue({

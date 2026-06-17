@@ -1,10 +1,42 @@
 import { readFile, stat } from 'fs/promises'
 import * as Path from 'path'
 import { Repository } from '../../models/repository'
-import { FileViewerContents } from '../../models/file-tree'
+import { FileViewerContents, MediaViewerContents } from '../../models/file-tree'
+import { getMediaDescriptor } from './media'
 
 /** Largest file the read-only viewer will render (2 MB). */
 const MaxViewerFileSize = 2 * 1024 * 1024
+
+/** Largest media file rendered inline as a data URL (50 MB). */
+const MaxMediaFileSize = 50 * 1024 * 1024
+
+/**
+ * Read an image or video file as a data URL for inline display. The result is
+ * reported via `tooLarge` (without reading the file) when it exceeds
+ * `MaxMediaFileSize`, since data URLs embed the whole payload in memory.
+ */
+export async function readMediaForViewer(
+  repository: Repository,
+  relativePath: string
+): Promise<MediaViewerContents> {
+  const descriptor = getMediaDescriptor(relativePath)
+  if (descriptor === null) {
+    throw new Error(`Not a recognised media file: ${relativePath}`)
+  }
+
+  const absolutePath = Path.join(repository.path, relativePath)
+
+  const stats = await stat(absolutePath)
+  if (stats.size > MaxMediaFileSize) {
+    return { kind: descriptor.kind, dataUrl: '', tooLarge: true }
+  }
+
+  const buffer = await readFile(absolutePath)
+  const dataUrl = `data:${descriptor.mediaType};base64,${buffer.toString(
+    'base64'
+  )}`
+  return { kind: descriptor.kind, dataUrl, tooLarge: false }
+}
 
 /** Number of leading bytes scanned for a NUL byte during binary detection. */
 const BinarySniffLength = 8 * 1024

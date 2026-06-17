@@ -12,10 +12,27 @@ import { Resizable } from './resizable'
 import { TabBar } from './tab-bar'
 import { Octicon } from './octicons'
 import * as octicons from './octicons/octicons.generated'
-import { showContextualMenu } from '../lib/menu-item'
+import { showContextualMenu, IMenuItem } from '../lib/menu-item'
 import { FileTree } from './file-tree/file-tree'
+import { FileTabs } from './file-tree/file-tabs'
 import { FileViewer } from './file-tree/file-viewer'
 import { IRepoFileTreeState } from '../lib/stores/file-tree-store'
+import { FileTreeEntry } from '../models/file-tree'
+import {
+  isBrowserViewable,
+  openInBrowser,
+} from '../lib/file-tree/open-in-browser'
+import { revealInFileManager } from '../lib/app-shell'
+import { showFolderContents } from './main-process-proxy'
+import {
+  CopyFilePathLabel,
+  CopyRelativeFilePathLabel,
+  DefaultEditorLabel,
+  RevealInFileManagerLabel,
+  TrashNameLabel,
+} from './lib/context-menu'
+import { clipboard } from 'electron'
+import * as Path from 'path'
 import {
   IRepositoryState,
   RepositorySectionTab,
@@ -437,8 +454,82 @@ export class RepositoryView extends React.Component<
         state={this.props.fileTreeState}
         onToggleFolder={this.onToggleFileTreeFolder}
         onSelectFile={this.onSelectFileTreeFile}
+        onContextMenu={this.onFileTreeContextMenu}
+        onSubmitRename={this.onSubmitFileTreeRename}
+        onCancelRename={this.onCancelFileTreeRename}
       />
     )
+  }
+
+  private onFileTreeContextMenu = (entry: FileTreeEntry) => {
+    const { repository, dispatcher, externalEditorLabel } = this.props
+    const fullPath = Path.join(repository.path, entry.path)
+    const isDirectory = entry.kind === 'directory'
+
+    const openInEditorLabel = externalEditorLabel
+      ? `Open in ${externalEditorLabel}`
+      : DefaultEditorLabel
+
+    const items: IMenuItem[] = [
+      {
+        label: openInEditorLabel,
+        action: () => this.props.onOpenInExternalEditor(fullPath),
+      },
+    ]
+
+    if (!isDirectory && isBrowserViewable(entry.path)) {
+      items.push({
+        label: __DARWIN__ ? 'Open in Browser' : 'Open in browser',
+        action: () => openInBrowser(repository, entry.path),
+      })
+    }
+
+    items.push(
+      {
+        label: isDirectory
+          ? __DARWIN__
+            ? 'Open Folder'
+            : 'Open folder'
+          : RevealInFileManagerLabel,
+        action: () =>
+          isDirectory
+            ? showFolderContents(fullPath)
+            : revealInFileManager(repository, entry.path),
+      },
+      { type: 'separator' },
+      {
+        label: CopyFilePathLabel,
+        action: () => clipboard.writeText(fullPath),
+      },
+      {
+        label: CopyRelativeFilePathLabel,
+        action: () => clipboard.writeText(Path.normalize(entry.path)),
+      },
+      { type: 'separator' },
+      {
+        label: 'Rename…',
+        action: () => dispatcher.beginFileTreeRename(repository, entry.path),
+      },
+      {
+        label: `Move to ${TrashNameLabel}`,
+        action: () => dispatcher.deleteFileTreeEntry(repository, entry.path),
+      }
+    )
+
+    showContextualMenu(items)
+  }
+
+  private onSubmitFileTreeRename = (entry: FileTreeEntry, newName: string) => {
+    const { dispatcher, repository } = this.props
+    if (newName.trim() === '' || newName === entry.name) {
+      dispatcher.cancelFileTreeRename(repository)
+      return
+    }
+    dispatcher.renameFileTreeEntry(repository, entry.path, newName)
+  }
+
+  private onCancelFileTreeRename = () => {
+    this.props.dispatcher.cancelFileTreeRename(this.props.repository)
   }
 
   private onToggleFileTreeFolder = (path: string) => {
@@ -451,7 +542,15 @@ export class RepositoryView extends React.Component<
   }
 
   private onSelectFileTreeFile = (path: string) => {
-    this.props.dispatcher.selectFileTreeFile(this.props.repository, path)
+    this.props.dispatcher.openFileTreeFile(this.props.repository, path)
+  }
+
+  private onCloseFileTreeTab = (path: string) => {
+    this.props.dispatcher.closeFileTreeTab(this.props.repository, path)
+  }
+
+  private onCloseAllFileTreeTabs = () => {
+    this.props.dispatcher.closeAllFileTreeTabs(this.props.repository)
   }
 
   private renderActionsSidebar(): JSX.Element {
@@ -795,11 +894,22 @@ export class RepositoryView extends React.Component<
   }
 
   private renderContentForFiles(): JSX.Element {
+    const { openFilePaths, activeFilePath } = this.props.fileTreeState
     return (
-      <FileViewer
-        repository={this.props.repository}
-        filePath={this.props.fileTreeState.selectedFilePath}
-      />
+      <div className="files-content">
+        <FileTabs
+          openFilePaths={openFilePaths}
+          activeFilePath={activeFilePath}
+          onSelectTab={this.onSelectFileTreeFile}
+          onCloseTab={this.onCloseFileTreeTab}
+          onCloseAll={this.onCloseAllFileTreeTabs}
+        />
+        <FileViewer
+          repository={this.props.repository}
+          filePath={activeFilePath}
+          emoji={this.props.emoji}
+        />
+      </div>
     )
   }
 

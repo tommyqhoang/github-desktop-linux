@@ -22,7 +22,9 @@ function makeState(
       ],
     ]),
     loadingPaths: new Set(),
-    selectedFilePath: null,
+    openFilePaths: [],
+    activeFilePath: null,
+    renamingPath: null,
     error: null,
     ...partial,
   }
@@ -34,6 +36,9 @@ const renderTree = (state: IRepoFileTreeState): string =>
       state,
       onToggleFolder: noop,
       onSelectFile: noop,
+      onContextMenu: noop,
+      onSubmitRename: noop,
+      onCancelRename: noop,
     })
   )
 
@@ -80,8 +85,12 @@ describe('FileTreeItem', () => {
     isExpanded: false,
     isSelected: false,
     isLoading: false,
+    isRenaming: false,
     onToggleFolder: noop,
     onSelectFile: noop,
+    onContextMenu: noop,
+    onSubmitRename: noop,
+    onCancelRename: noop,
   }
 
   it('toggles folders and selects files via its click handler', () => {
@@ -117,5 +126,50 @@ describe('FileTreeItem', () => {
       })
     )
     expect(html).toContain('selected')
+  })
+
+  it('renders a rename input when renaming', () => {
+    const html = renderToStaticMarkup(
+      React.createElement(FileTreeItem, {
+        ...baseProps,
+        entry: { name: 'a.ts', path: 'a.ts', kind: 'file' },
+        isRenaming: true,
+      })
+    )
+    expect(html).toContain('file-tree-rename-input')
+    expect(html).toContain('value="a.ts"')
+  })
+
+  it('opens the context menu on right-click', () => {
+    const onContextMenu = jest.fn()
+    const entry = { name: 'a.ts', path: 'a.ts', kind: 'file' as const }
+    const item = new FileTreeItem({ ...baseProps, entry, onContextMenu })
+    ;(item as any).onContextMenu({ preventDefault: noop })
+    expect(onContextMenu).toHaveBeenCalledWith(entry)
+  })
+
+  it('submits a rename on Enter and cancels on Escape', () => {
+    const onSubmitRename = jest.fn()
+    const onCancelRename = jest.fn()
+    const entry = { name: 'a.ts', path: 'a.ts', kind: 'file' as const }
+    const item = new FileTreeItem({
+      ...baseProps,
+      entry,
+      onSubmitRename,
+      onCancelRename,
+    })
+
+    ;(item as any).onRenameKeyDown({
+      key: 'Enter',
+      preventDefault: noop,
+      currentTarget: { value: 'b.ts' },
+    })
+    expect(onSubmitRename).toHaveBeenCalledWith(entry, 'b.ts')
+    ;(item as any).onRenameKeyDown({
+      key: 'Escape',
+      preventDefault: noop,
+      currentTarget: { value: 'whatever' },
+    })
+    expect(onCancelRename).toHaveBeenCalled()
   })
 })

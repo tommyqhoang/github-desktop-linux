@@ -247,6 +247,11 @@ import { ApiRepositoriesStore } from './api-repositories-store'
 import { StashStore } from './stash-store'
 import { WorktreeStore } from './worktree-store'
 import { FileTreeStore } from './file-tree-store'
+import {
+  renameEntry,
+  deleteEntry,
+  getParentPath,
+} from '../file-tree/file-operations'
 import { WorkflowRunsStore } from './workflow-runs-store'
 import {
   addWorktree,
@@ -7155,9 +7160,73 @@ export class AppStore extends TypedBaseStore<IAppState> {
     this.fileTreeStore.collapse(repository, path)
   }
 
-  /** Select a file to display in the Files viewer. */
-  public _selectFileTreeFile(repository: Repository, path: string): void {
-    this.fileTreeStore.selectFile(repository, path)
+  /** Open a file as a tab in the Files viewer (and focus it). */
+  public _openFileTreeFile(repository: Repository, path: string): void {
+    this.fileTreeStore.openFile(repository, path)
+  }
+
+  /** Focus an already-open tab in the Files viewer. */
+  public _activateFileTreeTab(repository: Repository, path: string): void {
+    this.fileTreeStore.activateFile(repository, path)
+  }
+
+  /** Close a single tab in the Files viewer. */
+  public _closeFileTreeTab(repository: Repository, path: string): void {
+    this.fileTreeStore.closeFile(repository, path)
+  }
+
+  /** Close every open tab in the Files viewer. */
+  public _closeAllFileTreeTabs(repository: Repository): void {
+    this.fileTreeStore.closeAllFiles(repository)
+  }
+
+  /** Begin an inline rename of a Files-tree entry. */
+  public _beginFileTreeRename(repository: Repository, path: string): void {
+    this.fileTreeStore.beginRename(repository, path)
+  }
+
+  /** Cancel an in-progress inline rename. */
+  public _cancelFileTreeRename(repository: Repository): void {
+    this.fileTreeStore.cancelRename(repository)
+  }
+
+  /**
+   * Rename a Files-tree entry on disk, then reconcile open tabs and refresh the
+   * containing directory listing.
+   */
+  public async _renameFileTreeEntry(
+    repository: Repository,
+    oldPath: string,
+    newName: string
+  ): Promise<void> {
+    try {
+      const newPath = await renameEntry(repository, oldPath, newName)
+      this.fileTreeStore.reconcileRename(repository, oldPath, newPath)
+      await this.fileTreeStore.reloadDirectory(
+        repository,
+        getParentPath(oldPath)
+      )
+    } catch (e) {
+      this.fileTreeStore.cancelRename(repository)
+      this.emitError(e instanceof Error ? e : new Error(String(e)))
+    }
+  }
+
+  /**
+   * Move a Files-tree entry to the trash, then close any tabs it backed and
+   * refresh the containing directory listing.
+   */
+  public async _deleteFileTreeEntry(
+    repository: Repository,
+    path: string
+  ): Promise<void> {
+    try {
+      await deleteEntry(repository, path)
+      this.fileTreeStore.closeFilesUnder(repository, path)
+      await this.fileTreeStore.reloadDirectory(repository, getParentPath(path))
+    } catch (e) {
+      this.emitError(e instanceof Error ? e : new Error(String(e)))
+    }
   }
 
   /** Refresh the cached workflow runs for the given repository. */

@@ -2705,9 +2705,51 @@ export class Dispatcher {
     this.appStore._collapseFileTreeFolder(repository, path)
   }
 
-  /** Select a file to display in the Files viewer. */
-  public selectFileTreeFile(repository: Repository, path: string): void {
-    this.appStore._selectFileTreeFile(repository, path)
+  /** Open a file as a tab in the Files viewer (and focus it). */
+  public openFileTreeFile(repository: Repository, path: string): void {
+    this.appStore._openFileTreeFile(repository, path)
+  }
+
+  /** Focus an already-open tab in the Files viewer. */
+  public activateFileTreeTab(repository: Repository, path: string): void {
+    this.appStore._activateFileTreeTab(repository, path)
+  }
+
+  /** Close a single tab in the Files viewer. */
+  public closeFileTreeTab(repository: Repository, path: string): void {
+    this.appStore._closeFileTreeTab(repository, path)
+  }
+
+  /** Close every open tab in the Files viewer. */
+  public closeAllFileTreeTabs(repository: Repository): void {
+    this.appStore._closeAllFileTreeTabs(repository)
+  }
+
+  /** Begin an inline rename of a Files-tree entry. */
+  public beginFileTreeRename(repository: Repository, path: string): void {
+    this.appStore._beginFileTreeRename(repository, path)
+  }
+
+  /** Cancel an in-progress inline rename. */
+  public cancelFileTreeRename(repository: Repository): void {
+    this.appStore._cancelFileTreeRename(repository)
+  }
+
+  /** Rename a Files-tree entry on disk and reconcile the viewer. */
+  public renameFileTreeEntry(
+    repository: Repository,
+    oldPath: string,
+    newName: string
+  ): Promise<void> {
+    return this.appStore._renameFileTreeEntry(repository, oldPath, newName)
+  }
+
+  /** Move a Files-tree entry to the trash and refresh the viewer. */
+  public deleteFileTreeEntry(
+    repository: Repository,
+    path: string
+  ): Promise<void> {
+    return this.appStore._deleteFileTreeEntry(repository, path)
   }
 
   /** Refresh the cached workflow runs for the given repository. */

@@ -3631,7 +3631,9 @@ export class App extends React.Component<IAppProps, IAppState> {
               expandedPaths: new Set<string>(),
               childrenByPath: new Map(),
               loadingPaths: new Set<string>(),
-              selectedFilePath: null,
+              openFilePaths: [],
+              activeFilePath: null,
+              renamingPath: null,
               error: null,
             }
           }

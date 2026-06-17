@@ -7,6 +7,9 @@ interface IFileTreeProps {
   readonly state: IRepoFileTreeState
   readonly onToggleFolder: (path: string) => void
   readonly onSelectFile: (path: string) => void
+  readonly onContextMenu: (entry: FileTreeEntry) => void
+  readonly onSubmitRename: (entry: FileTreeEntry, newName: string) => void
+  readonly onCancelRename: () => void
 }
 
 interface IFlatRow {
@@ -57,10 +60,14 @@ export class FileTree extends React.Component<IFileTreeProps> {
             entry={row.entry}
             depth={row.depth}
             isExpanded={state.expandedPaths.has(row.entry.path)}
-            isSelected={state.selectedFilePath === row.entry.path}
+            isSelected={state.activeFilePath === row.entry.path}
             isLoading={state.loadingPaths.has(row.entry.path)}
+            isRenaming={state.renamingPath === row.entry.path}
             onToggleFolder={this.props.onToggleFolder}
             onSelectFile={this.props.onSelectFile}
+            onContextMenu={this.props.onContextMenu}
+            onSubmitRename={this.props.onSubmitRename}
+            onCancelRename={this.props.onCancelRename}
           />
         ))}
       </div>

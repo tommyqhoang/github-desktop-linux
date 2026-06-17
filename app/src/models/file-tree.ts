@@ -16,3 +16,13 @@ export type FileViewerContents = {
   /** True when the file exceeds the viewer's size cap. */
   readonly tooLarge: boolean
 }
+
+/** An image or video file prepared for inline display in the viewer. */
+export type MediaViewerContents = {
+  /** Whether to render the data URL as an image or a video player. */
+  readonly kind: 'image' | 'video'
+  /** A `data:` URL embedding the file's bytes. Empty when `tooLarge`. */
+  readonly dataUrl: string
+  /** True when the file exceeds the media viewer's size cap. */
+  readonly tooLarge: boolean
+}
