@@ -79,7 +79,10 @@ PR count, CI status, attention score per repo.
   coalescing.
 - UI: `RepoHealthDashboard` (sort + filter + refresh) + `RepoHealthRow`,
   wrapped in `RepoHealthDashboardDialog`, opened via
-  `PopupType.RepoHealthDashboard`.
+  `PopupType.RepoHealthDashboard`. Signal cells drill down:
+  `resolveDrillDownSection` (`app/src/lib/repo-health/drill-down.ts`) maps a
+  signal to a `RepositorySectionTab` (changes→Changes, ahead/behind→History,
+  ci→Actions); `App.onDrillDown` selects the repo and switches section.
 - Probes (`makeRepoHealthProbes` in `app-store.ts`) are all wired to
   real data sources: `getStatus`, `getAheadBehind` (`HEAD...@{u}`
   symmetric range), the GitHub combined-ref-status API for CI,
@@ -285,8 +288,83 @@ format-aware viewer. Lives inside `RepositoryView`
   keep the tree + open viewers current even when Files isn't the active tab).
 - **Keyboard** (in `RepositoryView.onGlobalKeyDown`, only while Files is
   active): Ctrl/Cmd+W closes the active tab; Ctrl+PageDown/PageUp cycle tabs
-  (Ctrl+Tab is reserved for switching repository sections).
-- Tests: 90 unit tests across 10 files in `app/test/unit/file-tree/`.
+  (Ctrl+Tab is reserved for switching repository sections); Ctrl/Cmd+F bumps
+  `RepositoryView`'s `openFindToken`, which `FileViewer` watches to open its
+  find bar.
+- **Blame + find** (in `FileViewer`): a **Blame** toggle lazily loads
+  `getBlame` (`app/src/lib/git/blame.ts`, `parseBlamePorcelain`) and renders a
+  per-line gutter with author + short SHA, collapsing contiguous runs of one
+  commit. A **Find** bar (`app/src/lib/file-tree/find-in-file.ts`,
+  `findMatches`) highlights the active match with count + next/prev. Both keep
+  their own component state guarded by tokens like the content loader.
+- Tests: 90 unit tests across 10 files in `app/test/unit/file-tree/`, plus
+  `blame-test.ts` and `find-in-file-test.ts`.
+
+### Submodules (`app/src/lib/git/submodule.ts`, `app/src/lib/stores/submodule-store.ts`, `app/src/ui/submodules/`)
+
+A Submodules tab mirroring the Worktrees subsystem.
+
+- **Git layer**: `parseSubmoduleStatus` parses `git submodule status` into
+  `ISubmoduleStatusEntry` (`{sha, path, describe, state}`) where `state` is a
+  `SubmoduleWorkDirState` derived from the leading flag (` `/`-`/`+`/`U` →
+  upToDate/uninitialized/outOfDate/conflicted). `getSubmodules`,
+  `updateSubmodules` (`--init --recursive`), `syncSubmodules`, `deinitSubmodule`.
+  The pre-existing `listSubmodules`/`resetSubmodulePaths` are unchanged.
+- **`SubmoduleStore`**: per-`repositoryId` cache, coalescing + clear-during-load
+  guard, surfaced via `IAppState.submodulesByRepoId`.
+- **UI**: `SubmoduleList` + `SubmoduleListItem` (status badge, per-row Update,
+  Update-all / Sync toolbar), backing both sidebar and detail pane in
+  `RepositorySectionTab.Submodules` (overflow menu).
+- **Dispatcher**: `loadSubmodules`, `updateSubmodules`, `syncSubmodules`.
+
+### Commit Graph (`app/src/lib/commit-graph.ts`, `app/src/ui/history/commit-graph.tsx`)
+
+DAG lane rendering beside the History commit list.
+
+- `buildCommitGraph(commits)` assigns branch lanes from parent SHAs
+  (newest-first): waiting lanes merge into a commit's node, tips take the
+  leftmost free lane, parents continue/open lanes, trailing lanes compact for
+  reuse. Returns per-row `{sha, column, lanes, parentColumns, totalColumns}`.
+  `computeGraphSegments(row, nextLanes)` derives the line segments to draw.
+- `CommitGraph` renders an SVG cell; `commit-list.tsx` memoizes
+  `buildCommitGraph` by `commitSHAs` and renders a lane column left of each row.
+
+### Command Palette (`app/src/lib/command-palette.ts`, `app/src/ui/command-palette/`)
+
+A fuzzy action launcher opened with Ctrl/Cmd+K (handled in `App.onWindowKeyDown`
+→ `PopupType.CommandPalette`).
+
+- `buildCommandPaletteItems(context)` builds the action list from an injected
+  `ICommandPaletteContext` (repo-scoped actions gated on `hasRepository`);
+  `filterCommands` ranks via `fuzzy-find`. `App.buildCommandPaletteItems` wires
+  dispatcher actions, including the AI review/summarize actions.
+- `CommandPalette` dialog: query input, arrow/Enter navigation, run-on-activate.
+
+### AI-Native Workflow (`app/src/lib/ai/`, `app/src/ui/ai/`)
+
+Four one-shot AI actions on a shared client, layered on the existing AI
+commit-message provider (OpenRouter, configured in Preferences).
+
+- **Shared core**: `client.ts` (`createAIClient` → `complete(messages, opts)`,
+  injectable `fetcher`, `truncateForPrompt`); `ai-settings.ts` (`IAISettings`,
+  `getAISettings`, `hasUsableAISettings`); `git-context.ts` (raw `git diff`/
+  `show` text helpers); `actions.ts` (orchestrators `runPRDescription`,
+  `runSummary`, `runReview`, `runConflictAssist`, each accepting an injected
+  `IAIClient` for tests). `commit-message.ts` is intentionally NOT refactored
+  onto the client — its tests pin the exact wire format.
+- **Actions** (pure builder + parser each): `pr-description.ts`,
+  `summarize-changes.ts`, `review-changes.ts`, `conflict-assist.ts`
+  (`parseConflictHunks` handles diff3 base sections).
+- **UI**: `AIResultDialog` (loading/error/result + Insert/Copy/Regenerate,
+  render-prop body), `ai-result-render.tsx` (`renderAIResult` +
+  `aiResultCopyText` per kind), `AIActionDialog` container (runs the orchestrator
+  on mount, guarded against stale results and unmount). Driven by
+  `PopupType.AIAction` carrying `{repository, action}` (the `AIAction` union is
+  in `models/ai-action.ts`).
+- **Entry points**: command palette ("AI: Review my changes" / "AI: Summarize
+  my changes") and a "Generate description (AI)" button in the open-PR dialog.
+  GitHub Desktop's "Create PR" opens the browser, so the PR description result
+  is Copy-to-paste rather than an in-app field.
 
 ## Commit & Pull Request Guidelines
 

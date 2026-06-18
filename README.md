@@ -38,6 +38,27 @@ Desktop codebase:
 
   [![Commit AI generation](https://i.ibb.co/p7zh9yY/Screenshot-From-2026-05-08-23-15-33.png)](https://ibb.co/tGsLWXV)
 
+- **AI-native workflow**: four one-shot AI actions that reuse the same
+  OpenRouter provider as AI commit messages — generate a **pull request
+  description** (title + body) from the branch's commits and diff, **summarize**
+  a set of changes or a commit in plain language, **review your changes** before
+  committing (severity-tagged findings), and get **merge-conflict assistance**
+  that explains a conflict and suggests a resolution. Each shows in a shared
+  result dialog with Copy/Regenerate. Reach the review/summarize actions from
+  the command palette and PR descriptions from the "Open pull request" dialog.
+- **Command palette**: a fuzzy action launcher opened with `Ctrl/Cmd+K` —
+  jump to repository sections, push/pull/fetch, create a branch, toggle the
+  terminal, open preferences, or run the AI actions, all from the keyboard.
+- **Git blame**: a per-line blame gutter in the Files viewer (toggle **Blame**)
+  showing the author and short SHA that last touched each line, with contiguous
+  runs of the same commit collapsed.
+- **In-file find**: `Ctrl/Cmd+F` in the Files viewer opens a find bar with a
+  match count and next/previous navigation that highlights the active match.
+- **Commit graph**: the History list draws branch/merge topology as colored
+  lane lines beside each commit.
+- **Submodules management**: a Submodules tab listing each submodule with its
+  checked-out commit, status (uninitialized / out-of-date / conflicted), and
+  actions to update (init + checkout) all or one, and to sync remote URLs.
 - **Integrated terminal**: a repo-scoped terminal panel docked at the bottom of
   the window, toggled with `` Ctrl+` ``. It runs real shell sessions
   (`node-pty` + `xterm.js`) with multiple tabs and per-repository session
@@ -54,7 +75,9 @@ Desktop codebase:
 - **Repository health dashboard**: a cross-repository status view showing
   uncommitted files, ahead/behind counts, open pull request count,
   default-branch CI status, and a per-repository attention score, with sorting,
-  filtering, and refresh.
+  filtering, and refresh. Signal cells drill down — click one to open that
+  repository on the relevant tab (changes → Changes, ahead/behind → History,
+  CI → Actions).
 - **In-app pull request review**: review a pull request without leaving the
   app — load its review threads, draft line comments, set a verdict (approve,
   request changes, or comment), and submit the review in one shot.
