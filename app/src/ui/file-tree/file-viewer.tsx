@@ -22,6 +22,10 @@ import { syntaxHighlightLine } from '../diff/diff-helpers'
 import { SandboxedMarkdown } from '../lib/sandboxed-markdown'
 import { Button } from '../lib/button'
 import { Emoji } from '../../lib/emoji'
+import { getBlame } from '../../lib/git/blame'
+import { Blame } from '../../models/blame'
+import { findMatches } from '../../lib/file-tree/find-in-file'
+import { TextBox } from '../lib/text-box'
 
 /** File extensions rendered as formatted Markdown rather than source. */
 const MarkdownExtensions = new Set(['.md', '.markdown', '.mdown', '.mkd'])
@@ -45,6 +49,11 @@ interface IFileViewerProps {
    * disk (e.g. after a pull or checkout).
    */
   readonly reloadToken: number
+  /**
+   * Bumped by the parent (on Ctrl/Cmd+F) to open the find-in-file bar. The
+   * viewer opens find whenever this value increases.
+   */
+  readonly openFindToken?: number
 }
 
 interface IFileViewerState {
@@ -56,6 +65,16 @@ interface IFileViewerState {
   readonly browserViewable: boolean
   readonly tokens: ITokens
   readonly error: Error | null
+  /** Whether the per-line blame gutter is shown for the code view. */
+  readonly showBlame: boolean
+  /** Loaded blame for the open file, or null when not yet/loaded. */
+  readonly blame: Blame | null
+  /** Whether the find-in-file bar is shown. */
+  readonly findVisible: boolean
+  /** Current find query. */
+  readonly findQuery: string
+  /** Index of the active match within the current match list. */
+  readonly activeMatchIndex: number
 }
 
 const TabSize = 4
@@ -71,6 +90,9 @@ export class FileViewer extends React.Component<
   /** mtime (ms) of the file currently displayed, for change detection. */
   private loadedMtimeMs: number | null = null
 
+  /** Blame guard, paired with loadToken so stale blame results are dropped. */
+  private blameToken = 0
+
   public constructor(props: IFileViewerProps) {
     super(props)
     this.state = {
@@ -80,8 +102,77 @@ export class FileViewer extends React.Component<
       browserViewable: false,
       tokens: {},
       error: null,
+      showBlame: false,
+      blame: null,
+      findVisible: false,
+      findQuery: '',
+      activeMatchIndex: 0,
     }
   }
+
+  /**
+   * Toggle the blame gutter. Turning it on lazily loads blame for the open
+   * file; turning it off clears the loaded blame.
+   */
+  private toggleBlame = () => {
+    const { filePath } = this.props
+    if (this.state.showBlame) {
+      this.setState({ showBlame: false, blame: null })
+      return
+    }
+    this.setState({ showBlame: true })
+    if (filePath !== null) {
+      this.loadBlame(filePath)
+    }
+  }
+
+  private async loadBlame(filePath: string) {
+    const token = ++this.blameToken
+    try {
+      const blame = await getBlame(this.props.repository, filePath)
+      if (token === this.blameToken && this.props.filePath === filePath) {
+        this.setState({ blame })
+      }
+    } catch (error) {
+      log.warn(`[FileViewer] failed to load blame for ${filePath}`, error)
+    }
+  }
+
+  /** Matches for the current find query against the open file's lines. */
+  private get findMatches() {
+    const { contents, findQuery } = this.state
+    if (contents === null || !findQuery) {
+      return []
+    }
+    return findMatches(contents.content.split('\n'), findQuery)
+  }
+
+  private onFindKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      this.setState({ findVisible: false })
+    } else if (event.key === 'Enter') {
+      event.preventDefault()
+      this.stepMatch(event.shiftKey ? -1 : 1)
+    }
+  }
+
+  private onFindQueryChanged = (findQuery: string) => {
+    this.setState({ findQuery, activeMatchIndex: 0 })
+  }
+
+  private stepMatch = (delta: number) => {
+    const count = this.findMatches.length
+    if (count === 0) {
+      return
+    }
+    this.setState(prev => ({
+      activeMatchIndex: (prev.activeMatchIndex + delta + count) % count,
+    }))
+  }
+
+  private onFindNext = () => this.stepMatch(1)
+  private onFindPrevious = () => this.stepMatch(-1)
 
   public componentDidMount() {
     if (this.props.filePath !== null) {
@@ -90,11 +181,18 @@ export class FileViewer extends React.Component<
   }
 
   public componentDidUpdate(prevProps: IFileViewerProps) {
-    const { filePath, reloadToken } = this.props
+    const { filePath, reloadToken, openFindToken } = this.props
     if (prevProps.filePath !== filePath && filePath !== null) {
       this.load(filePath)
     } else if (prevProps.reloadToken !== reloadToken && filePath !== null) {
       this.reloadIfChanged(filePath)
+    }
+
+    if (
+      openFindToken !== undefined &&
+      openFindToken !== prevProps.openFindToken
+    ) {
+      this.setState({ findVisible: true })
     }
   }
 
@@ -113,7 +211,11 @@ export class FileViewer extends React.Component<
   private async load(filePath: string) {
     const { repository } = this.props
     const token = ++this.loadToken
-    this.setState({ loading: true, error: null })
+    this.setState({ loading: true, error: null, blame: null })
+    // Reload blame for the new file when the gutter is showing.
+    if (this.state.showBlame) {
+      this.loadBlame(filePath)
+    }
 
     try {
       // HTML/PDF files aren't read inline; they're opened in the browser on
@@ -261,14 +363,34 @@ export class FileViewer extends React.Component<
     }
 
     const lines = contents.content.split('\n')
+    const { showBlame, blame, findVisible } = this.state
+    const matches = this.findMatches
+    const activeMatch = matches[this.state.activeMatchIndex]
     return (
       <div className="file-viewer">
+        <div className="file-viewer-toolbar">
+          <Button onClick={this.toggleBlame}>
+            {showBlame ? 'Hide blame' : 'Blame'}
+          </Button>
+          <Button onClick={this.toggleFind}>
+            {findVisible ? 'Hide find' : 'Find'}
+          </Button>
+        </div>
+        {findVisible && this.renderFindBar(matches.length)}
         {/* cm-s-default scopes the CodeMirror syntax theme so the cm-* token
             classes emitted by syntaxHighlightLine pick up their colours. */}
         <table className="file-viewer-code cm-s-default">
           <tbody>
             {lines.map((line, i) => (
-              <tr key={i} className="file-viewer-line">
+              <tr
+                key={i}
+                className={
+                  activeMatch !== undefined && activeMatch.line === i
+                    ? 'file-viewer-line is-find-active'
+                    : 'file-viewer-line'
+                }
+              >
+                {showBlame ? this.renderBlameCell(blame, i) : null}
                 <td className="line-number">{i + 1}</td>
                 <td className="line-content">
                   {syntaxHighlightLine(line, [tokens[i] ?? {}])}
@@ -278,6 +400,59 @@ export class FileViewer extends React.Component<
           </tbody>
         </table>
       </div>
+    )
+  }
+
+  private toggleFind = () => {
+    this.setState(prev => ({ findVisible: !prev.findVisible }))
+  }
+
+  /** Render the find-in-file bar: query input, match count, and navigation. */
+  private renderFindBar(matchCount: number): JSX.Element {
+    const current = matchCount === 0 ? 0 : this.state.activeMatchIndex + 1
+    return (
+      <div className="file-viewer-find">
+        <TextBox
+          autoFocus={true}
+          placeholder="Find in file…"
+          ariaLabel="Find in file"
+          value={this.state.findQuery}
+          onValueChanged={this.onFindQueryChanged}
+          onKeyDown={this.onFindKeyDown}
+        />
+        <span className="file-viewer-find-count">
+          {current} of {matchCount}
+        </span>
+        <Button onClick={this.onFindPrevious} disabled={matchCount === 0}>
+          Previous
+        </Button>
+        <Button onClick={this.onFindNext} disabled={matchCount === 0}>
+          Next
+        </Button>
+      </div>
+    )
+  }
+
+  /**
+   * Render the blame gutter cell for a code line. When the line repeats the
+   * commit of the line above, the attribution is suppressed so contiguous
+   * blocks read as a single annotation.
+   */
+  private renderBlameCell(blame: Blame | null, index: number): JSX.Element {
+    const entry = blame?.[index]
+    if (entry === undefined) {
+      return <td className="file-viewer-blame" />
+    }
+    const previous = blame?.[index - 1]
+    const repeats = previous !== undefined && previous.sha === entry.sha
+    if (repeats) {
+      return <td className="file-viewer-blame is-repeat" />
+    }
+    return (
+      <td className="file-viewer-blame">
+        <span className="blame-author">{entry.author}</span>
+        <span className="blame-sha">{entry.sha.substring(0, 8)}</span>
+      </td>
     )
   }
 

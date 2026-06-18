@@ -6,6 +6,26 @@
   flex: 1;
   min-height: 0;
 
+  // Each row pairs the branch-graph cell with the commit summary so the lane
+  // lines sit immediately left of the commit content.
+  .commit-list-row {
+    display: flex;
+    align-items: stretch;
+    width: 100%;
+    height: 100%;
+  }
+
+  .commit-graph {
+    flex-shrink: 0;
+    display: block;
+  }
+
+  .commit-list-row > .draggable,
+  .commit-list-row > .commit {
+    flex: 1;
+    min-width: 0;
+  }
+
   .draggable,
   .commit {
     width: 100%;

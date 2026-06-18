@@ -2687,6 +2687,27 @@ export class Dispatcher {
     return this.appStore._loadWorktrees(repository)
   }
 
+  /** Refresh the cached submodule list for the given repository. */
+  public loadSubmodules(repository: Repository): Promise<void> {
+    return this.appStore._loadSubmodules(repository)
+  }
+
+  /**
+   * Update submodules (init + checkout). With no paths, updates all submodules;
+   * otherwise only the named ones.
+   */
+  public updateSubmodules(
+    repository: Repository,
+    paths: ReadonlyArray<string> = []
+  ): Promise<void> {
+    return this.appStore._updateSubmodules(repository, paths)
+  }
+
+  /** Sync submodule remote URLs from .gitmodules. */
+  public syncSubmodules(repository: Repository): Promise<void> {
+    return this.appStore._syncSubmodules(repository)
+  }
+
   /** Load the repository's working-tree root for the Files tab. */
   public loadFileTreeRoot(repository: Repository): Promise<void> {
     return this.appStore._loadFileTreeRoot(repository)

@@ -124,6 +124,86 @@ describe('FileViewer rendering', () => {
     expect(html).not.toContain('file-viewer-code')
   })
 
+  it('renders a blame gutter when blame is loaded and shown', () => {
+    const viewer = makeViewer('a.ts')
+    setContents(viewer, {
+      content: 'const x = 1\nconst y = 2',
+      isBinary: false,
+      tooLarge: false,
+    })
+    ;(viewer as any).state = {
+      ...(viewer as any).state,
+      showBlame: true,
+      blame: [
+        {
+          sha: 'abcdef1234567890abcdef1234567890abcdef12',
+          author: 'Ada Lovelace',
+          authorMail: 'ada@example.com',
+          authorTime: 1600000000,
+          summary: 'first',
+          previousSha: null,
+          lineNumber: 1,
+          content: 'const x = 1',
+        },
+        {
+          sha: '1111111111111111111111111111111111111111',
+          author: 'Bob',
+          authorMail: 'bob@example.com',
+          authorTime: 1610000000,
+          summary: 'second',
+          previousSha: null,
+          lineNumber: 2,
+          content: 'const y = 2',
+        },
+      ],
+    }
+    const html = renderViewer(viewer)
+    expect(html).toContain('file-viewer-blame')
+    expect(html).toContain('Ada Lovelace')
+    expect(html).toContain('Bob')
+    // Short sha (first 8) is shown, not the full 40-char sha.
+    expect(html).toContain('abcdef12')
+  })
+
+  it('suppresses the author on a line that repeats the commit above', () => {
+    const viewer = makeViewer('a.ts')
+    setContents(viewer, {
+      content: 'line one\nline two',
+      isBinary: false,
+      tooLarge: false,
+    })
+    const shared = {
+      sha: '2222222222222222222222222222222222222222',
+      author: 'Grace',
+      authorMail: 'grace@example.com',
+      authorTime: 1,
+      summary: 's',
+      previousSha: null,
+    }
+    ;(viewer as any).state = {
+      ...(viewer as any).state,
+      showBlame: true,
+      blame: [
+        { ...shared, lineNumber: 1, content: 'line one' },
+        { ...shared, lineNumber: 2, content: 'line two' },
+      ],
+    }
+    const html = renderViewer(viewer)
+    // The repeated row is marked and the author only appears once.
+    expect(html).toContain('is-repeat')
+    expect(html.match(/Grace/g)).toHaveLength(1)
+  })
+
+  it('does not render the blame gutter when blame is hidden', () => {
+    const viewer = makeViewer('a.ts')
+    setContents(viewer, {
+      content: 'const x = 1',
+      isBinary: false,
+      tooLarge: false,
+    })
+    expect(renderViewer(viewer)).not.toContain('file-viewer-blame')
+  })
+
   it('renders non-Markdown files as a highlighted code table', () => {
     const viewer = makeViewer('a.ts')
     setContents(viewer, {
@@ -135,6 +215,53 @@ describe('FileViewer rendering', () => {
     expect(html).toContain('file-viewer-code')
     // cm-s-default scopes the syntax theme so token colours apply.
     expect(html).toContain('cm-s-default')
+  })
+
+  it('renders a find bar with a match count when find is open', () => {
+    const viewer = makeViewer('a.ts')
+    setContents(viewer, {
+      content: 'foo bar\nbar foo foo',
+      isBinary: false,
+      tooLarge: false,
+    })
+    ;(viewer as any).state = {
+      ...(viewer as any).state,
+      findVisible: true,
+      findQuery: 'foo',
+      activeMatchIndex: 0,
+    }
+    const html = renderViewer(viewer)
+    expect(html).toContain('file-viewer-find')
+    // Three 'foo' occurrences; active is the first.
+    expect(html).toContain('1 of 3')
+  })
+
+  it('shows no-results in the find bar when nothing matches', () => {
+    const viewer = makeViewer('a.ts')
+    setContents(viewer, {
+      content: 'hello world',
+      isBinary: false,
+      tooLarge: false,
+    })
+    ;(viewer as any).state = {
+      ...(viewer as any).state,
+      findVisible: true,
+      findQuery: 'zzz',
+      activeMatchIndex: 0,
+    }
+    const html = renderViewer(viewer)
+    expect(html).toContain('file-viewer-find')
+    expect(html).toContain('0 of 0')
+  })
+
+  it('does not render the find bar by default', () => {
+    const viewer = makeViewer('a.ts')
+    setContents(viewer, {
+      content: 'foo',
+      isBinary: false,
+      tooLarge: false,
+    })
+    expect(renderViewer(viewer)).not.toContain('file-viewer-find')
   })
 
   it('shows an error notice', () => {

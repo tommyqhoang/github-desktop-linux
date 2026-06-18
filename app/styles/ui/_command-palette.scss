@@ -1,0 +1,41 @@
+#command-palette {
+  .command-palette-list {
+    list-style: none;
+    margin: var(--spacing) 0 0;
+    padding: 0;
+    max-height: 320px;
+    overflow-y: auto;
+  }
+
+  .command-palette-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing);
+    padding: var(--spacing-half) var(--spacing);
+    border-radius: var(--border-radius);
+    cursor: pointer;
+
+    &:hover {
+      background-color: var(--list-item-hover-background-color);
+    }
+
+    &.selected {
+      background-color: var(--box-selected-background-color);
+      color: var(--box-selected-active-text-color, inherit);
+    }
+  }
+
+  .command-palette-item-subtitle {
+    color: var(--text-secondary-color);
+    font-size: var(--font-size-sm);
+    font-family: var(--font-family-monospace);
+  }
+
+  .command-palette-empty {
+    margin-top: var(--spacing);
+    padding: var(--spacing);
+    text-align: center;
+    color: var(--text-secondary-color);
+  }
+}

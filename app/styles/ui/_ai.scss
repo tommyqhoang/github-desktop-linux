@@ -1,0 +1,99 @@
+#ai-result-dialog {
+  .ai-result-dialog__loading,
+  .ai-result-dialog__error {
+    padding: var(--spacing-double);
+    text-align: center;
+  }
+
+  .ai-result-dialog__error {
+    color: var(--error-color);
+  }
+
+  .ai-result-dialog__result {
+    max-height: 50vh;
+    overflow-y: auto;
+  }
+
+  .ai-result-dialog__actions {
+    display: flex;
+    gap: var(--spacing-half);
+    justify-content: flex-end;
+  }
+
+  pre {
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: var(--font-family-monospace);
+    font-size: var(--font-size-sm);
+    margin: 0;
+  }
+
+  .ai-pr-description__title {
+    margin: 0 0 var(--spacing-half);
+  }
+
+  .ai-summary {
+    line-height: 1.5;
+  }
+
+  .ai-review {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .ai-review__item {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 2px var(--spacing-half);
+    padding: var(--spacing-half) 0;
+    border-bottom: 1px solid var(--box-border-color);
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+
+  .ai-review__severity {
+    grid-row: 1 / span 2;
+    align-self: start;
+    text-transform: uppercase;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    padding: 0 var(--spacing-half);
+    border-radius: var(--border-radius);
+
+    &.severity-high {
+      background: var(--color-deleted-subtle, rgba(207, 34, 46, 0.15));
+      color: var(--color-deleted, #cf222e);
+    }
+    &.severity-medium {
+      background: var(--color-modified-subtle, rgba(219, 171, 9, 0.2));
+      color: var(--color-modified, #dbab09);
+    }
+    &.severity-low {
+      background: var(--box-alt-background-color);
+      color: var(--text-secondary-color);
+    }
+  }
+
+  .ai-review__title {
+    font-weight: var(--font-weight-semibold);
+  }
+
+  .ai-review__detail {
+    grid-column: 2;
+    color: var(--text-secondary-color);
+    font-size: var(--font-size-sm);
+  }
+
+  .ai-review__empty {
+    padding: var(--spacing-double);
+    text-align: center;
+    color: var(--text-secondary-color);
+  }
+
+  .ai-conflict__explanation {
+    margin-top: 0;
+  }
+}

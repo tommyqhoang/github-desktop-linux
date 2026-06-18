@@ -1,0 +1,128 @@
+.submodule-list {
+  display: flex;
+  flex-direction: column;
+  padding: var(--spacing);
+
+  &__loading,
+  &__empty {
+    padding: var(--spacing-double);
+    text-align: center;
+    color: var(--text-secondary-color);
+  }
+
+  &__toolbar {
+    display: flex;
+    gap: var(--spacing-half);
+    padding-bottom: var(--spacing);
+    margin-bottom: var(--spacing-half);
+    border-bottom: 1px solid var(--box-border-color);
+    flex-shrink: 0;
+  }
+
+  // Scroll the submodule rows independently so the toolbar stays pinned.
+  &__body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  &__item {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--spacing);
+    padding: var(--spacing);
+    border-bottom: 1px solid var(--box-border-color);
+    transition: background-color 0.1s ease-in-out;
+
+    &:hover {
+      background-color: var(--list-item-hover-background-color);
+    }
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+
+  &__item-main {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__update {
+    flex-shrink: 0;
+  }
+
+  &__path {
+    font-weight: var(--font-weight-semibold);
+    word-break: break-word;
+  }
+
+  &__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-half) var(--spacing);
+    margin-top: var(--spacing-half);
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary-color);
+  }
+
+  &__describe {
+    color: var(--text-color);
+  }
+
+  &__sha {
+    font-family: var(--font-family-monospace);
+    opacity: 0.7;
+  }
+
+  &__badge {
+    padding: 0 var(--spacing-half);
+    border-radius: var(--border-radius);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+
+    &--uninitialized {
+      background: var(--color-deleted-subtle, rgba(207, 34, 46, 0.15));
+      color: var(--color-deleted, #cf222e);
+    }
+
+    &--outofdate {
+      background: var(--color-modified-subtle, rgba(219, 171, 9, 0.2));
+      color: var(--color-modified, #dbab09);
+    }
+
+    &--conflicted {
+      background: var(--color-deleted-subtle, rgba(207, 34, 46, 0.15));
+      color: var(--color-deleted, #cf222e);
+    }
+  }
+}
+
+.submodule-detail-pane {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: var(--spacing-double);
+
+  h3 {
+    margin: 0 0 var(--spacing);
+    flex-shrink: 0;
+  }
+
+  // The shared SubmoduleList paints its own padding; drop the duplicate inset.
+  .submodule-list {
+    padding: 0;
+    flex: 1;
+    min-height: 0;
+  }
+}

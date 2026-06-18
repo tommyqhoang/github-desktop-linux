@@ -38,6 +38,7 @@ function makeDashboard(
     repositories: repos,
     snapshot,
     onSelectRepository: onSelect,
+    onDrillDown: jest.fn(),
     onRefreshClick: onRefresh,
   })
   ;(dash as any).setState = (s: any) => {

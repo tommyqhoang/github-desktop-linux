@@ -2,12 +2,17 @@ import * as React from 'react'
 import { Dialog, DialogContent } from '../dialog'
 import { Repository } from '../../models/repository'
 import { IRepoHealthSnapshot } from '../../lib/repo-health/types'
+import { RepositorySectionTab } from '../../lib/app-state'
 import { RepoHealthDashboard } from './repo-health-dashboard'
 
 interface IProps {
   readonly repositories: ReadonlyArray<Repository>
   readonly snapshot: IRepoHealthSnapshot
   readonly onSelectRepository: (repo: Repository) => void
+  readonly onDrillDown: (
+    repo: Repository,
+    section: RepositorySectionTab
+  ) => void
   readonly onRefreshClick: () => void
   /** Fired once when the dialog mounts so the caller can kick a refresh. */
   readonly onMounted: () => void
@@ -42,6 +47,7 @@ export class RepoHealthDashboardDialog extends React.Component<IProps> {
             repositories={this.props.repositories}
             snapshot={this.props.snapshot}
             onSelectRepository={this.props.onSelectRepository}
+            onDrillDown={this.props.onDrillDown}
             onRefreshClick={this.props.onRefreshClick}
           />
         </DialogContent>

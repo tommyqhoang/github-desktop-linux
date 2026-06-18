@@ -243,6 +243,20 @@
     }
   }
 
+  // A signal cell that drills into a repository section on click. Reset the
+  // native button look and add an affordance on hover/focus.
+  &__cell-button {
+    text-align: left;
+    cursor: pointer;
+    font: inherit;
+
+    &:hover,
+    &:focus {
+      border-color: var(--focus-color, var(--link-button-color));
+      background: var(--list-item-hover-background-color);
+    }
+  }
+
   &__cell-label {
     font-size: var(--font-size-xs);
     text-transform: uppercase;

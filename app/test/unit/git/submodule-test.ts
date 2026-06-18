@@ -3,9 +3,14 @@ import { readFile, writeFile } from 'fs-extra'
 
 import { Repository } from '../../../src/models/repository'
 import {
+  getSubmodules,
   listSubmodules,
+  parseSubmoduleStatus,
   resetSubmodulePaths,
+  syncSubmodules,
+  updateSubmodules,
 } from '../../../src/lib/git/submodule'
+import { SubmoduleWorkDirState } from '../../../src/models/submodule'
 import { checkoutBranch, getBranches } from '../../../src/lib/git'
 import { setupFixtureRepository } from '../../helpers/repositories'
 
@@ -88,6 +93,86 @@ describe('git/submodule', () => {
 
       const result = await readFile(filePath, { encoding: 'utf8' })
       expect(result).toBe('# submodule-test-case')
+    })
+  })
+
+  describe('parseSubmoduleStatus', () => {
+    it('parses an up-to-date submodule', () => {
+      const output =
+        ' 1eaabe34fc6f486367a176207420378f587d3b48 vendor/lib (v2.16.0)\n'
+      const entries = parseSubmoduleStatus(output)
+      expect(entries).toHaveLength(1)
+      expect(entries[0]).toMatchObject({
+        sha: '1eaabe34fc6f486367a176207420378f587d3b48',
+        path: 'vendor/lib',
+        describe: 'v2.16.0',
+        state: SubmoduleWorkDirState.UpToDate,
+      })
+    })
+
+    it('marks an uninitialized submodule (leading "-") with no describe', () => {
+      const output = '-1eaabe34fc6f486367a176207420378f587d3b48 vendor/lib\n'
+      const entries = parseSubmoduleStatus(output)
+      expect(entries).toHaveLength(1)
+      expect(entries[0].state).toBe(SubmoduleWorkDirState.Uninitialized)
+      expect(entries[0].describe).toBe('')
+    })
+
+    it('marks an out-of-date submodule (leading "+")', () => {
+      const output =
+        '+1eaabe34fc6f486367a176207420378f587d3b48 vendor/lib (v2.0.0-2-gabcdef)\n'
+      const entries = parseSubmoduleStatus(output)
+      expect(entries[0].state).toBe(SubmoduleWorkDirState.OutOfDate)
+    })
+
+    it('marks a conflicted submodule (leading "U")', () => {
+      const output =
+        'U1eaabe34fc6f486367a176207420378f587d3b48 vendor/lib (heads/main)\n'
+      const entries = parseSubmoduleStatus(output)
+      expect(entries[0].state).toBe(SubmoduleWorkDirState.Conflicted)
+    })
+
+    it('parses multiple submodules', () => {
+      const output = [
+        ' aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa a (v1)',
+        '-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb b',
+        '+cccccccccccccccccccccccccccccccccccccccc c (v2)',
+      ].join('\n')
+      const entries = parseSubmoduleStatus(output)
+      expect(entries.map(e => e.path)).toEqual(['a', 'b', 'c'])
+      expect(entries.map(e => e.state)).toEqual([
+        SubmoduleWorkDirState.UpToDate,
+        SubmoduleWorkDirState.Uninitialized,
+        SubmoduleWorkDirState.OutOfDate,
+      ])
+    })
+
+    it('returns an empty array for empty output', () => {
+      expect(parseSubmoduleStatus('')).toEqual([])
+    })
+  })
+
+  describe('getSubmodules', () => {
+    it('reports the repository submodule with its work-dir state', async () => {
+      const testRepoPath = await setupFixtureRepository('submodule-basic-setup')
+      const repository = new Repository(testRepoPath, -1, null, false)
+      const result = await getSubmodules(repository)
+      expect(result).toHaveLength(1)
+      expect(result[0].path).toBe('foo/submodule')
+      expect(result[0].state).toBe(SubmoduleWorkDirState.UpToDate)
+    })
+  })
+
+  describe('updateSubmodules / syncSubmodules', () => {
+    it('updating then syncing leaves the submodule up to date', async () => {
+      const testRepoPath = await setupFixtureRepository('submodule-basic-setup')
+      const repository = new Repository(testRepoPath, -1, null, false)
+
+      await updateSubmodules(repository)
+      await syncSubmodules(repository)
+
+      const result = await getSubmodules(repository)
+      expect(result[0].state).toBe(SubmoduleWorkDirState.UpToDate)
     })
   })
 })

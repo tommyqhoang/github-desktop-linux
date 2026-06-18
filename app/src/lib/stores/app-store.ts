@@ -246,6 +246,8 @@ import { ExternalEditorError, suggestedExternalEditor } from '../editors/shared'
 import { ApiRepositoriesStore } from './api-repositories-store'
 import { StashStore } from './stash-store'
 import { WorktreeStore } from './worktree-store'
+import { SubmoduleStore } from './submodule-store'
+import { updateSubmodules, syncSubmodules } from '../git/submodule'
 import { FileTreeStore } from './file-tree-store'
 import {
   renameEntry,
@@ -503,6 +505,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
   private activeAccountByEndpoint: ReadonlyMap<string, number> = new Map()
   private readonly stashStore: StashStore = new StashStore()
   private readonly worktreeStore: WorktreeStore = new WorktreeStore()
+  private readonly submoduleStore: SubmoduleStore = new SubmoduleStore()
   private readonly fileTreeStore: FileTreeStore = new FileTreeStore()
   private readonly workflowRunsStore = new WorkflowRunsStore()
   private readonly terminalStore: TerminalStore =
@@ -1010,6 +1013,9 @@ export class AppStore extends TypedBaseStore<IAppState> {
     this.worktreeStore.onDidUpdate(() => this.emitUpdate())
     this.worktreeStore.onDidError(error => this.emitError(error))
 
+    this.submoduleStore.onDidUpdate(() => this.emitUpdate())
+    this.submoduleStore.onDidError(error => this.emitError(error))
+
     this.fileTreeStore.onDidUpdate(() => this.emitUpdate())
     this.fileTreeStore.onDidError(error => this.emitError(error))
 
@@ -1122,6 +1128,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
       activeAccountByEndpoint: this.activeAccountByEndpoint,
       stashesByRepoId: this.stashStore.getAllState(),
       worktreesByRepoId: this.worktreeStore.getAllState(),
+      submodulesByRepoId: this.submoduleStore.getAllState(),
       fileTreeByRepoId: this.fileTreeStore.getAllState(),
       workflowRunsByRepoId: this.workflowRunsStore.getAllState(),
       terminal: this.terminalStore.getState(),
@@ -3075,6 +3082,8 @@ export class AppStore extends TypedBaseStore<IAppState> {
       await this.stashStore.loadStashes(repository)
     } else if (selectedSection === RepositorySectionTab.Worktrees) {
       await this.worktreeStore.loadWorktrees(repository)
+    } else if (selectedSection === RepositorySectionTab.Submodules) {
+      await this.submoduleStore.loadSubmodules(repository)
     } else if (selectedSection === RepositorySectionTab.Actions) {
       await this._loadWorkflowRuns(repository)
     }
@@ -3705,6 +3714,8 @@ export class AppStore extends TypedBaseStore<IAppState> {
       refreshSectionPromise = this.stashStore.loadStashes(repository)
     } else if (section === RepositorySectionTab.Worktrees) {
       refreshSectionPromise = this.worktreeStore.loadWorktrees(repository)
+    } else if (section === RepositorySectionTab.Submodules) {
+      refreshSectionPromise = this.submoduleStore.loadSubmodules(repository)
     } else if (section === RepositorySectionTab.Actions) {
       refreshSectionPromise = this._loadWorkflowRuns(repository)
     } else if (section === RepositorySectionTab.Files) {
@@ -7152,6 +7163,30 @@ export class AppStore extends TypedBaseStore<IAppState> {
   /** Refresh the cached worktree list for the given repository. */
   public async _loadWorktrees(repository: Repository): Promise<void> {
     await this.worktreeStore.loadWorktrees(repository)
+  }
+
+  /** Refresh the cached submodule list for the given repository. */
+  public async _loadSubmodules(repository: Repository): Promise<void> {
+    await this.submoduleStore.loadSubmodules(repository)
+  }
+
+  /**
+   * Update submodules (init + checkout the recorded commit). With no paths,
+   * updates every submodule; otherwise only the named ones. Refreshes the
+   * cached list afterwards.
+   */
+  public async _updateSubmodules(
+    repository: Repository,
+    paths: ReadonlyArray<string> = []
+  ): Promise<void> {
+    await updateSubmodules(repository, paths)
+    await this.submoduleStore.loadSubmodules(repository)
+  }
+
+  /** Sync submodule remote URLs from .gitmodules, then refresh the list. */
+  public async _syncSubmodules(repository: Repository): Promise<void> {
+    await syncSubmodules(repository)
+    await this.submoduleStore.loadSubmodules(repository)
   }
 
   /** Load the repository's working-tree root for the Files tab. */

@@ -51,6 +51,8 @@ import { StashedChangesLoadStates, IStashEntry } from '../models/stash-entry'
 import { StashList } from './stashes/stash-list'
 import { IWorktreeEntry } from '../models/worktree'
 import { WorktreeList } from './worktrees/worktree-list'
+import { ISubmoduleStatusEntry } from '../models/submodule'
+import { SubmoduleList } from './submodules/submodule-list'
 import { IWorkflowRun } from '../models/workflow-run'
 import { WorkflowRunList } from './workflow-runs/workflow-run-list'
 import { WorkflowRunDetail } from './workflow-runs/workflow-run-detail'
@@ -90,6 +92,9 @@ interface IRepositoryViewProps {
   readonly accounts: ReadonlyArray<Account>
   readonly worktreeEntries: ReadonlyArray<IWorktreeEntry>
   readonly worktreesLoading: boolean
+
+  readonly submoduleEntries: ReadonlyArray<ISubmoduleStatusEntry>
+  readonly submodulesLoading: boolean
 
   /** Cached working-tree file structure for this repository (Files tab). */
   readonly fileTreeState: IRepoFileTreeState
@@ -158,6 +163,8 @@ interface IRepositoryViewState {
   readonly compareListScrollTop: number
   readonly selectedStashSha: string | null
   readonly selectedWorkflowRunId: number | null
+  /** Bumped on Ctrl/Cmd+F to ask the Files viewer to open its find bar. */
+  readonly openFindToken: number
 }
 
 const enum Tab {
@@ -192,6 +199,7 @@ export class RepositoryView extends React.Component<
       compareListScrollTop: 0,
       selectedStashSha: null,
       selectedWorkflowRunId: null,
+      openFindToken: 0,
     }
   }
 
@@ -245,7 +253,8 @@ export class RepositoryView extends React.Component<
 
     const overflowActive =
       section === RepositorySectionTab.Stashes ||
-      section === RepositorySectionTab.Worktrees
+      section === RepositorySectionTab.Worktrees ||
+      section === RepositorySectionTab.Submodules
 
     return (
       <div className="repository-tabs">
@@ -292,6 +301,10 @@ export class RepositoryView extends React.Component<
         label: 'Worktrees',
         action: () => this.switchToSection(RepositorySectionTab.Worktrees),
       },
+      {
+        label: 'Submodules',
+        action: () => this.switchToSection(RepositorySectionTab.Submodules),
+      },
     ])
   }
 
@@ -305,6 +318,9 @@ export class RepositoryView extends React.Component<
     }
     if (section === RepositorySectionTab.Worktrees) {
       this.props.dispatcher.loadWorktrees(this.props.repository)
+    }
+    if (section === RepositorySectionTab.Submodules) {
+      this.props.dispatcher.loadSubmodules(this.props.repository)
     }
   }
 
@@ -439,6 +455,8 @@ export class RepositoryView extends React.Component<
       return this.renderStashesSidebar()
     } else if (selectedSection === RepositorySectionTab.Worktrees) {
       return this.renderWorktreesSidebar()
+    } else if (selectedSection === RepositorySectionTab.Submodules) {
+      return this.renderSubmodulesSidebar()
     } else if (selectedSection === RepositorySectionTab.Actions) {
       return this.renderActionsSidebar()
     } else if (selectedSection === RepositorySectionTab.Files) {
@@ -645,6 +663,38 @@ export class RepositoryView extends React.Component<
 
   private renderWorktreesSidebar(): JSX.Element {
     return this.renderWorktreeList()
+  }
+
+  private renderSubmodulesSidebar(): JSX.Element {
+    return this.renderSubmoduleList()
+  }
+
+  /**
+   * Shared `SubmoduleList` render used by both the sidebar and the detail
+   * pane. SubmoduleList owns the toolbar, loading, and empty states.
+   */
+  private renderSubmoduleList(): JSX.Element {
+    return (
+      <SubmoduleList
+        entries={this.props.submoduleEntries}
+        loading={this.props.submodulesLoading}
+        onUpdateAll={this.onUpdateAllSubmodules}
+        onSyncAll={this.onSyncSubmodules}
+        onUpdateSubmodule={this.onUpdateSubmodule}
+      />
+    )
+  }
+
+  private onUpdateAllSubmodules = () => {
+    this.props.dispatcher.updateSubmodules(this.props.repository)
+  }
+
+  private onSyncSubmodules = () => {
+    this.props.dispatcher.syncSubmodules(this.props.repository)
+  }
+
+  private onUpdateSubmodule = (entry: ISubmoduleStatusEntry) => {
+    this.props.dispatcher.updateSubmodules(this.props.repository, [entry.path])
   }
 
   /**
@@ -939,6 +989,8 @@ export class RepositoryView extends React.Component<
       return this.renderContentForStashes()
     } else if (selectedSection === RepositorySectionTab.Worktrees) {
       return this.renderContentForWorktrees()
+    } else if (selectedSection === RepositorySectionTab.Submodules) {
+      return this.renderContentForSubmodules()
     } else if (selectedSection === RepositorySectionTab.Actions) {
       return this.renderContentForActions()
     } else if (selectedSection === RepositorySectionTab.Files) {
@@ -966,6 +1018,7 @@ export class RepositoryView extends React.Component<
           filePath={activeFilePath}
           emoji={this.props.emoji}
           reloadToken={this.props.fileTreeState.refreshToken}
+          openFindToken={this.state.openFindToken}
         />
       </div>
     )
@@ -1044,6 +1097,17 @@ export class RepositoryView extends React.Component<
       <div className="worktree-detail-pane">
         <h3>Linked Worktrees</h3>
         {this.renderWorktreeList()}
+      </div>
+    )
+  }
+
+  private renderContentForSubmodules(): JSX.Element {
+    // Reuse the same SubmoduleList the sidebar renders so the detail pane and
+    // sidebar never drift apart.
+    return (
+      <div className="submodule-detail-pane">
+        <h3>Submodules</h3>
+        {this.renderSubmoduleList()}
       </div>
     )
   }
@@ -1158,6 +1222,17 @@ export class RepositoryView extends React.Component<
         dispatcher.closeFileTreeTab(repository, activeFilePath)
         event.preventDefault()
       }
+      return true
+    }
+
+    if (
+      (event.ctrlKey || event.metaKey) &&
+      event.key.toLowerCase() === 'f' &&
+      activeFilePath !== null
+    ) {
+      // Ask the open file viewer to reveal its find bar.
+      this.setState(prev => ({ openFindToken: prev.openFindToken + 1 }))
+      event.preventDefault()
       return true
     }
 

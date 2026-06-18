@@ -1,12 +1,18 @@
 import * as React from 'react'
 import { Repository } from '../../models/repository'
 import { IRepoHealthSnapshot } from '../../lib/repo-health/types'
+import { RepositorySectionTab } from '../../lib/app-state'
 import { RepoHealthRow } from './repo-health-row'
 
 interface IRepoHealthDashboardProps {
   readonly repositories: ReadonlyArray<Repository>
   readonly snapshot: IRepoHealthSnapshot
   readonly onSelectRepository: (repo: Repository) => void
+  /** Open a repository at a specific section (signal drill-down). */
+  readonly onDrillDown: (
+    repo: Repository,
+    section: RepositorySectionTab
+  ) => void
   readonly onRefreshClick: () => void
 }
 
@@ -149,6 +155,7 @@ export class RepoHealthDashboard extends React.Component<
                 health={this.props.snapshot.statuses.get(r.id) ?? null}
                 refreshing={this.props.snapshot.refreshing.has(r.id)}
                 onClick={this.props.onSelectRepository}
+                onDrillDown={this.props.onDrillDown}
               />
             ))}
           </div>

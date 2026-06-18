@@ -2,7 +2,11 @@ import * as Path from 'path'
 
 import { git } from './core'
 import { Repository } from '../../models/repository'
-import { SubmoduleEntry } from '../../models/submodule'
+import {
+  ISubmoduleStatusEntry,
+  SubmoduleEntry,
+  SubmoduleWorkDirState,
+} from '../../models/submodule'
 import { pathExists } from '../../ui/lib/path-exists'
 
 export async function listSubmodules(
@@ -60,6 +64,119 @@ export async function listSubmodules(
   }
 
   return submodules
+}
+
+function stateFromFlag(flag: string): SubmoduleWorkDirState {
+  switch (flag) {
+    case '-':
+      return SubmoduleWorkDirState.Uninitialized
+    case '+':
+      return SubmoduleWorkDirState.OutOfDate
+    case 'U':
+      return SubmoduleWorkDirState.Conflicted
+    default:
+      return SubmoduleWorkDirState.UpToDate
+  }
+}
+
+/**
+ * Parse the output of `git submodule status`.
+ *
+ * Each line is `<flag><40-sha> <path>[ (describe)]`, where `<flag>` is one of
+ * ` `, `-`, `+`, `U`. Uninitialized submodules (`-`) have no `(describe)`
+ * suffix, so it is captured as an empty string.
+ */
+export function parseSubmoduleStatus(
+  output: string
+): ReadonlyArray<ISubmoduleStatusEntry> {
+  const lineRe = /^(.)([0-9a-f]{40}) (.+?)(?: \((.+)\))?$/
+  const entries = new Array<ISubmoduleStatusEntry>()
+
+  for (const line of output.split('\n')) {
+    const match = lineRe.exec(line)
+    if (match === null) {
+      continue
+    }
+    const [, flag, sha, path, describe] = match
+    entries.push({
+      sha,
+      path,
+      describe: describe ?? '',
+      state: stateFromFlag(flag),
+    })
+  }
+
+  return entries
+}
+
+/**
+ * Enumerate the repository's submodules with their working-directory state.
+ * Unlike `listSubmodules`, this surfaces the init/out-of-date/conflicted flag
+ * so the UI can act on it.
+ */
+export async function getSubmodules(
+  repository: Repository
+): Promise<ReadonlyArray<ISubmoduleStatusEntry>> {
+  const { stdout, exitCode } = await git(
+    ['submodule', 'status', '--'],
+    repository.path,
+    'getSubmodules',
+    { successExitCodes: new Set([0, 128]) }
+  )
+
+  if (exitCode === 128) {
+    return []
+  }
+
+  return parseSubmoduleStatus(stdout)
+}
+
+/**
+ * Run `git submodule update`. With no paths, updates every submodule. Passes
+ * `--init` so uninitialized submodules are checked out, and `--recursive` so
+ * nested submodules are updated too.
+ */
+export async function updateSubmodules(
+  repository: Repository,
+  paths: ReadonlyArray<string> = []
+): Promise<void> {
+  const args = ['submodule', 'update', '--init', '--recursive']
+  if (paths.length > 0) {
+    args.push('--', ...paths)
+  }
+  await git(args, repository.path, 'updateSubmodules')
+}
+
+/**
+ * Run `git submodule sync` to realign submodule remote URLs with `.gitmodules`.
+ * With no paths, syncs every submodule.
+ */
+export async function syncSubmodules(
+  repository: Repository,
+  paths: ReadonlyArray<string> = []
+): Promise<void> {
+  const args = ['submodule', 'sync', '--recursive']
+  if (paths.length > 0) {
+    args.push('--', ...paths)
+  }
+  await git(args, repository.path, 'syncSubmodules')
+}
+
+/**
+ * Run `git submodule deinit` to unregister a submodule's working tree.
+ * `force` discards local modifications inside the submodule.
+ */
+export async function deinitSubmodule(
+  repository: Repository,
+  path: string,
+  force: boolean = false
+): Promise<void> {
+  const args = ['submodule', 'deinit']
+  if (force) {
+    args.push('--force')
+  }
+  args.push('--', path)
+  await git(args, repository.path, 'deinitSubmodule')
 }
 
 export async function resetSubmodulePaths(

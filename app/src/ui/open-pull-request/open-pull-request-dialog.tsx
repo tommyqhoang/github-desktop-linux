@@ -6,6 +6,8 @@ import { ImageDiffType } from '../../models/diff'
 import { Repository } from '../../models/repository'
 import { DialogFooter, OkCancelButtonGroup, Dialog } from '../dialog'
 import { Dispatcher } from '../dispatcher'
+import { Button } from '../lib/button'
+import { PopupType } from '../../models/popup'
 import { Ref } from '../lib/ref'
 import { Octicon } from '../octicons'
 import * as octicons from '../octicons/octicons.generated'
@@ -260,18 +262,40 @@ export class OpenPullRequestDialog extends React.Component<IOpenPullRequestDialo
       </>
     )
 
+    const hasCommits = commitSHAs !== null && commitSHAs.length > 0
+
     return (
       <DialogFooter>
         <PullRequestMergeStatus mergeStatus={mergeStatus} />
+
+        <Button
+          onClick={this.onGenerateDescription}
+          disabled={!hasCommits}
+          tooltip="Generate a PR title and description with AI"
+        >
+          Generate description (AI)
+        </Button>
 
         <OkCancelButtonGroup
           okButtonText={okButton}
           okButtonTitle={buttonTitle}
           cancelButtonText="Cancel"
-          okButtonDisabled={commitSHAs === null || commitSHAs.length === 0}
+          okButtonDisabled={!hasCommits}
         />
       </DialogFooter>
     )
+  }
+
+  private onGenerateDescription = () => {
+    const { baseBranch } = this.props.pullRequestState
+    if (baseBranch === null) {
+      return
+    }
+    this.props.dispatcher.showPopup({
+      type: PopupType.AIAction,
+      repository: this.props.repository,
+      action: { kind: 'pr-description', baseRef: baseBranch.name },
+    })
   }
 
   public render() {

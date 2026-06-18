@@ -322,5 +322,61 @@
       padding: 0 var(--spacing-half);
       white-space: pre;
     }
+
+    .file-viewer-blame {
+      user-select: none;
+      width: 1%;
+      max-width: 220px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      padding: 0 var(--spacing-half);
+      border-right: 1px solid var(--box-border-color);
+      color: var(--text-secondary-color);
+      font-size: var(--font-size-xs);
+      vertical-align: top;
+
+      .blame-author {
+        margin-right: var(--spacing-half);
+      }
+
+      .blame-sha {
+        font-family: var(--font-family-monospace);
+        opacity: 0.7;
+      }
+    }
+  }
+
+  .file-viewer-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--spacing-half);
+    padding: var(--spacing-half);
+    border-bottom: 1px solid var(--box-border-color);
+  }
+
+  .file-viewer-find {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-half);
+    padding: var(--spacing-half);
+    border-bottom: 1px solid var(--box-border-color);
+    background: var(--box-alt-background-color, transparent);
+
+    .text-box-component {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .file-viewer-find-count {
+      flex-shrink: 0;
+      color: var(--text-secondary-color);
+      font-size: var(--font-size-sm);
+      white-space: nowrap;
+    }
+  }
+
+  .file-viewer-code .file-viewer-line.is-find-active {
+    background: var(--color-modified-subtle, rgba(219, 171, 9, 0.25));
   }
 }

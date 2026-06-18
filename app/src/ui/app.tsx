@@ -190,6 +190,9 @@ import { getBoolean, getNumber } from '../lib/local-storage'
 import { IconPreviewDialog } from './octicons/icon-preview-dialog'
 import { WorkflowRunDispatchDialog } from './workflow-runs/workflow-run-dispatch-dialog'
 import { InteractiveRebaseDialog } from './interactive-rebase/interactive-rebase-dialog'
+import { CommandPalette } from './command-palette'
+import { buildCommandPaletteItems } from '../lib/command-palette'
+import { AIActionDialog } from './ai/ai-action-dialog'
 import { accessibilityBannerDismissed } from './banners/accessibilty-settings-banner'
 import { isCertificateErrorSuppressedFor } from '../lib/suppress-certificate-error'
 import { webUtils } from 'electron'
@@ -1278,6 +1281,14 @@ export class App extends React.Component<IAppProps, IAppState> {
       return
     }
 
+    // Ctrl/Cmd+K opens the command palette from anywhere in the app.
+    const modifier = __DARWIN__ ? event.metaKey : event.ctrlKey
+    if (modifier && !event.altKey && !event.shiftKey && event.key === 'k') {
+      event.preventDefault()
+      this.props.dispatcher.showPopup({ type: PopupType.CommandPalette })
+      return
+    }
+
     if (shouldRenderApplicationMenu()) {
       if (event.key === 'Shift' && event.altKey) {
         this.props.dispatcher.setAccessKeyHighlightState(false)
@@ -1443,6 +1454,53 @@ export class App extends React.Component<IAppProps, IAppState> {
     }
 
     return state.repository
+  }
+
+  /** Build the command palette action list for the current selection. */
+  private buildCommandPaletteItems() {
+    const repository = this.getRepository()
+    const repo = repository instanceof Repository ? repository : null
+    const dispatcher = this.props.dispatcher
+    const section = (s: RepositorySectionTab) => () => {
+      if (repo !== null) {
+        dispatcher.changeRepositorySection(repo, s)
+      }
+    }
+
+    return buildCommandPaletteItems({
+      hasRepository: repo !== null,
+      onPush: () => repo && dispatcher.push(repo),
+      onPull: () => repo && dispatcher.pull(repo),
+      onFetch: () =>
+        repo && dispatcher.fetch(repo, FetchType.UserInitiatedTask),
+      onCreateBranch: () =>
+        repo &&
+        dispatcher.showPopup({
+          type: PopupType.CreateBranch,
+          repository: repo,
+        }),
+      onShowChanges: section(RepositorySectionTab.Changes),
+      onShowHistory: section(RepositorySectionTab.History),
+      onShowFiles: section(RepositorySectionTab.Files),
+      onShowSubmodules: section(RepositorySectionTab.Submodules),
+      onShowPreferences: () =>
+        dispatcher.showPopup({ type: PopupType.Preferences }),
+      onToggleTerminal: () => dispatcher.toggleTerminal(),
+      onReviewChanges: () =>
+        repo &&
+        dispatcher.showPopup({
+          type: PopupType.AIAction,
+          repository: repo,
+          action: { kind: 'review' },
+        }),
+      onSummarizeChanges: () =>
+        repo &&
+        dispatcher.showPopup({
+          type: PopupType.AIAction,
+          repository: repo,
+          action: { kind: 'summarize-changes' },
+        }),
+    })
   }
 
   private showRebaseDialog() {
@@ -2791,6 +2849,18 @@ export class App extends React.Component<IAppProps, IAppState> {
               onPopupDismissedFn()
             }}
             // eslint-disable-next-line react/jsx-no-bind
+            onDrillDown={(r, section) => {
+              this.props.dispatcher.selectRepository(r).then(selected => {
+                if (selected instanceof Repository) {
+                  this.props.dispatcher.changeRepositorySection(
+                    selected,
+                    section
+                  )
+                }
+              })
+              onPopupDismissedFn()
+            }}
+            // eslint-disable-next-line react/jsx-no-bind
             onRefreshClick={() => this.props.dispatcher.refreshRepoHealth(true)}
             onDismissed={onPopupDismissedFn}
           />
@@ -2832,6 +2902,25 @@ export class App extends React.Component<IAppProps, IAppState> {
             commits={popup.commits}
             lastRetainedCommitRef={popup.lastRetainedCommitRef}
             dispatcher={this.props.dispatcher}
+            onDismissed={onPopupDismissedFn}
+          />
+        )
+      }
+      case PopupType.CommandPalette: {
+        return (
+          <CommandPalette
+            key="command-palette"
+            items={this.buildCommandPaletteItems()}
+            onDismissed={onPopupDismissedFn}
+          />
+        )
+      }
+      case PopupType.AIAction: {
+        return (
+          <AIActionDialog
+            key="ai-action"
+            repository={popup.repository}
+            action={popup.action}
             onDismissed={onPopupDismissedFn}
           />
         )
@@ -3625,6 +3714,14 @@ export class App extends React.Component<IAppProps, IAppState> {
           worktreesLoading={
             state.worktreesByRepoId.get(selectedState.repository.id)?.loading ??
             false
+          }
+          submoduleEntries={
+            state.submodulesByRepoId.get(selectedState.repository.id)
+              ?.entries ?? []
+          }
+          submodulesLoading={
+            state.submodulesByRepoId.get(selectedState.repository.id)
+              ?.loading ?? false
           }
           fileTreeState={
             state.fileTreeByRepoId.get(selectedState.repository.id) ?? {

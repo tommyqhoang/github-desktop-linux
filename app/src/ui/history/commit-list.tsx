@@ -28,6 +28,8 @@ import {
 import { KeyboardShortcut } from '../keyboard-shortcut/keyboard-shortcut'
 import { Account } from '../../models/account'
 import { Emoji } from '../../lib/emoji'
+import { buildCommitGraph, ICommitGraphRow } from '../../lib/commit-graph'
+import { CommitGraph } from './commit-graph'
 
 const RowHeight = 50
 
@@ -202,6 +204,23 @@ export class CommitList extends React.Component<
       new Map(commitSHAs.map((sha, index) => [sha, index]))
   )
 
+  // Recompute the branch-graph lanes only when the visible commit list changes.
+  // Parents missing from the loaded window leave their lane open, which is the
+  // correct rendering for a paged history.
+  private commitGraph = memoizeOne(
+    (
+      commitSHAs: ReadonlyArray<string>,
+      commitLookup: Map<string, Commit>
+    ): ReadonlyArray<ICommitGraphRow> =>
+      buildCommitGraph(
+        commitSHAs.map(sha => ({
+          sha,
+          parentSHAs: commitLookup.get(sha)?.parentSHAs ?? [],
+        }))
+      ),
+    ([shasA], [shasB]) => arrayEquals(shasA, shasB)
+  )
+
   private containerRef = React.createRef<HTMLDivElement>()
   private listRef = React.createRef<List>()
 
@@ -286,28 +305,42 @@ export class CommitList extends React.Component<
       (isLocal || unpushedTags.length > 0) &&
       this.props.isLocalRepository === false
 
+    const graph = this.commitGraph(
+      this.props.commitSHAs,
+      this.props.commitLookup
+    )
+    const graphRow = graph[row]
+
     return (
-      <CommitListItem
-        key={commit.sha}
-        gitHubRepository={this.props.gitHubRepository}
-        showUnpushedIndicator={showUnpushedIndicator}
-        unpushedIndicatorTitle={this.getUnpushedIndicatorTitle(
-          isLocal,
-          unpushedTags.length
+      <div className="commit-list-row" key={commit.sha}>
+        {graphRow !== undefined && (
+          <CommitGraph
+            row={graphRow}
+            nextLanes={graph[row + 1]?.lanes ?? []}
+            rowHeight={RowHeight}
+          />
         )}
-        commit={commit}
-        emoji={this.props.emoji}
-        isDraggable={
-          this.props.isMultiCommitOperationInProgress === false &&
-          !this.inKeyboardReorderMode
-        }
-        onSquash={this.onSquash}
-        selectedCommits={this.selectedCommits}
-        onRenderCommitDragElement={this.onRenderCommitDragElement}
-        onRemoveDragElement={this.props.onRemoveCommitDragElement}
-        disableSquashing={this.props.disableSquashing}
-        accounts={this.props.accounts}
-      />
+        <CommitListItem
+          gitHubRepository={this.props.gitHubRepository}
+          showUnpushedIndicator={showUnpushedIndicator}
+          unpushedIndicatorTitle={this.getUnpushedIndicatorTitle(
+            isLocal,
+            unpushedTags.length
+          )}
+          commit={commit}
+          emoji={this.props.emoji}
+          isDraggable={
+            this.props.isMultiCommitOperationInProgress === false &&
+            !this.inKeyboardReorderMode
+          }
+          onSquash={this.onSquash}
+          selectedCommits={this.selectedCommits}
+          onRenderCommitDragElement={this.onRenderCommitDragElement}
+          onRemoveDragElement={this.props.onRemoveCommitDragElement}
+          disableSquashing={this.props.disableSquashing}
+          accounts={this.props.accounts}
+        />
+      </div>
     )
   }
 

@@ -9,6 +9,7 @@ import { ReleaseNote, ReleaseSummary } from './release-notes'
 import { IRemote } from './remote'
 import { RetryAction } from './retry-actions'
 import { WorkingDirectoryFileChange } from './status'
+import { AIAction } from './ai-action'
 import { PreferencesTab } from './preferences'
 import { Commit, CommitOneLine, ICommitContext } from './commit'
 import { IStashEntry } from './stash-entry'
@@ -103,6 +104,8 @@ export enum PopupType {
   WorktreeRemove = 'WorktreeRemove',
   WorkflowRunDispatch = 'WorkflowRunDispatch',
   InteractiveRebase = 'InteractiveRebase',
+  CommandPalette = 'CommandPalette',
+  AIAction = 'AIAction',
 }
 
 interface IBasePopup {
@@ -463,6 +466,12 @@ export type PopupDetail =
       repository: Repository
       commits: ReadonlyArray<Commit>
       lastRetainedCommitRef: string | null
+    }
+  | { type: PopupType.CommandPalette }
+  | {
+      type: PopupType.AIAction
+      repository: Repository
+      action: AIAction
     }
 
 export type Popup = IBasePopup & PopupDetail
