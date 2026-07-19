@@ -10,18 +10,18 @@ describe('mentionableUserFromAPI', () => {
     avatar_url: 'https://avatars.githubusercontent.com/u/123456',
   }
 
-  it('uses the modern attributable noreply address for a private email', () => {
+  it('uses the modern account-bound noreply address', () => {
     expect(mentionableUserFromAPI(user, endpoint).email).toBe(
       '123456+octocat@users.noreply.github.com'
     )
   })
 
-  it('preserves a public profile email', () => {
+  it('does not rely on a public profile email for attribution', () => {
     expect(
       mentionableUserFromAPI(
         { ...user, email: 'octocat@example.com' },
         endpoint
       ).email
-    ).toBe('octocat@example.com')
+    ).toBe('123456+octocat@users.noreply.github.com')
   })
 })

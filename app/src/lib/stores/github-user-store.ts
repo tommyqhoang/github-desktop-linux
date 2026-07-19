@@ -31,7 +31,11 @@ export function mentionableUserFromAPI(
   endpoint: string
 ): IMentionableUser {
   const { id, name, login, avatar_url: avatarURL } = user
-  const email = user.email || getStealthEmailForUser(id, login, endpoint)
+  // Always use the account-bound noreply address for co-author attribution.
+  // A profile's public email can be displayed even when GitHub doesn't accept
+  // it for contribution attribution, while the id-based address is tied to the
+  // exact account and continues to work after a username change.
+  const email = getStealthEmailForUser(id, login, endpoint)
   return { name, login, email, avatarURL }
 }
 
