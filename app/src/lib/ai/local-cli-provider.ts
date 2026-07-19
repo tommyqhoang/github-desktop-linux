@@ -1,4 +1,5 @@
-import { spawn } from 'child_process'
+import { execFile, spawn } from 'child_process'
+import { userInfo } from 'os'
 import { Repository } from '../../models/repository'
 import { ICommitMessage } from '../../models/commit-message'
 import {
@@ -9,15 +10,70 @@ import { AICommitMessageProvider } from './commit-message-settings'
 
 const LocalAITimeoutMs = 60_000
 const MaxOutputLength = 1024 * 1024
+const ShellProbeTimeoutMs = 5_000
+const ShellProbeMarker = '__GITHUB_DESKTOP_COMMAND__'
 
-function runLocalAI(
+const resolvedCommands = new Map<string, Promise<string>>()
+
+/**
+ * Extract the command path from a login-shell probe. Interactive shell startup
+ * files are allowed to print output, so the result is identified by a marker.
+ */
+export function parseResolvedCommand(output: string): string | null {
+  const markerIndex = output.lastIndexOf(ShellProbeMarker)
+  if (markerIndex === -1) {
+    return null
+  }
+
+  const path = output
+    .slice(markerIndex + ShellProbeMarker.length)
+    .split(/\r?\n/, 1)[0]
+    .trim()
+
+  return path.length > 0 ? path : null
+}
+
+/** Resolve a CLI using the user's login shell instead of Electron's PATH. */
+function resolveLocalCLI(command: string): Promise<string> {
+  if (__WIN32__) {
+    return Promise.resolve(command)
+  }
+
+  const cached = resolvedCommands.get(command)
+  if (cached !== undefined) {
+    return cached
+  }
+
+  const resolution = new Promise<string>(resolve => {
+    const shell = process.env.SHELL || userInfo().shell || '/bin/sh'
+    const script = `command_path=$(command -v -- "$1") && printf '${ShellProbeMarker}%s\\n' "$command_path"`
+
+    execFile(
+      shell,
+      ['-ilc', script, 'github-desktop', command],
+      {
+        env: process.env,
+        timeout: ShellProbeTimeoutMs,
+        maxBuffer: 64 * 1024,
+      },
+      (_error, stdout) => resolve(parseResolvedCommand(stdout) || command)
+    )
+  })
+
+  resolvedCommands.set(command, resolution)
+  return resolution
+}
+
+async function runLocalAI(
   command: string,
   args: ReadonlyArray<string>,
   prompt: string,
   cwd: string
 ): Promise<string> {
+  const resolvedCommand = await resolveLocalCLI(command)
+
   return new Promise((resolve, reject) => {
-    const child = spawn(command, [...args], {
+    const child = spawn(resolvedCommand, [...args], {
       cwd,
       env: process.env,
       stdio: ['pipe', 'pipe', 'pipe'],
