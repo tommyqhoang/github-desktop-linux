@@ -60,6 +60,8 @@ describe('Advanced preferences', () => {
     )
     expect(setSettings).toHaveBeenLastCalledWith({
       enabled: false,
+      provider: 'openrouter',
+      cliModel: '',
       apiKey: '',
       model: aiCommitMessageSettings.DefaultOpenRouterModel,
       baseUrl: aiCommitMessageSettings.DefaultOpenRouterBaseUrl,
@@ -84,6 +86,8 @@ describe('Advanced preferences', () => {
 
     expect(testConnection).toHaveBeenCalledWith({
       enabled: true,
+      provider: 'openrouter',
+      cliModel: '',
       apiKey: 'sk-or-test',
       model: 'openrouter/auto',
       baseUrl: 'https://openrouter.ai/api/v1/',

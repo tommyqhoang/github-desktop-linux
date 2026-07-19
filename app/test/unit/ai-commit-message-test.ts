@@ -236,6 +236,18 @@ describe('AI commit message generation', () => {
     expect(errors.apiKey).toEqual('Enter an OpenRouter API key.')
   })
 
+  it('does not require an OpenRouter key for local CLI providers', () => {
+    const errors = getAICommitMessageSettingsValidationErrors({
+      enabled: true,
+      provider: 'codex',
+      apiKey: '',
+      model: '',
+      baseUrl: '',
+    })
+
+    expect(errors.apiKey).toBeUndefined()
+  })
+
   it('rejects invalid model IDs and base URLs', () => {
     const settings = {
       enabled: true,
@@ -261,6 +273,8 @@ describe('AI commit message generation', () => {
       })
     ).toEqual({
       enabled: true,
+      provider: 'openrouter',
+      cliModel: '',
       apiKey: 'sk-or-test',
       model: DefaultOpenRouterModel,
       baseUrl: DefaultOpenRouterBaseUrl,
@@ -280,6 +294,8 @@ describe('AI commit message generation', () => {
 
     await expect(getAICommitMessageSettings()).resolves.toEqual({
       enabled: true,
+      provider: 'openrouter',
+      cliModel: '',
       apiKey: 'sk-or-test',
       model: 'openrouter/auto',
       baseUrl: 'https://openrouter.ai/api/v1',

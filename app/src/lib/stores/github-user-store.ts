@@ -1,6 +1,6 @@
 import { Account } from '../../models/account'
 import { GitHubRepository } from '../../models/github-repository'
-import { API } from '../api'
+import { API, IAPIMentionableUser } from '../api'
 import {
   GitHubUserDatabase,
   IMentionableUser,
@@ -8,7 +8,7 @@ import {
 
 import { compare } from '../compare'
 import { BaseStore } from './base-store'
-import { getStealthEmailForUser, getLegacyStealthEmailForUser } from '../email'
+import { getStealthEmailForUser } from '../email'
 import { DefaultMaxHits } from '../../ui/autocompletion/common'
 
 /** Don't fetch mentionables more often than every 10 minutes */
@@ -23,6 +23,16 @@ const QueryCacheTimeout = 60 * 1000
 interface IQueryCache {
   readonly repository: GitHubRepository
   readonly users: ReadonlyArray<IMentionableUser>
+}
+
+/** Convert an API mentionable into an author GitHub can attribute commits to. */
+export function mentionableUserFromAPI(
+  user: IAPIMentionableUser,
+  endpoint: string
+): IMentionableUser {
+  const { id, name, login, avatar_url: avatarURL } = user
+  const email = user.email || getStealthEmailForUser(id, login, endpoint)
+  return { name, login, email, avatarURL }
 }
 
 /**
@@ -103,11 +113,9 @@ export class GitHubUserStore extends BaseStore {
 
     const { endpoint } = account
 
-    const mentionables = response.users.map(u => {
-      const { name, login, avatar_url: avatarURL } = u
-      const email = u.email || getLegacyStealthEmailForUser(login, endpoint)
-      return { name, login, email, avatarURL }
-    })
+    const mentionables = response.users.map(user =>
+      mentionableUserFromAPI(user, endpoint)
+    )
 
     await this.database.updateMentionablesForRepository(
       repository.dbID,

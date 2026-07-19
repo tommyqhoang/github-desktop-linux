@@ -12,6 +12,7 @@ import {
   getAICommitMessagesEnabledForRepository,
   hasUsableAICommitMessageSettings,
 } from './commit-message-settings'
+import { createLocalCLICommitMessageProvider } from './local-cli-provider'
 
 export async function generateAICommitMessage(
   repository: Repository,
@@ -45,7 +46,14 @@ export async function generateAICommitMessage(
   }
 
   const prompt = buildAICommitMessagePrompt(changes)
-  const provider = createOpenRouterAICommitMessageProvider(settings)
+  const provider =
+    settings.provider === 'codex' || settings.provider === 'claude'
+      ? createLocalCLICommitMessageProvider(
+          settings.provider,
+          repository,
+          settings.cliModel
+        )
+      : createOpenRouterAICommitMessageProvider(settings)
 
   return provider.generate(prompt)
 }

@@ -3,6 +3,8 @@ import { TokenStore } from '../stores/token-store'
 import { Repository } from '../../models/repository'
 
 const aiCommitMessagesEnabledKey = 'ai-commit-messages-enabled'
+const aiCommitMessagesProviderKey = 'ai-commit-messages-provider'
+const aiCommitMessagesCLIModelKey = 'ai-commit-messages-cli-model'
 const aiCommitMessagesModelKey = 'ai-commit-messages-model'
 const aiCommitMessagesBaseUrlKey = 'ai-commit-messages-base-url'
 const aiCommitMessagesAPIKeyFallbackKey = 'ai-commit-messages-api-key'
@@ -11,6 +13,7 @@ const openRouterTokenStoreLogin = 'openrouter'
 
 export const DefaultOpenRouterBaseUrl = 'https://openrouter.ai/api/v1'
 export const DefaultOpenRouterModel = 'openrouter/auto'
+export type AICommitMessageProvider = 'openrouter' | 'codex' | 'claude'
 
 function getRepositoryAICommitMessagesDisabledKey(repository: Repository) {
   return `ai-commit-messages-disabled-repository-${repository.id}`
@@ -18,9 +21,15 @@ function getRepositoryAICommitMessagesDisabledKey(repository: Repository) {
 
 export interface IAICommitMessageSettings {
   readonly enabled: boolean
+  readonly provider?: AICommitMessageProvider
+  readonly cliModel?: string
   readonly apiKey: string
   readonly model: string
   readonly baseUrl: string
+}
+
+export type NormalizedAICommitMessageSettings = IAICommitMessageSettings & {
+  readonly provider: AICommitMessageProvider
 }
 
 export interface IAICommitMessageSettingsValidationErrors {
@@ -35,9 +44,11 @@ export interface ISetAICommitMessageSettingsOptions {
 
 export function normalizeAICommitMessageSettings(
   settings: IAICommitMessageSettings
-): IAICommitMessageSettings {
+): NormalizedAICommitMessageSettings {
   return {
     enabled: settings.enabled,
+    provider: settings.provider || 'openrouter',
+    cliModel: settings.cliModel?.trim() || '',
     apiKey: settings.apiKey.trim(),
     model: settings.model.trim() || DefaultOpenRouterModel,
     baseUrl: settings.baseUrl.trim() || DefaultOpenRouterBaseUrl,
@@ -54,7 +65,11 @@ export function getAICommitMessageSettingsValidationErrors(
     baseUrl?: string
   } = {}
 
-  if (normalized.enabled && normalized.apiKey.length === 0) {
+  if (
+    normalized.enabled &&
+    normalized.provider === 'openrouter' &&
+    normalized.apiKey.length === 0
+  ) {
     errors.apiKey = 'Enter an OpenRouter API key.'
   }
 
@@ -90,6 +105,8 @@ export async function getAICommitMessageSettings(): Promise<IAICommitMessageSett
 
   return {
     enabled: getBoolean(aiCommitMessagesEnabledKey, false),
+    provider: getAICommitMessageProvider(),
+    cliModel: localStorage.getItem(aiCommitMessagesCLIModelKey) || '',
     apiKey,
     model:
       localStorage.getItem(aiCommitMessagesModelKey) || DefaultOpenRouterModel,
@@ -106,6 +123,8 @@ export async function setAICommitMessageSettings(
   const normalized = normalizeAICommitMessageSettings(settings)
 
   setBoolean(aiCommitMessagesEnabledKey, normalized.enabled)
+  localStorage.setItem(aiCommitMessagesProviderKey, normalized.provider)
+  localStorage.setItem(aiCommitMessagesCLIModelKey, normalized.cliModel || '')
   localStorage.setItem(
     aiCommitMessagesModelKey,
     normalized.model || DefaultOpenRouterModel
@@ -139,6 +158,11 @@ export async function setAICommitMessageSettings(
       log.warn('Unable to delete OpenRouter API key from secure storage', e)
     }
   }
+}
+
+function getAICommitMessageProvider(): AICommitMessageProvider {
+  const provider = localStorage.getItem(aiCommitMessagesProviderKey)
+  return provider === 'codex' || provider === 'claude' ? provider : 'openrouter'
 }
 
 export function getAICommitMessagesEnabledForRepository(

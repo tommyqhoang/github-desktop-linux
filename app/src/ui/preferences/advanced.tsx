@@ -5,11 +5,13 @@ import { Checkbox, CheckboxValue } from '../lib/checkbox'
 import { LinkButton } from '../lib/link-button'
 import { TextBox } from '../lib/text-box'
 import { PasswordTextBox } from '../lib/password-text-box'
+import { Select } from '../lib/select'
 import { SamplesURL } from '../../lib/stats'
 import { isWindowsOpenSSHAvailable } from '../../lib/ssh/ssh'
 import {
   DefaultOpenRouterBaseUrl,
   DefaultOpenRouterModel,
+  AICommitMessageProvider,
   IAICommitMessageSettingsValidationErrors,
   getAICommitMessageSettingsValidationErrors,
   getAICommitMessageSettings,
@@ -34,6 +36,8 @@ interface IAdvancedPreferencesState {
   readonly canUseWindowsSSH: boolean
   readonly useExternalCredentialHelper: boolean
   readonly aiCommitMessagesEnabled: boolean
+  readonly aiCommitMessageProvider: AICommitMessageProvider
+  readonly aiCommitMessageCLIModel: string
   readonly openRouterAPIKey: string
   readonly openRouterModel: string
   readonly openRouterBaseUrl: string
@@ -55,6 +59,8 @@ export class Advanced extends React.Component<
       canUseWindowsSSH: false,
       useExternalCredentialHelper: this.props.useExternalCredentialHelper,
       aiCommitMessagesEnabled: false,
+      aiCommitMessageProvider: 'openrouter',
+      aiCommitMessageCLIModel: '',
       openRouterAPIKey: '',
       openRouterModel: DefaultOpenRouterModel,
       openRouterBaseUrl: DefaultOpenRouterBaseUrl,
@@ -79,6 +85,8 @@ export class Advanced extends React.Component<
 
     this.setState({
       aiCommitMessagesEnabled: settings.enabled,
+      aiCommitMessageProvider: settings.provider || 'openrouter',
+      aiCommitMessageCLIModel: settings.cliModel || '',
       openRouterAPIKey: settings.apiKey,
       openRouterModel: settings.model,
       openRouterBaseUrl: settings.baseUrl,
@@ -91,6 +99,8 @@ export class Advanced extends React.Component<
     state: Pick<
       IAdvancedPreferencesState,
       | 'aiCommitMessagesEnabled'
+      | 'aiCommitMessageProvider'
+      | 'aiCommitMessageCLIModel'
       | 'openRouterAPIKey'
       | 'openRouterModel'
       | 'openRouterBaseUrl'
@@ -98,6 +108,8 @@ export class Advanced extends React.Component<
   ) {
     return {
       enabled: state.aiCommitMessagesEnabled,
+      provider: state.aiCommitMessageProvider,
+      cliModel: state.aiCommitMessageCLIModel,
       apiKey: state.openRouterAPIKey,
       model: state.openRouterModel,
       baseUrl: state.openRouterBaseUrl,
@@ -108,6 +120,8 @@ export class Advanced extends React.Component<
     state: Pick<
       IAdvancedPreferencesState,
       | 'aiCommitMessagesEnabled'
+      | 'aiCommitMessageProvider'
+      | 'aiCommitMessageCLIModel'
       | 'openRouterAPIKey'
       | 'openRouterModel'
       | 'openRouterBaseUrl'
@@ -127,6 +141,8 @@ export class Advanced extends React.Component<
     settingsState: Pick<
       IAdvancedPreferencesState,
       | 'aiCommitMessagesEnabled'
+      | 'aiCommitMessageProvider'
+      | 'aiCommitMessageCLIModel'
       | 'openRouterAPIKey'
       | 'openRouterModel'
       | 'openRouterBaseUrl'
@@ -184,6 +200,30 @@ export class Advanced extends React.Component<
     this.persistAICommitMessageSettings(nextState)
   }
 
+  private onAICommitMessageProviderChanged = (
+    event: React.FormEvent<HTMLSelectElement>
+  ) => {
+    const nextState = {
+      ...this.state,
+      aiCommitMessageProvider: event.currentTarget
+        .value as AICommitMessageProvider,
+      aiCommitMessageCLIModel: '',
+    }
+    this.setAICommitMessageSettingsState(nextState)
+    this.persistAICommitMessageSettings(nextState)
+  }
+
+  private onAICommitMessageCLIModelChanged = (
+    event: React.FormEvent<HTMLSelectElement>
+  ) => {
+    const nextState = {
+      ...this.state,
+      aiCommitMessageCLIModel: event.currentTarget.value,
+    }
+    this.setAICommitMessageSettingsState(nextState)
+    this.persistAICommitMessageSettings(nextState)
+  }
+
   private onOpenRouterAPIKeyBlur = (apiKey: string) => {
     const nextState = normalizeAICommitMessageSettings(
       this.getAICommitMessageSettingsFromState({
@@ -194,6 +234,7 @@ export class Advanced extends React.Component<
     const settingsState = {
       ...this.state,
       aiCommitMessagesEnabled: nextState.enabled,
+      aiCommitMessageProvider: nextState.provider,
       openRouterAPIKey: nextState.apiKey,
       openRouterModel: nextState.model,
       openRouterBaseUrl: nextState.baseUrl,
@@ -229,6 +270,7 @@ export class Advanced extends React.Component<
     const settingsState = {
       ...this.state,
       aiCommitMessagesEnabled: nextState.enabled,
+      aiCommitMessageProvider: nextState.provider,
       openRouterAPIKey: nextState.apiKey,
       openRouterModel: nextState.model,
       openRouterBaseUrl: nextState.baseUrl,
@@ -254,6 +296,7 @@ export class Advanced extends React.Component<
     const settingsState = {
       ...this.state,
       aiCommitMessagesEnabled: nextState.enabled,
+      aiCommitMessageProvider: nextState.provider,
       openRouterAPIKey: nextState.apiKey,
       openRouterModel: nextState.model,
       openRouterBaseUrl: nextState.baseUrl,
@@ -443,7 +486,7 @@ export class Advanced extends React.Component<
       <div className="advanced-section">
         <h2>AI commit messages</h2>
         <Checkbox
-          label="Enable OpenRouter commit message generation"
+          label="Enable AI commit message generation"
           value={
             this.state.aiCommitMessagesEnabled
               ? CheckboxValue.On
@@ -459,54 +502,94 @@ export class Advanced extends React.Component<
           Generate commit summaries from selected changes only when you click
           the generate button. Review generated messages before committing.
         </div>
-        <PasswordTextBox
-          label="OpenRouter API key"
-          value={this.state.openRouterAPIKey}
-          placeholder="sk-or-..."
-          onValueChanged={this.onOpenRouterAPIKeyChanged}
-          onBlur={this.onOpenRouterAPIKeyBlur}
+        <Select
+          label="Provider"
+          value={this.state.aiCommitMessageProvider}
+          onChange={this.onAICommitMessageProviderChanged}
           disabled={!this.state.aiCommitMessagesEnabled}
-          required={this.state.aiCommitMessagesEnabled}
-          ariaDescribedBy="openrouter-api-key-error"
-        />
-        {this.renderAICommitMessageSettingError(
-          'openrouter-api-key-error',
-          aiCommitMessageSettingsErrors.apiKey
-        )}
-        <TextBox
-          label="OpenRouter model"
-          value={this.state.openRouterModel}
-          placeholder={DefaultOpenRouterModel}
-          onValueChanged={this.onOpenRouterModelChanged}
-          onBlur={this.onOpenRouterModelBlur}
-          disabled={!this.state.aiCommitMessagesEnabled}
-          ariaDescribedBy="openrouter-model-error"
-        />
-        {this.renderAICommitMessageSettingError(
-          'openrouter-model-error',
-          aiCommitMessageSettingsErrors.model
-        )}
-        <TextBox
-          label="OpenRouter base URL"
-          value={this.state.openRouterBaseUrl}
-          placeholder={DefaultOpenRouterBaseUrl}
-          onValueChanged={this.onOpenRouterBaseUrlChanged}
-          onBlur={this.onOpenRouterBaseUrlBlur}
-          disabled={!this.state.aiCommitMessagesEnabled}
-          ariaDescribedBy="openrouter-base-url-error"
-        />
-        {this.renderAICommitMessageSettingError(
-          'openrouter-base-url-error',
-          aiCommitMessageSettingsErrors.baseUrl
-        )}
-        <Button
-          onClick={this.onTestAICommitMessageSettings}
-          disabled={!canTestAICommitMessages}
         >
-          {this.state.isTestingAICommitMessages
-            ? 'Testing OpenRouter...'
-            : 'Test OpenRouter'}
-        </Button>
+          <option value="openrouter">OpenRouter</option>
+          <option value="codex">Codex CLI (ChatGPT plan)</option>
+          <option value="claude">Claude CLI (Claude plan)</option>
+        </Select>
+        {this.state.aiCommitMessageProvider === 'openrouter' ? (
+          <>
+            <PasswordTextBox
+              label="OpenRouter API key"
+              value={this.state.openRouterAPIKey}
+              placeholder="sk-or-..."
+              onValueChanged={this.onOpenRouterAPIKeyChanged}
+              onBlur={this.onOpenRouterAPIKeyBlur}
+              disabled={!this.state.aiCommitMessagesEnabled}
+              required={this.state.aiCommitMessagesEnabled}
+              ariaDescribedBy="openrouter-api-key-error"
+            />
+            {this.renderAICommitMessageSettingError(
+              'openrouter-api-key-error',
+              aiCommitMessageSettingsErrors.apiKey
+            )}
+            <TextBox
+              label="OpenRouter model"
+              value={this.state.openRouterModel}
+              placeholder={DefaultOpenRouterModel}
+              onValueChanged={this.onOpenRouterModelChanged}
+              onBlur={this.onOpenRouterModelBlur}
+              disabled={!this.state.aiCommitMessagesEnabled}
+              ariaDescribedBy="openrouter-model-error"
+            />
+            {this.renderAICommitMessageSettingError(
+              'openrouter-model-error',
+              aiCommitMessageSettingsErrors.model
+            )}
+            <TextBox
+              label="OpenRouter base URL"
+              value={this.state.openRouterBaseUrl}
+              placeholder={DefaultOpenRouterBaseUrl}
+              onValueChanged={this.onOpenRouterBaseUrlChanged}
+              onBlur={this.onOpenRouterBaseUrlBlur}
+              disabled={!this.state.aiCommitMessagesEnabled}
+              ariaDescribedBy="openrouter-base-url-error"
+            />
+            {this.renderAICommitMessageSettingError(
+              'openrouter-base-url-error',
+              aiCommitMessageSettingsErrors.baseUrl
+            )}
+            <Button
+              onClick={this.onTestAICommitMessageSettings}
+              disabled={!canTestAICommitMessages}
+            >
+              {this.state.isTestingAICommitMessages
+                ? 'Testing OpenRouter...'
+                : 'Test OpenRouter'}
+            </Button>
+          </>
+        ) : (
+          <>
+            <Select
+              label="Model"
+              value={this.state.aiCommitMessageCLIModel}
+              onChange={this.onAICommitMessageCLIModelChanged}
+            >
+              <option value="">CLI default</option>
+              {this.state.aiCommitMessageProvider === 'codex' ? (
+                <option value="gpt-5.4-mini">GPT-5.4 mini (recommended)</option>
+              ) : (
+                <>
+                  <option value="haiku">Haiku (recommended)</option>
+                  <option value="sonnet">Sonnet</option>
+                </>
+              )}
+            </Select>
+            <div className="git-settings-description">
+              Uses your existing authenticated{' '}
+              {this.state.aiCommitMessageProvider === 'codex'
+                ? 'Codex CLI (`codex login`)'
+                : 'Claude CLI (`claude`)'}{' '}
+              installation. The selected diff is sent through standard input and
+              the CLI runs without write tools.
+            </div>
+          </>
+        )}
         {this.state.aiCommitMessageTestResult === null ? null : (
           <div className="git-settings-description">
             {this.state.aiCommitMessageTestResult}

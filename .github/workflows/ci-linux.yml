@@ -31,7 +31,8 @@ jobs:
         uses: tommyqhoang/desktop-ubuntu-amd64-packaging@a282ee5000f1e2ea05cc53b2e90d42be76ab9504
         env:
           DESKTOP_OAUTH_CLIENT_ID: ${{ secrets.DESKTOP_OAUTH_CLIENT_ID }}
-          DESKTOP_OAUTH_CLIENT_SECRET: ${{ secrets.DESKTOP_OAUTH_CLIENT_SECRET }}
+          DESKTOP_OAUTH_CLIENT_SECRET:
+            ${{ secrets.DESKTOP_OAUTH_CLIENT_SECRET }}
       - name: Upload Debian package
         uses: actions/upload-artifact@v4
         with:

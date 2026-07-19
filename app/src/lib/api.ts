@@ -325,6 +325,9 @@ interface IAPIFullIdentity {
 
 /** The users we get from the mentionables endpoint. */
 export interface IAPIMentionableUser {
+  /** The numeric user id assigned by the GitHub endpoint. */
+  readonly id: number
+
   /**
    * A url to an avatar image chosen by the user
    */
