@@ -118,6 +118,10 @@ export class AIActionDialog extends React.Component<
     }
   }
 
+  private onDismissError = () => {
+    this.setState({ error: null })
+  }
+
   public render() {
     const { result } = this.state
     return (
@@ -129,6 +133,7 @@ export class AIActionDialog extends React.Component<
         renderResult={renderAIResult}
         onRegenerate={this.run}
         onCopy={result !== null ? this.onCopy : undefined}
+        onDismissError={this.onDismissError}
         onDismissed={this.props.onDismissed}
       />
     )

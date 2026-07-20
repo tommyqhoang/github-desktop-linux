@@ -6,7 +6,20 @@
   }
 
   .ai-result-dialog__error {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing);
     color: var(--error-color);
+  }
+
+  .ai-result-dialog__error-message {
+    flex: 1;
+    text-align: left;
+  }
+
+  .ai-result-dialog__error-dismiss {
+    flex-shrink: 0;
   }
 
   .ai-result-dialog__result {

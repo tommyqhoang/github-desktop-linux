@@ -28,6 +28,16 @@ describe('AIResultDialog', () => {
     expect(html).toContain('Regenerate')
   })
 
+  it('shows a Dismiss button for the error only when onDismissError is given', () => {
+    const without = render({ error: 'boom' })
+    expect(without).not.toContain('>Dismiss<')
+    const withHandler = render({
+      error: 'boom',
+      onDismissError: () => undefined,
+    })
+    expect(withHandler).toContain('Dismiss')
+  })
+
   it('renders the result via the render prop with action buttons', () => {
     const html = render({
       result: 'the answer',

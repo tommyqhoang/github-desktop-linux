@@ -17,6 +17,8 @@ interface IAIResultDialogProps<T> {
   readonly insertLabel?: string
   /** Optional copy-to-clipboard action. */
   readonly onCopy?: () => void
+  /** Clear an in-place error without closing the dialog or forcing a retry. */
+  readonly onDismissError?: () => void
   readonly onDismissed: () => void
 }
 
@@ -52,7 +54,21 @@ export class AIResultDialog<T = unknown> extends React.Component<
       )
     }
     if (this.props.error !== null) {
-      return <div className="ai-result-dialog__error">{this.props.error}</div>
+      return (
+        <div className="ai-result-dialog__error">
+          <div className="ai-result-dialog__error-message">
+            {this.props.error}
+          </div>
+          {this.props.onDismissError !== undefined && (
+            <Button
+              className="ai-result-dialog__error-dismiss"
+              onClick={this.props.onDismissError}
+            >
+              Dismiss
+            </Button>
+          )}
+        </div>
+      )
     }
     if (this.props.result !== null) {
       return (
