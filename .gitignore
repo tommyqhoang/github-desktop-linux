@@ -19,3 +19,5 @@ junit*.xml
 tslint-rules/
 script/release_notes.txt
 .claude/worktrees/
+# Added by code-review-graph
+.code-review-graph/
