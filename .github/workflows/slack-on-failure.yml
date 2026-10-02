@@ -1,0 +1,39 @@
+name: Slack failure notifications
+
+on:
+  workflow_run:
+    workflows: ['Build Linux Debian Release']
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    if: >-
+      github.event.workflow_run.conclusion == 'failure' &&
+      github.event.workflow_run.name != 'Slack failure notifications'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send failure notification
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW: ${{ github.event.workflow_run.name }}
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+        run: |
+          if [[ -z "$SLACK_WEBHOOK_URL" ]]; then
+            echo "::warning::SLACK_WEBHOOK_URL is not configured; failure alert was skipped."
+            exit 0
+          fi
+
+          payload=$(jq -n \
+            --arg text ":red_circle: ${WORKFLOW} failed in ${REPOSITORY} on ${BRANCH} — <${RUN_URL}|View run>" \
+            '{text: $text}')
+
+          curl --fail --silent --show-error --max-time 15 \
+            -H 'Content-Type: application/json' \
+            --data "$payload" \
+            "$SLACK_WEBHOOK_URL"
