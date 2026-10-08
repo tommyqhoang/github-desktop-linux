@@ -223,6 +223,24 @@ export async function spawnTerminal(
   const port: any = await new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       pendingPorts.delete(sid)
+      // The PTY was already spawned on the main process when SPAWN
+      // resolved; a port arriving after this timeout would otherwise be
+      // stashed in `arrivedPorts` and never closed, leaving a zombie
+      // session + a leaked MessagePort. Reap both: close any port that
+      // has already arrived, and kill the orphaned session on the main
+      // process.
+      const leaked = arrivedPorts.get(sid)
+      if (leaked !== undefined) {
+        try {
+          leaked.close?.()
+        } catch {
+          // best-effort
+        }
+        arrivedPorts.delete(sid)
+      }
+      void killTerminal(sid, ipc).catch(() => {
+        /* session may already be gone */
+      })
       reject(new Error(`Timed out waiting for terminal port (${sid})`))
     }, 5_000)
     pendingPorts.set(sid, p => {

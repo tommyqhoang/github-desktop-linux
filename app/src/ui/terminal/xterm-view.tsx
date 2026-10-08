@@ -197,6 +197,8 @@ export class XtermView extends React.Component<
   private dataDispose: { dispose(): void } | null = null
   private resizeDispose: { dispose(): void } | null = null
   private resizeObserver: ResizeObserver | null = null
+  /** rAF handle for a coalesced fit, cancelled on unmount. */
+  private fitRaf: number | null = null
   private boundPort: IXtermViewPort | null = null
   private incomingHandler: ((event: { data: any }) => void) | null = null
   private boundUsedAddEventListener = false
@@ -263,7 +265,7 @@ export class XtermView extends React.Component<
     // user drags the resize gutter, the window resizes, or the parent
     // layout shifts.
     if (typeof ResizeObserver !== 'undefined') {
-      this.resizeObserver = new ResizeObserver(() => this.fitNow())
+      this.resizeObserver = new ResizeObserver(this.scheduleFit)
       this.resizeObserver.observe(this.container.current)
     }
     this.bindPort(this.props.port)
@@ -307,6 +309,32 @@ export class XtermView extends React.Component<
     }
   }
 
+  /**
+   * This component must NOT re-render on terminal data — xterm.js owns its
+   * own DOM and byte traffic flows through the bound MessagePort, never
+   * through React state. The parent `TerminalPanel` re-renders on every
+   * `markActivity` tick (~4×/sec during background output) and passes fresh
+   * inline-arrow callbacks each render; those closures only matter at event
+   * time (React updates `this.props` even when render is skipped, so
+   * handlers always see the latest), so we compare only the props that
+   * change the terminal surface. Gutter refreshes go through `forceUpdate`,
+   * which bypasses this hook, and scroll-position changes flip `isAtBottom`.
+   */
+  public shouldComponentUpdate(
+    nextProps: IXtermViewProps,
+    nextState: IXtermViewState
+  ): boolean {
+    return (
+      this.props.port !== nextProps.port ||
+      this.props.theme !== nextProps.theme ||
+      this.props.fontSize !== nextProps.fontSize ||
+      this.props.scrollback !== nextProps.scrollback ||
+      this.props.sessionId !== nextProps.sessionId ||
+      this.props.rendererPreference !== nextProps.rendererPreference ||
+      this.state.isAtBottom !== nextState.isAtBottom
+    )
+  }
+
   public componentWillUnmount(): void {
     this.dataDispose?.dispose()
     this.dataDispose = null
@@ -318,6 +346,10 @@ export class XtermView extends React.Component<
     this.writeParsedDispose = null
     this.resizeObserver?.disconnect()
     this.resizeObserver = null
+    if (this.fitRaf !== null) {
+      cancelAnimationFrame(this.fitRaf)
+      this.fitRaf = null
+    }
     this.unbindPort()
     this.fitAddon?.dispose?.()
     this.fitAddon = null
@@ -796,6 +828,23 @@ export class XtermView extends React.Component<
     } else if (this.term.setOption) {
       this.term.setOption('theme', { ...theme })
     }
+  }
+
+  /**
+   * rAF-coalesce container resizes so `fit()` runs at most once per frame.
+   * `ResizeObserver` can fire many times per frame during a drag-resize;
+   * without coalescing, `fitAddon.fit()` (DOM measurement + xterm geometry
+   * recalculation) runs for every callback. The downstream PTY resize is
+   * separately debounced (32ms) in `sendResize`.
+   */
+  private scheduleFit = (): void => {
+    if (this.fitRaf !== null) {
+      return
+    }
+    this.fitRaf = requestAnimationFrame(() => {
+      this.fitRaf = null
+      this.fitNow()
+    })
   }
 
   private fitNow(): void {
