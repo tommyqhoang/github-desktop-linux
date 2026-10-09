@@ -31,6 +31,9 @@ import { Emoji } from '../../lib/emoji'
 import { buildCommitGraph, ICommitGraphRow } from '../../lib/commit-graph'
 import { CommitGraph } from './commit-graph'
 
+/** Shared so the last row's `nextLanes` keeps its identity across renders. */
+const NoLanes: ReadonlyArray<string | null> = []
+
 const RowHeight = 50
 
 interface ICommitListProps {
@@ -316,7 +319,7 @@ export class CommitList extends React.Component<
         {graphRow !== undefined && (
           <CommitGraph
             row={graphRow}
-            nextLanes={graph[row + 1]?.lanes ?? []}
+            nextLanes={graph[row + 1]?.lanes ?? NoLanes}
             rowHeight={RowHeight}
           />
         )}

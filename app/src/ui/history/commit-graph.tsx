@@ -35,8 +35,12 @@ function colorFor(index: number): string {
  * from {@link computeGraphSegments} plus the commit's node. The SVG is sized to
  * the row's column count and stretches to the commit row height so lines meet
  * the cells above and below.
+ *
+ * A `PureComponent`: the rows come from a memoized `buildCommitGraph`, so
+ * `row` and `nextLanes` keep their identity across list re-renders (selection
+ * changes, scrolling) and unchanged cells skip rebuilding their SVG.
  */
-export class CommitGraph extends React.Component<ICommitGraphProps> {
+export class CommitGraph extends React.PureComponent<ICommitGraphProps> {
   public render() {
     const { row, nextLanes } = this.props
     const laneWidth = this.props.laneWidth ?? DEFAULT_LANE_WIDTH
