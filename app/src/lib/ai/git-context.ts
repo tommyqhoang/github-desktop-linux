@@ -9,12 +9,50 @@ import { Repository } from '../../models/repository'
  * the textual diff, which keeps the orchestrators simple.
  */
 
+/**
+ * Paths never sent to the AI provider. Credentials and key material would
+ * leave the machine inside the diff text, and lockfiles are large generated
+ * noise that crowds real changes out of the prompt budget.
+ *
+ * These are git pathspecs (`:(exclude,glob)`), so they apply to the diff
+ * itself rather than being filtered out of text afterwards.
+ */
+export const AI_DIFF_EXCLUDED_PATHS: ReadonlyArray<string> = [
+  // Secrets and key material
+  '**/.env',
+  '**/.env.*',
+  '**/.npmrc',
+  '**/.netrc',
+  '**/*.pem',
+  '**/*.key',
+  '**/*.p12',
+  '**/*.pfx',
+  '**/*.keystore',
+  '**/id_rsa*',
+  '**/id_ed25519*',
+  // Generated lockfiles
+  '**/yarn.lock',
+  '**/package-lock.json',
+  '**/pnpm-lock.yaml',
+  '**/Cargo.lock',
+  '**/poetry.lock',
+  '**/Gemfile.lock',
+  '**/composer.lock',
+  '**/go.sum',
+]
+
+const excludePathspecs = (): ReadonlyArray<string> => [
+  '--',
+  '.',
+  ...AI_DIFF_EXCLUDED_PATHS.map(p => `:(exclude,glob)${p}`),
+]
+
 /** The combined working-tree diff against HEAD (tracked changes). */
 export async function getWorkingDiffText(
   repository: Repository
 ): Promise<string> {
   const result = await git(
-    ['diff', 'HEAD', '--no-color'],
+    ['diff', 'HEAD', '--no-color', ...excludePathspecs()],
     repository.path,
     'aiWorkingDiff',
     { successExitCodes: new Set([0, 1]) }
@@ -28,7 +66,7 @@ export async function getBranchDiffText(
   baseRef: string
 ): Promise<string> {
   const result = await git(
-    ['diff', `${baseRef}...HEAD`, '--no-color'],
+    ['diff', `${baseRef}...HEAD`, '--no-color', ...excludePathspecs()],
     repository.path,
     'aiBranchDiff',
     { successExitCodes: new Set([0, 1]) }
@@ -42,7 +80,7 @@ export async function getCommitDiffText(
   sha: string
 ): Promise<string> {
   const result = await git(
-    ['show', '--no-color', '--format=medium', sha],
+    ['show', '--no-color', '--format=medium', sha, ...excludePathspecs()],
     repository.path,
     'aiCommitDiff'
   )
