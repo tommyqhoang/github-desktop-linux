@@ -15,6 +15,8 @@ export class MockPty implements IPty {
   public resizes: Array<{ cols: number; rows: number }> = []
   public killed = false
   public killSignal: string | undefined
+  public pauseCalls = 0
+  public resumeCalls = 0
 
   private dataCb: ((data: string | Buffer) => void) | null = null
   private exitCb: ((e: { exitCode: number; signal?: number }) => void) | null =
@@ -53,6 +55,14 @@ export class MockPty implements IPty {
   public kill(signal?: string) {
     this.killed = true
     this.killSignal = signal
+  }
+
+  public pause() {
+    this.pauseCalls++
+  }
+
+  public resume() {
+    this.resumeCalls++
   }
 
   /** Simulate the PTY emitting bytes upstream (toward the renderer). */

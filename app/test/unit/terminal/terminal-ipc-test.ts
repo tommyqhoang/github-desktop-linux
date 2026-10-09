@@ -226,6 +226,89 @@ describe('registerTerminalIpc', () => {
       expect(passed.env.NODE_OPTIONS).toBeUndefined()
     })
 
+    describe('spawn payload hardening', () => {
+      function spawnWith(options: Record<string, unknown>) {
+        const ptyMod = {
+          spawn: jest.fn(
+            (_file: string, _args: ReadonlyArray<string>, _opts: any) =>
+              new MockPty()
+          ),
+        }
+        const ipc2 = new FakeIpcMain()
+        registerTerminalIpc(
+          ipc2,
+          () => ptyMod as any,
+          () => ({ main: new MockPort(), renderer: new MockPort() })
+        )
+        return ipc2
+          .invoke(TERMINAL_IPC.SPAWN, {
+            repositoryId: 1,
+            options: { shell: 'sh', args: [], cwd: '/', env: {}, ...options },
+          })
+          .then(() => ptyMod.spawn.mock.calls[0][2] as any)
+      }
+
+      it('strips app-private variables but keeps ordinary ones', async () => {
+        const passed = await spawnWith({
+          env: {
+            PATH: '/usr/bin',
+            HOME: '/home/u',
+            ELECTRON_RUN_AS_NODE: '1',
+            ELECTRON_OZONE_PLATFORM_HINT: 'auto',
+            DESKTOP_OAUTH_CLIENT_ID: 'id',
+            DESKTOP_OAUTH_CLIENT_SECRET: 'secret',
+          },
+        })
+        expect(passed.env.PATH).toBe('/usr/bin')
+        expect(passed.env.HOME).toBe('/home/u')
+        expect(passed.env.ELECTRON_RUN_AS_NODE).toBeUndefined()
+        expect(passed.env.ELECTRON_OZONE_PLATFORM_HINT).toBeUndefined()
+        expect(passed.env.DESKTOP_OAUTH_CLIENT_ID).toBeUndefined()
+        expect(passed.env.DESKTOP_OAUTH_CLIENT_SECRET).toBeUndefined()
+      })
+
+      it('drops oversized env keys and values and non-string values', async () => {
+        const passed = await spawnWith({
+          env: {
+            OK: 'yes',
+            ['K'.repeat(257)]: 'x',
+            BIG: 'v'.repeat(32 * 1024 + 1),
+            NUM: 5,
+            OBJ: { a: 1 },
+          },
+        })
+        expect(Object.keys(passed.env)).toEqual(
+          expect.arrayContaining(['OK', 'TERM'])
+        )
+        expect(passed.env.BIG).toBeUndefined()
+        expect(passed.env.NUM).toBeUndefined()
+        expect(passed.env.OBJ).toBeUndefined()
+        expect(Object.keys(passed.env).some(k => k.length > 256)).toBe(false)
+      })
+
+      it('caps the number of env entries', async () => {
+        const env: Record<string, string> = {}
+        for (let i = 0; i < 3000; i++) {
+          env[`VAR_${i}`] = 'x'
+        }
+        const passed = await spawnWith({ env })
+        // 1024 sanitized entries plus the handful buildShellEnv adds.
+        expect(Object.keys(passed.env).length).toBeLessThan(1024 + 10)
+      })
+
+      it('clamps absurd dimensions and falls back for nonsense', async () => {
+        const big = await spawnWith({ cols: 1e9, rows: 1e9 })
+        expect(big.cols).toBe(1000)
+        expect(big.rows).toBe(1000)
+      })
+
+      it('falls back to 80x24 for non-numeric dimensions', async () => {
+        const bad = await spawnWith({ cols: 'wide', rows: -4 })
+        expect(bad.cols).toBe(80)
+        expect(bad.rows).toBe(24)
+      })
+    })
+
     it('dispose unregisters all handlers and kills sessions', async () => {
       const { ipc, reg, ptyInstances } = setup()
       await ipc.invoke(TERMINAL_IPC.SPAWN, {

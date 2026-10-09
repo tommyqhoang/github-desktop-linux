@@ -30,7 +30,36 @@ export interface IPty {
   write(data: string | Buffer): void
   resize(cols: number, rows: number): void
   kill(signal?: string): void
+  /** Stop reading PTY output (flow control). Not available on every platform. */
+  pause?(): void
+  resume?(): void
 }
+
+/**
+ * Output is batched so a burst of small PTY reads becomes one port message:
+ * fewer structured-clone round trips and one xterm write per batch. The first
+ * chunk after an idle gap is posted immediately (typing echo is never
+ * delayed); only chunks arriving within COALESCE_MS of the last post wait.
+ */
+const COALESCE_MS = 4
+const MAX_BATCH_BYTES = 64 * 1024
+
+/**
+ * Flow control. The renderer acks bytes once xterm has parsed them; while more
+ * than HIGH_WATERMARK bytes are unacked the PTY is paused (so `cat bigfile`
+ * can't queue unbounded data in the port), and resumed below LOW_WATERMARK.
+ * It only engages after the renderer has acked at least once, so a consumer
+ * that never acks can't wedge the shell, and a watchdog resumes the PTY if
+ * acks stop arriving while paused.
+ */
+const HIGH_WATERMARK = 1024 * 1024
+const LOW_WATERMARK = 256 * 1024
+const ACK_WATCHDOG_MS = 10_000
+
+/** Upper bounds on renderer-supplied values. */
+const MAX_INPUT_BYTES = 1024 * 1024
+const MAX_COLS = 1000
+const MAX_ROWS = 1000
 
 /** Factory function that creates a PTY given options. */
 export type PtyFactory = (options: IPtyOptions) => IPty
@@ -73,6 +102,15 @@ export class PtySession {
   private exitListeners: Array<(snapshot: ITerminalSessionSnapshot) => void> =
     []
   private oscParser = new OscParser()
+
+  private pendingChunks: Uint8Array[] = []
+  private pendingBytes = 0
+  private flushTimer: ReturnType<typeof setTimeout> | null = null
+  private lastFlushAt = 0
+  private unackedBytes = 0
+  private ackSeen = false
+  private paused = false
+  private watchdog: ReturnType<typeof setTimeout> | null = null
 
   public constructor(deps: IPtySessionDeps) {
     this.deps = deps
@@ -117,9 +155,7 @@ export class PtySession {
       if (this.destroyed) {
         return
       }
-      const bytes = chunkToBytes(chunk)
-      this.oscParser.feed(bytes)
-      this.safePost({ type: 'data', bytes })
+      this.enqueue(chunkToBytes(chunk))
     })
 
     this.exitDisposable = this.pty.onExit(({ exitCode }) => {
@@ -127,6 +163,7 @@ export class PtySession {
         // We may have torn down already (renderer-initiated kill). Drop.
         return
       }
+      this.flushPending()
       this.snapshot = { ...this.snapshot, status: 'exited', exitCode }
       this.safePost({ type: 'exit', exitCode })
       const listeners = this.exitListeners.slice()
@@ -158,8 +195,11 @@ export class PtySession {
     if (this.pty === null || this.destroyed) {
       return
     }
-    const c = Math.max(1, Math.floor(cols))
-    const r = Math.max(1, Math.floor(rows))
+    if (!Number.isFinite(cols) || !Number.isFinite(rows)) {
+      return
+    }
+    const c = Math.min(MAX_COLS, Math.max(1, Math.floor(cols)))
+    const r = Math.min(MAX_ROWS, Math.max(1, Math.floor(rows)))
     if (c === this.snapshot.cols && r === this.snapshot.rows) {
       return
     }
@@ -200,22 +240,172 @@ export class PtySession {
     if (data === null || typeof data !== 'object') {
       return
     }
-    switch (data.type) {
-      case 'input':
-        this.write(data.bytes)
-        return
-      case 'resize':
-        this.resize(data.cols, data.rows)
-        return
-      default:
-        // Unknown message — drop silently. We never throw on a renderer payload.
-        return
+    // Runs inside the port's message event in the main process, so a
+    // malformed payload must never throw out of here.
+    try {
+      switch (data.type) {
+        case 'input': {
+          const bytes = data.bytes
+          const length =
+            typeof bytes === 'string'
+              ? bytes.length
+              : ArrayBuffer.isView(bytes)
+              ? bytes.byteLength
+              : -1
+          if (length < 0 || length > MAX_INPUT_BYTES) {
+            return
+          }
+          this.write(bytes)
+          return
+        }
+        case 'resize':
+          this.resize(data.cols, data.rows)
+          return
+        case 'ack':
+          this.handleAck(data.bytes)
+          return
+        default:
+          // Unknown message — drop silently. We never throw on a renderer payload.
+          return
+      }
+    } catch (err) {
+      log.warn('[pty-session] dropped malformed renderer message', err as Error)
+    }
+  }
+
+  /** Queue PTY output and post it as one batched message. */
+  private enqueue(bytes: Uint8Array): void {
+    this.pendingChunks.push(bytes)
+    this.pendingBytes += bytes.byteLength
+    // Parse after queueing: an OSC event flushes pending output first so
+    // `meta` messages never overtake the bytes that produced them.
+    this.oscParser.feed(bytes)
+
+    if (this.pendingBytes === 0) {
+      return
+    }
+    if (this.pendingBytes >= MAX_BATCH_BYTES) {
+      this.flushPending()
+      return
+    }
+    if (this.flushTimer !== null) {
+      return
+    }
+    const sinceLast = Date.now() - this.lastFlushAt
+    if (sinceLast >= COALESCE_MS) {
+      this.flushPending()
+    } else {
+      this.flushTimer = setTimeout(
+        () => this.flushPending(),
+        COALESCE_MS - sinceLast
+      )
+    }
+  }
+
+  private flushPending(): void {
+    if (this.flushTimer !== null) {
+      clearTimeout(this.flushTimer)
+      this.flushTimer = null
+    }
+    if (this.pendingBytes === 0) {
+      return
+    }
+    const chunks = this.pendingChunks
+    let out: Uint8Array
+    if (chunks.length === 1) {
+      out = chunks[0]
+    } else {
+      out = new Uint8Array(this.pendingBytes)
+      let offset = 0
+      for (const c of chunks) {
+        out.set(c, offset)
+        offset += c.byteLength
+      }
+    }
+    this.pendingChunks = []
+    this.pendingBytes = 0
+    this.lastFlushAt = Date.now()
+    this.unackedBytes += out.byteLength
+    this.safePost({ type: 'data', bytes: out })
+    this.pauseIfBacklogged()
+  }
+
+  private pauseIfBacklogged(): void {
+    if (
+      !this.ackSeen ||
+      this.paused ||
+      this.unackedBytes < HIGH_WATERMARK ||
+      this.pty === null ||
+      typeof this.pty.pause !== 'function'
+    ) {
+      return
+    }
+    try {
+      this.pty.pause()
+    } catch {
+      return
+    }
+    this.paused = true
+    this.armWatchdog()
+  }
+
+  private handleAck(bytes: unknown): void {
+    if (typeof bytes !== 'number' || !Number.isFinite(bytes) || bytes < 0) {
+      return
+    }
+    this.ackSeen = true
+    this.unackedBytes = Math.max(0, this.unackedBytes - bytes)
+    if (!this.paused) {
+      return
+    }
+    if (this.unackedBytes <= LOW_WATERMARK) {
+      this.resumePty()
+    } else {
+      this.armWatchdog()
+    }
+  }
+
+  private resumePty(): void {
+    this.clearWatchdog()
+    if (!this.paused) {
+      return
+    }
+    this.paused = false
+    try {
+      this.pty?.resume?.()
+    } catch {
+      // PTY may have exited; nothing actionable.
+    }
+  }
+
+  /**
+   * If the renderer stops acking while the PTY is paused (hung, or its view
+   * is gone), resume and turn flow control off rather than leave the shell
+   * blocked forever.
+   */
+  private armWatchdog(): void {
+    this.clearWatchdog()
+    this.watchdog = setTimeout(() => {
+      this.watchdog = null
+      this.ackSeen = false
+      this.unackedBytes = 0
+      this.resumePty()
+    }, ACK_WATCHDOG_MS)
+  }
+
+  private clearWatchdog(): void {
+    if (this.watchdog !== null) {
+      clearTimeout(this.watchdog)
+      this.watchdog = null
     }
   }
 
   private onOsc(evt: OscEvent): void {
     if (this.destroyed) {
       return
+    }
+    if (evt.type === 'cwd' || evt.type === 'command-end') {
+      this.flushPending()
     }
     if (evt.type === 'cwd') {
       this.snapshot = { ...this.snapshot, liveCwd: evt.path }
@@ -242,6 +432,13 @@ export class PtySession {
       return
     }
     this.destroyed = true
+    if (this.flushTimer !== null) {
+      clearTimeout(this.flushTimer)
+      this.flushTimer = null
+    }
+    this.clearWatchdog()
+    this.pendingChunks = []
+    this.pendingBytes = 0
     try {
       this.dataDisposable?.dispose()
     } catch {

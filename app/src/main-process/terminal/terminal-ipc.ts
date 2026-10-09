@@ -242,12 +242,23 @@ function validateSpawnArgs(raw: unknown): {
     ? o.args.filter((a): a is string => typeof a === 'string')
     : []
   const env = sanitizeEnv(o.env)
-  const cols = Math.max(1, Math.floor(Number(o.cols) || 80))
-  const rows = Math.max(1, Math.floor(Number(o.rows) || 24))
+  const cols = clampDimension(o.cols, 80)
+  const rows = clampDimension(o.rows, 24)
   return {
     repositoryId: Number(r.repositoryId),
     options: { shell, args, cwd, env, cols, rows },
   }
+}
+
+/** Largest terminal dimension we will hand to the PTY. */
+const MAX_DIMENSION = 1000
+
+function clampDimension(raw: unknown, fallback: number): number {
+  const n = Math.floor(Number(raw))
+  if (!Number.isFinite(n) || n <= 0) {
+    return fallback
+  }
+  return Math.min(MAX_DIMENSION, n)
 }
 
 const DANGEROUS_ENV_KEYS = new Set([
@@ -260,18 +271,43 @@ const DANGEROUS_ENV_KEYS = new Set([
   'NODE_OPTIONS',
 ])
 
+/**
+ * Variables that configure this Electron app rather than the user's shell.
+ * Forwarding them makes child tools misbehave (an `electron` or `node` binary
+ * run from the terminal would inherit ELECTRON_RUN_AS_NODE) and leaks the
+ * app's OAuth client credentials into every process the user launches.
+ */
+const APP_PRIVATE_ENV_PREFIXES = ['ELECTRON_', 'DESKTOP_OAUTH_']
+
+const MAX_ENV_ENTRIES = 1024
+const MAX_ENV_KEY_LENGTH = 256
+const MAX_ENV_VALUE_LENGTH = 32 * 1024
+
+function isAppPrivateEnvKey(key: string): boolean {
+  return APP_PRIVATE_ENV_PREFIXES.some(prefix => key.startsWith(prefix))
+}
+
 function sanitizeEnv(raw: unknown): Record<string, string> {
   if (raw === null || typeof raw !== 'object') {
     return {}
   }
   const out: Record<string, string> = {}
+  let count = 0
   for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
-    if (DANGEROUS_ENV_KEYS.has(k)) {
+    if (
+      DANGEROUS_ENV_KEYS.has(k) ||
+      isAppPrivateEnvKey(k) ||
+      k.length === 0 ||
+      k.length > MAX_ENV_KEY_LENGTH ||
+      typeof v !== 'string' ||
+      v.length > MAX_ENV_VALUE_LENGTH
+    ) {
       continue
     }
-    if (typeof v === 'string') {
-      out[k] = v
+    if (++count > MAX_ENV_ENTRIES) {
+      break
     }
+    out[k] = v
   }
   return out
 }

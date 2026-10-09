@@ -122,7 +122,7 @@ export interface IRuntimeTerminal {
   rows: number
   buffer?: any
   open(container: HTMLElement): void
-  write(data: string | Uint8Array): void
+  write(data: string | Uint8Array, callback?: () => void): void
   paste(data: string): void
   focus(): void
   hasSelection(): boolean
@@ -879,9 +879,14 @@ export class XtermView extends React.Component<
         return
       }
       if (data.type === 'data' && this.term) {
-        this.term.write(data.bytes)
         if (data.bytes instanceof Uint8Array) {
+          // Ack once xterm has parsed the bytes (not on receipt) so the
+          // main process can pause the PTY when we fall behind.
+          const length = data.bytes.byteLength
+          this.term.write(data.bytes, () => this.ackBytes(length))
           this.oscParser.feed(data.bytes)
+        } else {
+          this.term.write(data.bytes)
         }
       }
     }
@@ -929,6 +934,17 @@ export class XtermView extends React.Component<
     const buf = Buffer.from(input, 'utf8')
     const bytes = new Uint8Array(buf)
     this.boundPort.postMessage({ type: 'input', bytes })
+  }
+
+  private ackBytes(bytes: number): void {
+    if (this.boundPort === null) {
+      return
+    }
+    try {
+      this.boundPort.postMessage({ type: 'ack', bytes })
+    } catch {
+      // port can close between the write and its callback — not actionable
+    }
   }
 
   private sendResize(size: { cols: number; rows: number }) {
