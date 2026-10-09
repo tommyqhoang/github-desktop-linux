@@ -43,9 +43,50 @@ jobs:
           retention-days: 30
           if-no-files-found: error
 
+  macos-arm64:
+    name: macOS arm64 (Apple Silicon)
+    runs-on: macos-14
+    env:
+      DESKTOP_OAUTH_CLIENT_ID: ${{ secrets.DESKTOP_OAUTH_CLIENT_ID }}
+      DESKTOP_OAUTH_CLIENT_SECRET: ${{ secrets.DESKTOP_OAUTH_CLIENT_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+          submodules: recursive
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: yarn
+      - name: Set release build version
+        run: |
+          node -e "const fs = require('fs'); const path = 'app/package.json'; const pkg = require('./' + path); pkg.version = pkg.version.replace(/-.*/, '') + '-' + process.env.BUILD_VERSION_SUFFIX; fs.writeFileSync(path, JSON.stringify(pkg, null, 2) + '\n');"
+          node -p "require('./app/package.json').version"
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+      - name: Build
+        run: yarn build:prod
+      - name: Package
+        run: yarn package
+      - name: Name and checksum zip
+        run: |
+          VERSION="$(node -p "require('./app/package.json').version")"
+          mkdir -p out
+          ZIP="$(ls dist/*-arm64.zip | head -n1)"
+          cp "$ZIP" "out/GitHubDesktop-macos-arm64-${VERSION}.zip"
+          (cd out && shasum -a 256 *.zip | awk '{print $1}' > "GitHubDesktop-macos-arm64-${VERSION}.zip.sha256")
+          ls -l out
+      - name: Upload macOS package
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-arm64
+          path: out/*
+          retention-days: 30
+          if-no-files-found: error
+
   release:
     name: Publish GitHub release
-    needs: [amd64]
+    needs: [amd64, macos-arm64]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -74,6 +115,8 @@ jobs:
           files: |
             artifacts/**/*.deb
             artifacts/**/*.deb.sha256
+            artifacts/**/*.zip
+            artifacts/**/*.zip.sha256
           draft: false
           prerelease: true
           fail_on_unmatched_files: true
