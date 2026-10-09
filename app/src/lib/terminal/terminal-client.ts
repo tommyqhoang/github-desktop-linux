@@ -43,6 +43,7 @@ export function _setIpcRenderer(ipc: IIpcRenderer | null) {
   portListenerInstalled = null
   pendingPorts.clear()
   arrivedPorts.clear()
+  abandonedSessions.clear()
   lastActivityMark.clear()
 }
 
@@ -168,6 +169,20 @@ export function _resetActivityThrottle(): void {
 let portListenerInstalled: IIpcRenderer | null = null
 const pendingPorts = new Map<string, (port: any) => void>()
 const arrivedPorts = new Map<string, any>()
+/**
+ * Sessions whose spawn timed out. Their port may still land afterwards; it
+ * is closed on arrival rather than parked in `arrivedPorts` where nothing
+ * would ever claim or close it.
+ */
+const abandonedSessions = new Set<string>()
+
+function closePort(port: any): void {
+  try {
+    port?.close?.()
+  } catch {
+    // best-effort: the port may already be closed
+  }
+}
 
 function ensurePortListener(ipc: IIpcRenderer): void {
   if (portListenerInstalled === ipc) {
@@ -187,6 +202,10 @@ function ensurePortListener(ipc: IIpcRenderer): void {
       return
     }
     const sid: string = payload.sessionId
+    if (abandonedSessions.delete(sid)) {
+      closePort(port)
+      return
+    }
     const cb = pendingPorts.get(sid)
     if (cb !== undefined) {
       pendingPorts.delete(sid)
@@ -231,13 +250,10 @@ export async function spawnTerminal(
       // process.
       const leaked = arrivedPorts.get(sid)
       if (leaked !== undefined) {
-        try {
-          leaked.close?.()
-        } catch {
-          // best-effort
-        }
+        closePort(leaked)
         arrivedPorts.delete(sid)
       }
+      abandonedSessions.add(sid)
       void killTerminal(sid, ipc).catch(() => {
         /* session may already be gone */
       })
@@ -256,6 +272,7 @@ export async function killTerminal(
   ipc: IIpcRenderer = getIpcRenderer()
 ): Promise<void> {
   await ipc.invoke(TERMINAL_IPC.KILL, sessionId)
+  closePort(arrivedPorts.get(sessionId))
   arrivedPorts.delete(sessionId)
   pendingPorts.delete(sessionId)
 }

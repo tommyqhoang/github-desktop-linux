@@ -107,6 +107,54 @@ describe('terminal-client', () => {
       expect(result).toEqual({ sessionId: 'sess-early', port: fakePort })
     })
 
+    describe('when the port never arrives in time', () => {
+      beforeEach(() => jest.useFakeTimers())
+      afterEach(() => jest.useRealTimers())
+
+      it('rejects and kills the orphaned session', async () => {
+        const ipc = new FakeIpc()
+        ipc.response = { sessionId: 'orphan' }
+
+        const spawned = spawnTerminal(1, baseOptions(), ipc)
+        const rejection = expect(spawned).rejects.toThrow(/Timed out/)
+        await jest.advanceTimersByTimeAsync(5_000)
+        await rejection
+
+        const kill = ipc.calls.find(c => c.channel === TERMINAL_IPC.KILL)
+        expect(kill?.args[0]).toBe('orphan')
+      })
+
+      it('does not kill the session when the port arrives in time', async () => {
+        const ipc = new FakeIpc()
+        ipc.response = { sessionId: 'healthy' }
+        ipc.portToDeliver = { fake: true }
+
+        const spawned = spawnTerminal(1, baseOptions(), ipc)
+        await jest.advanceTimersByTimeAsync(5_000)
+        await expect(spawned).resolves.toMatchObject({ sessionId: 'healthy' })
+
+        expect(ipc.calls.some(c => c.channel === TERMINAL_IPC.KILL)).toBe(false)
+      })
+
+      it('closes a port that lands after the timeout instead of leaking it', async () => {
+        const ipc = new FakeIpc()
+        ipc.response = { sessionId: 'late' }
+        const lateClose = jest.fn()
+
+        const spawned = spawnTerminal(1, baseOptions(), ipc)
+        const rejection = expect(spawned).rejects.toThrow(/Timed out/)
+        await jest.advanceTimersByTimeAsync(5_000)
+        await rejection
+
+        // The port transfer races in just after the timeout fired. It must
+        // not be parked in `arrivedPorts` for a session nobody owns.
+        for (const l of ipc.listeners.get(TERMINAL_IPC.PORT_TRANSFER) ?? []) {
+          l({ ports: [{ close: lateClose }] }, { sessionId: 'late' })
+        }
+        expect(lateClose).toHaveBeenCalledTimes(1)
+      })
+    })
+
     it('rejects when the spawn response is malformed', async () => {
       const ipc = new FakeIpc()
       ipc.response = { foo: 'bar' }
