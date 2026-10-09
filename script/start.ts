@@ -44,14 +44,19 @@ if (process.env.NODE_ENV === 'production') {
   const port = getPortOrDefault()
   const message = 'Could not find public path from configuration'
 
-  const devMiddleware = DevMiddleware(compiler, {
-    publicPath: u(
-      message,
-      u(message, u(message, rendererConfig).output).publicPath
-    ),
-  })
+  const devMiddleware = DevMiddleware(
+    compiler as unknown as Parameters<typeof DevMiddleware>[0],
+    {
+      publicPath: u(
+        message,
+        u(message, u(message, rendererConfig).output).publicPath
+      ),
+    }
+  )
 
-  const hotMiddleware = HotMiddleware(compiler)
+  const hotMiddleware = HotMiddleware(
+    compiler as unknown as Parameters<typeof HotMiddleware>[0]
+  )
 
   const server = createServer((req, res) => {
     devMiddleware(req, res, () => {

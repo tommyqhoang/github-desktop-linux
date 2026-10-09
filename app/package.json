@@ -30,7 +30,7 @@
     "@xterm/xterm": "^5.5.0",
     "app-path": "3.3.0",
     "byline": "^5.0.0",
-    "chalk": "6.0.1",
+    "chalk": "5.6.2",
     "classnames": "2.5.1",
     "codemirror": "^5.65.17",
     "codemirror-mode-elixir": "^1.1.2",
