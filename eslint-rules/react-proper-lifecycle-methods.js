@@ -14,8 +14,20 @@
  * @typedef {import('@typescript-eslint/typescript-estree').TSESTree.Node} Node
  * @typedef {import('@typescript-eslint/typescript-estree').TSESTree.Parameter} Parameter
  * @typedef {import("@typescript-eslint/typescript-estree").TSESTree.MethodDefinition} MethodDefinition
- * @typedef {import('@typescript-eslint/experimental-utils').TSESLint.RuleModule} RuleModule
+ * @typedef {import('@typescript-eslint/utils').TSESLint.RuleModule} RuleModule
  */
+
+/**
+ * The type arguments passed to the superclass, e.g. `<IProps, IState>`.
+ *
+ * typescript-estree 6+ renamed `superTypeParameters` to `superTypeArguments`.
+ *
+ * @param {ClassDeclaration} node
+ */
+function getSuperTypeArguments(node) {
+  // @ts-expect-error - `superTypeParameters` is deprecated and may be absent
+  return node.superTypeArguments || node.superTypeParameters
+}
 
 /**
  * Extract the props type from the class declaration
@@ -25,15 +37,12 @@
  * @returns {string|null} a `string` if the props type can be resolved, `null` otherwise
  */
 function getPropsType(node) {
-  if (!node.superTypeParameters) {
+  const typeArguments = getSuperTypeArguments(node)
+  if (!typeArguments || typeArguments.params.length <= 0) {
     return null
   }
 
-  if (node.superTypeParameters.params.length <= 0) {
-    return null
-  }
-
-  const propsParam = node.superTypeParameters.params[0]
+  const propsParam = typeArguments.params[0]
   if (
     propsParam.type === 'TSTypeReference' &&
     propsParam.typeName.type === 'Identifier'
@@ -60,11 +69,12 @@ function getPropsType(node) {
  * @returns {string|null} a `string` if the props type can be resolved, `null` otherwise
  */
 function getStateType(node, getText) {
-  if (node.superTypeParameters.params.length <= 1) {
+  const typeArguments = getSuperTypeArguments(node)
+  if (!typeArguments || typeArguments.params.length <= 1) {
     return null
   }
 
-  const propsParam = node.superTypeParameters.params[1]
+  const propsParam = typeArguments.params[1]
   if (
     propsParam.type === 'TSTypeReference' &&
     propsParam.typeName.type === 'Identifier'
@@ -297,7 +307,7 @@ module.exports = {
 
         isValidComponent = true
 
-        if (!node.superTypeParameters) {
+        if (!getSuperTypeArguments(node)) {
           return
         }
 

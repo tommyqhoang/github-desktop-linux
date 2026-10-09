@@ -5,6 +5,7 @@
     "noEmit": true,
     "target": "ES2021",
     "skipLibCheck": true,
+    "ignoreDeprecations": "6.0",
     "moduleResolution": "node"
   },
   "include": ["*.js", "test/*.js"]
