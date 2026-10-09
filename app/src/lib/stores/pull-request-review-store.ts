@@ -149,6 +149,11 @@ export class PullRequestReviewStore extends BaseStore {
     if (this.session.verdict.kind === 'pending') {
       return false
     }
+    // A second submit while one is in flight would post a duplicate review,
+    // which can't be undone on GitHub.
+    if (this.session.status === 'submitting') {
+      return false
+    }
     this.session = { ...this.session, status: 'submitting', error: null }
     this.emitUpdate()
 

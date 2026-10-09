@@ -202,6 +202,50 @@ describe('PullRequestReviewStore', () => {
       expect(s.summary).toBe('')
     })
 
+    it('ignores a second submit while one is already in flight', async () => {
+      let release: (r: IHttpResponse) => void = () => {}
+      const http = new FakeHttp().enqueue(ok([]))
+      const realRequest = http.request.bind(http)
+      let submitCalls = 0
+      http.request = (async (method: any, path: string, body?: unknown) => {
+        if (method === 'POST') {
+          submitCalls++
+          return new Promise<IHttpResponse>(resolve => (release = resolve))
+        }
+        return realRequest(method, path, body)
+      }) as any
+      const store = new PullRequestReviewStore(http)
+      await store.open(1, 'o', 'r', 7)
+      store.setVerdict({ kind: 'approve' })
+
+      const first = store.submit('o', 'r')
+      const second = await store.submit('o', 'r')
+      release({ ok: true, status: 200, body: {} })
+
+      expect(second).toBe(false)
+      expect(await first).toBe(true)
+      expect(submitCalls).toBe(1)
+    })
+
+    it('shows an error instead of an empty review when comments fail to load', async () => {
+      const http = new FakeHttp().enqueue({
+        ok: false,
+        status: 403,
+        body: { message: 'API rate limit exceeded' },
+      })
+      const store = new PullRequestReviewStore(http)
+      let emitted: Error | null = null
+      store.onDidError(e => (emitted = e))
+
+      await store.open(1, 'o', 'r', 7)
+
+      const session = store.getSession()!
+      expect(session.status).toBe('error')
+      expect(session.threads).toEqual([])
+      expect(session.error?.message).toMatch(/rate limit/i)
+      expect(emitted).not.toBeNull()
+    })
+
     it('on failure: leaves drafts intact and surfaces an error', async () => {
       const http = new FakeHttp().enqueue(ok([])).enqueue({
         ok: false,

@@ -129,10 +129,10 @@ const MAX_COMMENT_PAGES = 50
  *
  * The endpoint is paginated: pages are walked until one comes back shorter
  * than a full page (the last page) or empty. A non-2xx / non-array response
- * on the first page yields an empty array with no throw — callers decide
- * whether to surface an error (typically yes for 401, a "no permission"
- * message for 403). A failure on a later page returns whatever was collected
- * so far rather than discarding a partially-loaded review.
+ * on the FIRST page throws, so a rate limit, expired token or network failure
+ * is not mistaken for "this PR has no comments". A failure on a later page
+ * returns whatever was collected so far rather than discarding a
+ * partially-loaded review.
  */
 export async function fetchPullRequestThreads(
   client: IHttpClient,
@@ -147,6 +147,15 @@ export async function fetchPullRequestThreads(
       `?per_page=${COMMENTS_PER_PAGE}&page=${page}`
     const res = await client.request('GET', path)
     if (!res.ok || !Array.isArray(res.body)) {
+      if (page === 1) {
+        throw new Error(
+          res.ok
+            ? 'GitHub returned an unexpected response while loading review comments.'
+            : `Couldn't load review comments: ${describeHttpFailure(
+                res.status
+              )}`
+        )
+      }
       break
     }
     for (const raw of res.body) {
@@ -202,7 +211,7 @@ export async function submitReview(
     return {
       ok: false,
       status: res.status,
-      error: extractErrorMessage(res.body),
+      error: extractErrorMessage(res.body, res.status),
     }
   }
   return { ok: true, status: res.status }
@@ -254,10 +263,33 @@ function verdictToEvent(
   }
 }
 
-function extractErrorMessage(body: unknown): string {
-  if (body === null || typeof body !== 'object') {
-    return 'Unknown error'
+/**
+ * Turn an HTTP status from the GitHub API into something a user can act on.
+ * Status 0 is what the account HTTP client reports when the request never
+ * got a response (offline, DNS, TLS).
+ */
+export function describeHttpFailure(status: number): string {
+  if (status === 0) {
+    return "couldn't reach GitHub. Check your connection and try again."
   }
-  const m = (body as any).message
-  return typeof m === 'string' ? m : 'Unknown error'
+  if (status === 401) {
+    return 'you are not signed in, or your sign-in has expired. Sign in again.'
+  }
+  if (status === 403 || status === 429) {
+    return 'access was denied or the GitHub API rate limit was reached. Try again in a few minutes.'
+  }
+  if (status === 404) {
+    return 'the pull request or repository was not found, or you do not have access to it.'
+  }
+  return `GitHub responded with HTTP ${status}.`
+}
+
+function extractErrorMessage(body: unknown, status: number): string {
+  if (body !== null && typeof body === 'object') {
+    const m = (body as any).message
+    if (typeof m === 'string' && m.length > 0) {
+      return m
+    }
+  }
+  return describeHttpFailure(status)
 }

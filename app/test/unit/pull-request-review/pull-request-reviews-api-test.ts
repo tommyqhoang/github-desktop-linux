@@ -192,13 +192,32 @@ describe('fetchPullRequestThreads', () => {
     ])
   })
 
-  it('returns empty array on non-2xx', async () => {
-    const http = new FakeHttp().enqueue(err(401))
-    expect(await fetchPullRequestThreads(http, 'a', 'b', 1)).toEqual([])
+  it.each([
+    [401, /sign in/i],
+    [403, /rate limit/i],
+    [404, /not found/i],
+    [429, /rate limit/i],
+    [0, /couldn't reach GitHub/i],
+    [500, /HTTP 500/],
+  ])(
+    'throws an actionable error when the first page fails with %s',
+    async (status, message) => {
+      const http = new FakeHttp().enqueue(err(status))
+      await expect(fetchPullRequestThreads(http, 'a', 'b', 1)).rejects.toThrow(
+        message
+      )
+    }
+  )
+
+  it('throws when the first page body is not an array', async () => {
+    const http = new FakeHttp().enqueue(ok({ message: 'oops' }))
+    await expect(fetchPullRequestThreads(http, 'a', 'b', 1)).rejects.toThrow(
+      /unexpected response/i
+    )
   })
 
-  it('returns empty array when body is not an array', async () => {
-    const http = new FakeHttp().enqueue(ok({ message: 'oops' }))
+  it('still returns an empty list for a PR that genuinely has no comments', async () => {
+    const http = new FakeHttp().enqueue(ok([]))
     expect(await fetchPullRequestThreads(http, 'a', 'b', 1)).toEqual([])
   })
 
@@ -336,15 +355,22 @@ describe('submitReview', () => {
     expect(r.error).toBe('Validation Failed')
   })
 
-  it('reports "Unknown error" when error body has no message', async () => {
-    const http = new FakeHttp().enqueue(err(500))
-    const r = await submitReview(http, 'o', 'r', 1, {
-      verdict: { kind: 'approve' },
-      summary: '',
-      drafts: [],
-    })
-    expect(r.error).toBe('Unknown error')
-  })
+  it.each([
+    [500, /HTTP 500/],
+    [403, /rate limit/i],
+    [0, /couldn't reach GitHub/i],
+  ])(
+    'falls back to an actionable message for status %s when the body has none',
+    async (status, message) => {
+      const http = new FakeHttp().enqueue(err(status))
+      const r = await submitReview(http, 'o', 'r', 1, {
+        verdict: { kind: 'approve' },
+        summary: '',
+        drafts: [],
+      })
+      expect(r.error).toMatch(message)
+    }
+  )
 })
 
 describe('groupThreadsByPath', () => {
