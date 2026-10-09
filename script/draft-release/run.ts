@@ -1,4 +1,4 @@
-import { sort as semverSort, SemVer } from 'semver'
+import { sort as semverSort } from 'semver'
 
 import { getLogLines } from '../changelog/git'
 import {
@@ -48,7 +48,7 @@ async function getLatestRelease(options: {
   const sortedTags = semverSort(releaseVersions)
   const latestTag = forceUnwrap(`No tags`, sortedTags.at(-1))
 
-  return latestTag instanceof SemVer ? latestTag.raw : latestTag
+  return latestTag
 }
 
 async function createReleaseBranch(version: string): Promise<void> {
