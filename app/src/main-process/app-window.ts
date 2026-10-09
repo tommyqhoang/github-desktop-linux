@@ -235,7 +235,7 @@ export class AppWindow {
     registerWindowStateChangedEvents(this.window)
     this.window.loadURL(encodePathAsUrl(__dirname, 'index.html'))
 
-    nativeTheme.addListener('updated', (event: string, userInfo: any) => {
+    nativeTheme.addListener('updated', () => {
       ipcWebContents.send(this.window.webContents, 'native-theme-updated')
     })
 
@@ -351,7 +351,7 @@ export class AppWindow {
       // automatically. The modal panel is not brought to the front for an inactive app."
       // NOTE: flashFrame() uses the 'informational' level, so we need to explicitly bounce the dock
       // with the 'critical' level in order to that described behavior.
-      app.dock.bounce('critical')
+      app.dock?.bounce('critical')
     } else {
       // See https://learn.microsoft.com/en-us/windows/win32/uxguide/winenv-taskbar#taskbar-button-flashing
       // "If an inactive program requires immediate attention,

@@ -6,7 +6,7 @@
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "importHelpers": true,
-    "target": "ES2021",
+    "target": "ES2022",
     "allowUnreachableCode": false,
     "allowUnusedLabels": false,
     "noImplicitReturns": true,
