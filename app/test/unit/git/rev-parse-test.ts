@@ -131,6 +131,9 @@ directory=`
 
       process.env['HOME'] = testHomeDirectory
       process.env['GIT_TEST_ASSUME_DIFFERENT_OWNER'] = '1'
+      // CI injects a blanket safe.directory via GIT_CONFIG_* (unit-test-env.ts)
+      const previousGitConfigCount = process.env['GIT_CONFIG_COUNT']
+      delete process.env['GIT_CONFIG_COUNT']
 
       expect(await getRepositoryType(repository.path)).toMatchObject({
         kind: 'unsafe',
@@ -138,6 +141,9 @@ directory=`
 
       process.env['GIT_TEST_ASSUME_DIFFERENT_OWNER'] = undefined
       process.env['HOME'] = previousHomeValue
+      if (previousGitConfigCount !== undefined) {
+        process.env['GIT_CONFIG_COUNT'] = previousGitConfigCount
+      }
     })
   })
 })
