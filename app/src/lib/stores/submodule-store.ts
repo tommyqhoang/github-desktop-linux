@@ -13,6 +13,8 @@ export interface IRepoSubmoduleState {
   readonly loading: boolean
   readonly error: Error | null
   readonly loadedAt: number | null
+  /** True while an update/sync is running for this repository. */
+  readonly busy: boolean
 }
 
 const EMPTY_STATE: IRepoSubmoduleState = Object.freeze({
@@ -20,6 +22,7 @@ const EMPTY_STATE: IRepoSubmoduleState = Object.freeze({
   loading: false,
   error: null,
   loadedAt: null,
+  busy: false,
 })
 
 /** Cache of submodule entries by repository id. */
@@ -85,6 +88,39 @@ export class SubmoduleStore extends BaseStore {
       })
       this.emitError(error)
     }
+  }
+
+  /** True while an update/sync is running for the repository. */
+  public isBusy(repository: Repository): boolean {
+    return this.state.get(repository.id)?.busy ?? false
+  }
+
+  /**
+   * Run a mutating submodule operation with the repository marked busy so the
+   * UI can disable its actions. A second call while one is running is
+   * ignored (resolves `false`). The list is refreshed afterwards whether or
+   * not the operation failed, and the operation's error is rethrown.
+   */
+  public async runExclusive(
+    repository: Repository,
+    operation: () => Promise<void>
+  ): Promise<boolean> {
+    if (this.isBusy(repository)) {
+      return false
+    }
+    this.update(repository.id, this.state.get(repository.id) ?? EMPTY_STATE, {
+      busy: true,
+    })
+    try {
+      await operation()
+    } finally {
+      const base = this.state.get(repository.id)
+      if (base !== undefined) {
+        this.update(repository.id, base, { busy: false })
+      }
+      await this.loadSubmodules(repository)
+    }
+    return true
   }
 
   /** Drop the cached state for a repository. */

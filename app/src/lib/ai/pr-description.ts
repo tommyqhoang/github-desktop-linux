@@ -51,6 +51,10 @@ export function parsePRDescription(content: string): IAIPRDescription {
     throw new Error('The AI provider returned an invalid PR description.')
   }
 
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('The AI provider returned an invalid PR description.')
+  }
+
   if (typeof parsed.title !== 'string' || parsed.title.trim().length === 0) {
     throw new Error('The AI provider did not return a PR title.')
   }

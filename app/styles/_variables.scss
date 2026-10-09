@@ -513,6 +513,15 @@ $overlay-background-color: rgba(0, 0, 0, 0.4);
   --status-error-color: #{$red-500};
   --status-success-color: #1a7f37;
 
+  /** commit graph lane colors */
+  --commit-graph-lane-0: #0969da;
+  --commit-graph-lane-1: #1a7f37;
+  --commit-graph-lane-2: #cf222e;
+  --commit-graph-lane-3: #bf3989;
+  --commit-graph-lane-4: #9a6700;
+  --commit-graph-lane-5: #8250df;
+  --commit-graph-lane-6: #bc4c00;
+
   // PR status icon colors
   --pr-open-icon-color: #{$green-500};
   --pr-draft-icon-color: #{$gray-500};

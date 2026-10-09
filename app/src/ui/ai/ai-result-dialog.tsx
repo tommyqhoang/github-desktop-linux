@@ -11,6 +11,8 @@ interface IAIResultDialogProps<T> {
   /** Render the result body. Lets each feature own its result layout. */
   readonly renderResult: (result: T) => React.JSX.Element
   readonly onRegenerate: () => void
+  /** Run the action again; offered in the error and empty states. */
+  readonly onRetry?: () => void
   /** Optional primary action (e.g. insert into the commit message / PR form). */
   readonly onInsert?: () => void
   /** Label for the primary action button. Defaults to "Insert". */
@@ -28,18 +30,74 @@ interface IAIResultDialogProps<T> {
  * result body is supplied by the caller via `renderResult` so each feature
  * controls its own layout while sharing the chrome and actions.
  */
+interface IAIResultDialogState {
+  readonly copied: boolean
+}
+
 export class AIResultDialog<T = unknown> extends React.Component<
-  IAIResultDialogProps<T>
+  IAIResultDialogProps<T>,
+  IAIResultDialogState
 > {
+  private copiedTimer: number | null = null
+
+  public constructor(props: IAIResultDialogProps<T>) {
+    super(props)
+    this.state = { copied: false }
+  }
+
+  public componentWillUnmount() {
+    if (this.copiedTimer !== null) {
+      window.clearTimeout(this.copiedTimer)
+    }
+  }
+
+  /**
+   * Pressing Enter inside the dialog must not dismiss it (the default when
+   * `onSubmit` is omitted), so submit is a deliberate no-op; Insert and Close
+   * have their own click handlers.
+   */
+  private onSubmit = () => {}
+
+  private onCopyClick = () => {
+    this.props.onCopy?.()
+    this.setState({ copied: true })
+    if (this.copiedTimer !== null) {
+      window.clearTimeout(this.copiedTimer)
+    }
+    this.copiedTimer = window.setTimeout(() => {
+      this.copiedTimer = null
+      this.setState({ copied: false })
+    }, 2000)
+  }
+
+  /** Text for the always-mounted live region (loading and result changes). */
+  private liveMessage(): string {
+    if (this.state.copied) {
+      return 'Copied to clipboard'
+    }
+    if (this.props.loading) {
+      return 'Generating…'
+    }
+    if (this.props.error === null && this.props.result !== null) {
+      return 'Result ready'
+    }
+    return ''
+  }
+
   public render() {
     return (
       <Dialog
         id="ai-result-dialog"
         title={this.props.title}
         onDismissed={this.props.onDismissed}
-        onSubmit={this.props.onDismissed}
+        onSubmit={this.onSubmit}
       >
-        <DialogContent>{this.renderBody()}</DialogContent>
+        <DialogContent>
+          <div className="sr-only" role="status" aria-live="polite">
+            {this.liveMessage()}
+          </div>
+          {this.renderBody()}
+        </DialogContent>
         <DialogFooter>{this.renderActions()}</DialogFooter>
       </Dialog>
     )
@@ -48,7 +106,7 @@ export class AIResultDialog<T = unknown> extends React.Component<
   private renderBody(): React.JSX.Element {
     if (this.props.loading) {
       return (
-        <div className="ai-result-dialog__loading" role="status">
+        <div className="ai-result-dialog__loading" aria-hidden={true}>
           Generating…
         </div>
       )
@@ -56,7 +114,7 @@ export class AIResultDialog<T = unknown> extends React.Component<
     if (this.props.error !== null) {
       return (
         <div className="ai-result-dialog__error">
-          <div className="ai-result-dialog__error-message">
+          <div className="ai-result-dialog__error-message" role="alert">
             {this.props.error}
           </div>
           {this.props.onDismissError !== undefined && (
@@ -77,7 +135,14 @@ export class AIResultDialog<T = unknown> extends React.Component<
         </div>
       )
     }
-    return <div className="ai-result-dialog__empty" />
+    return (
+      <div className="ai-result-dialog__empty">
+        <p>No result to show.</p>
+        {this.props.onRetry !== undefined && (
+          <Button onClick={this.props.onRetry}>Try again</Button>
+        )}
+      </div>
+    )
   }
 
   private renderActions(): React.JSX.Element {
@@ -89,7 +154,9 @@ export class AIResultDialog<T = unknown> extends React.Component<
           Regenerate
         </Button>
         {hasResult && onCopy !== undefined && (
-          <Button onClick={onCopy}>Copy</Button>
+          <Button onClick={this.onCopyClick}>
+            {this.state.copied ? 'Copied' : 'Copy'}
+          </Button>
         )}
         {hasResult && onInsert !== undefined && (
           <Button type="submit" onClick={onInsert}>

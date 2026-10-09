@@ -96,6 +96,9 @@ export class FileViewer extends React.Component<
   /** Blame guard, paired with loadToken so stale blame results are dropped. */
   private blameToken = 0
 
+  /** The Find toggle, refocused when the find bar is dismissed with Escape. */
+  private findToggleButton: HTMLButtonElement | null = null
+
   /** The code row for the active find match, so it can be scrolled into view. */
   private activeLineElement: HTMLTableRowElement | null = null
 
@@ -175,10 +178,16 @@ export class FileViewer extends React.Component<
     return this.computeMatches(contents.content, findQuery)
   }
 
+  private onFindToggleRef = (button: HTMLButtonElement | null) => {
+    this.findToggleButton = button
+  }
+
   private onFindKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Escape') {
       event.preventDefault()
-      this.setState({ findVisible: false })
+      this.setState({ findVisible: false }, () =>
+        this.findToggleButton?.focus()
+      )
     } else if (event.key === 'Enter') {
       event.preventDefault()
       this.stepMatch(event.shiftKey ? -1 : 1)
@@ -345,13 +354,23 @@ export class FileViewer extends React.Component<
         !isFormattedView(filePath)
       ) {
         const lines = contents.content.split('\n')
-        tokens = await highlight(
-          lines,
-          Path.basename(filePath),
-          Path.extname(filePath),
-          TabSize,
-          lines.map((_, i) => i)
-        )
+        try {
+          tokens = await highlight(
+            lines,
+            Path.basename(filePath),
+            Path.extname(filePath),
+            TabSize,
+            lines.map((_, i) => i)
+          )
+        } catch (highlightError) {
+          // The file read fine; a highlighter failure must not report it as
+          // unopenable. Fall back to plain, unhighlighted text.
+          log.warn(
+            `[FileViewer] syntax highlighting failed for ${filePath}`,
+            highlightError
+          )
+          tokens = {}
+        }
         if (token !== this.loadToken) {
           return
         }
@@ -460,7 +479,7 @@ export class FileViewer extends React.Component<
           <Button onClick={this.toggleBlame}>
             {showBlame ? 'Hide blame' : 'Blame'}
           </Button>
-          <Button onClick={this.toggleFind}>
+          <Button onClick={this.toggleFind} onButtonRef={this.onFindToggleRef}>
             {findVisible ? 'Hide find' : 'Find'}
           </Button>
           {this.renderBlameStatus()}
@@ -540,7 +559,7 @@ export class FileViewer extends React.Component<
           onValueChanged={this.onFindQueryChanged}
           onKeyDown={this.onFindKeyDown}
         />
-        <span className="file-viewer-find-count">
+        <span className="file-viewer-find-count" role="status">
           {current} of {matchCount}
         </span>
         <Button onClick={this.onFindPrevious} disabled={matchCount === 0}>

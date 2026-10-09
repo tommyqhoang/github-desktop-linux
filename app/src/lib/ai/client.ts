@@ -12,6 +12,12 @@ export interface IAICompleteOptions {
   readonly temperature?: number
   /** Abort the request (e.g. the dialog that asked for it was closed). */
   readonly signal?: AbortSignal
+  /**
+   * Accept a response the model stopped because it hit `maxTokens`. Fine for
+   * free-text output; JSON callers leave this off so a cut-off payload is
+   * reported as such instead of as "invalid JSON".
+   */
+  readonly allowTruncated?: boolean
   /** Give up after this many ms. Defaults to {@link DEFAULT_TIMEOUT_MS}. */
   readonly timeoutMs?: number
 }
@@ -113,9 +119,18 @@ export function createAIClient(options: IAIClientOptions): IAIClient {
         }
 
         const json = await response.json()
-        const content = json?.choices?.[0]?.message?.content
+        const choice = json?.choices?.[0]
+        const content = choice?.message?.content
         if (typeof content !== 'string' || content.length === 0) {
           throw new Error('The AI provider returned no content.')
+        }
+        if (
+          choice?.finish_reason === 'length' &&
+          completeOptions?.allowTruncated !== true
+        ) {
+          throw new Error(
+            'The AI response was cut off before it finished. Try again.'
+          )
         }
         return content
       } catch (e) {

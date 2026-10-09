@@ -1,4 +1,4 @@
-import { getAbsoluteUrl } from '../../src/lib/http'
+import { getAbsoluteUrl, fetchWithTimeout } from '../../src/lib/http'
 import { getDotComAPIEndpoint } from '../../src/lib/api'
 
 describe('getAbsoluteUrl', () => {
@@ -56,5 +56,38 @@ describe('getAbsoluteUrl', () => {
         `${enterpriseEndpoint}/issues?since=2019-05-10T16%3A00%3A00Z`
       )
     })
+  })
+})
+
+describe('fetchWithTimeout', () => {
+  it('rejects with a clear message when the request stalls', async () => {
+    const stalled = ((_u: string, init: any) =>
+      new Promise((_res, rej) => {
+        init.signal.addEventListener('abort', () => rej(new Error('abort')))
+      })) as any
+    await expect(
+      fetchWithTimeout('http://x', {}, { timeoutMs: 20, fetchImpl: stalled })
+    ).rejects.toThrow(/Request timed out/)
+  })
+
+  it('aborts when the caller signal aborts', async () => {
+    const controller = new AbortController()
+    const stalled = ((_u: string, init: any) =>
+      new Promise((_res, rej) => {
+        init.signal.addEventListener('abort', () => rej(new Error('abort')))
+      })) as any
+    const p = fetchWithTimeout(
+      'http://x',
+      { signal: controller.signal },
+      { timeoutMs: 5000, fetchImpl: stalled }
+    )
+    controller.abort()
+    await expect(p).rejects.toThrow('abort')
+  })
+
+  it('returns the response when it arrives in time', async () => {
+    const ok = (async () => ({ ok: true })) as any
+    const res = await fetchWithTimeout('http://x', {}, { fetchImpl: ok })
+    expect(res).toEqual({ ok: true })
   })
 })

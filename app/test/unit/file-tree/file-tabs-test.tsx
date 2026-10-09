@@ -119,3 +119,103 @@ describe('FileTabs', () => {
     expect(onReorderTab).not.toHaveBeenCalled()
   })
 })
+
+describe('FileTabs accessibility', () => {
+  it('keeps "Close all" out of the tablist', () => {
+    const html = render({
+      openFilePaths: ['a.ts', 'b.ts'],
+      activeFilePath: 'a.ts',
+    })
+    const tablist = html.match(/<div[^>]*role="tablist"[^>]*>/)
+    expect(tablist).not.toBeNull()
+    // The tablist is the strip, which closes before the Close all button.
+    const stripEnd = html.indexOf('file-tabs-close-all')
+    const listStart = html.indexOf('role="tablist"')
+    expect(listStart).toBeLessThan(stripEnd)
+    expect(html.slice(listStart, stripEnd)).toContain('</div></div>')
+  })
+
+  it('uses a roving tabindex and describes tabs by path', () => {
+    const html = render({
+      openFilePaths: ['src/a.ts', 'src/b.ts'],
+      activeFilePath: 'src/b.ts',
+    })
+    const tabButtons = html.match(/<button[^>]*role="tab"[^>]*>/g)!
+    expect(tabButtons[0]).toContain('tabindex="-1"')
+    expect(tabButtons[1]).toContain('tabindex="0"')
+    // Visible name is the accessible name; the path is only a description.
+    expect(tabButtons[0]).not.toContain('aria-label')
+    expect(tabButtons[0]).toContain('aria-describedby')
+    expect(html).toContain('class="sr-only">src/a.ts<')
+  })
+
+  it('falls back to the first tab as the Tab stop when none is active', () => {
+    const html = render({
+      openFilePaths: ['a.ts', 'b.ts'],
+      activeFilePath: null,
+    })
+    const tabButtons = html.match(/<button[^>]*role="tab"[^>]*>/g)!
+    expect(tabButtons[0]).toContain('tabindex="0"')
+    expect(tabButtons[1]).toContain('tabindex="-1"')
+  })
+
+  const key = (k: string, over: any = {}) => ({
+    key: k,
+    ctrlKey: false,
+    shiftKey: false,
+    altKey: false,
+    metaKey: false,
+    preventDefault: jest.fn(),
+    ...over,
+  })
+
+  it('arrow keys select the neighbouring tab and wrap', () => {
+    const onSelectTab = jest.fn()
+    const tabs = instance({
+      openFilePaths: ['a.ts', 'b.ts', 'c.ts'],
+      activeFilePath: 'a.ts',
+      onSelectTab,
+    })
+    ;(tabs as any).onTabKeyDown('a.ts')(key('ArrowLeft'))
+    expect(onSelectTab).toHaveBeenLastCalledWith('c.ts')
+    ;(tabs as any).onTabKeyDown('c.ts')(key('ArrowRight'))
+    expect(onSelectTab).toHaveBeenLastCalledWith('a.ts')
+    ;(tabs as any).onTabKeyDown('b.ts')(key('Home'))
+    expect(onSelectTab).toHaveBeenLastCalledWith('a.ts')
+    ;(tabs as any).onTabKeyDown('a.ts')(key('End'))
+    expect(onSelectTab).toHaveBeenLastCalledWith('c.ts')
+  })
+
+  it('Ctrl+Shift+Arrow reorders and announces', () => {
+    const onReorderTab = jest.fn()
+    const tabs = instance({
+      openFilePaths: ['src/a.ts', 'src/b.ts'],
+      activeFilePath: 'src/a.ts',
+      onReorderTab,
+    })
+    ;(tabs as any).onTabKeyDown('src/a.ts')(
+      key('ArrowRight', { ctrlKey: true, shiftKey: true })
+    )
+    expect(onReorderTab).toHaveBeenCalledWith('src/a.ts', 'src/b.ts')
+    expect((tabs as any).state.announcement).toBe(
+      'Moved a.ts to position 2 of 2'
+    )
+    // Cannot move the first tab left.
+    onReorderTab.mockClear()
+    ;(tabs as any).onTabKeyDown('src/a.ts')(
+      key('ArrowLeft', { ctrlKey: true, shiftKey: true })
+    )
+    expect(onReorderTab).not.toHaveBeenCalled()
+  })
+
+  it('Delete closes the focused tab', () => {
+    const onCloseTab = jest.fn()
+    const tabs = instance({
+      openFilePaths: ['a.ts'],
+      activeFilePath: 'a.ts',
+      onCloseTab,
+    })
+    ;(tabs as any).onTabKeyDown('a.ts')(key('Delete'))
+    expect(onCloseTab).toHaveBeenCalledWith('a.ts')
+  })
+})

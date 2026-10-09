@@ -1,6 +1,8 @@
 import {
   fetchPullRequestThreads,
   postLineComment,
+  postLineCommentDetailed,
+  fetchPullRequestThreadsDetailed,
   submitReview,
   buildThreads,
   mapComment,
@@ -385,5 +387,49 @@ describe('groupThreadsByPath', () => {
 
   it('returns empty map for empty input', () => {
     expect(groupThreadsByPath([]).size).toBe(0)
+  })
+})
+
+describe('fetchPullRequestThreadsDetailed', () => {
+  it('flags truncation when a later page fails', async () => {
+    const fullPage = Array.from({ length: 100 }, (_, i) =>
+      rawComment({ id: i + 1, node_id: `NODE_${i + 1}` })
+    )
+    const http = new FakeHttp().enqueue(ok(fullPage)).enqueue(err(500))
+    const res = await fetchPullRequestThreadsDetailed(http, 'a', 'b', 7)
+    expect(res.threads).toHaveLength(100)
+    expect(res.truncated).toBe(true)
+  })
+
+  it('is not truncated on a clean short page', async () => {
+    const http = new FakeHttp().enqueue(ok([rawComment({})]))
+    const res = await fetchPullRequestThreadsDetailed(http, 'a', 'b', 7)
+    expect(res.truncated).toBe(false)
+  })
+})
+
+describe('postLineCommentDetailed', () => {
+  const args = {
+    commitSha: 'a',
+    path: 'p',
+    line: 1,
+    side: 'RIGHT' as const,
+    body: 'b',
+  }
+
+  it('surfaces the failure reason', async () => {
+    const http = new FakeHttp().enqueue({
+      ok: false,
+      status: 422,
+      body: { message: 'line must be part of the diff' },
+    })
+    const r = await postLineCommentDetailed(http, 'o', 'r', 1, args)
+    expect(r).toEqual({ ok: false, error: 'line must be part of the diff' })
+  })
+
+  it('falls back to a status description when no message is present', async () => {
+    const http = new FakeHttp().enqueue(err(403))
+    const r = await postLineCommentDetailed(http, 'o', 'r', 1, args)
+    expect(r.ok).toBe(false)
   })
 })

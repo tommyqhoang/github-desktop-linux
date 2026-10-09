@@ -399,6 +399,15 @@ body.theme-dark {
   --status-error-color: #{$red-500};
   --status-success-color: #{$green-500};
 
+  /** commit graph lane colors */
+  --commit-graph-lane-0: #58a6ff;
+  --commit-graph-lane-1: #3fb950;
+  --commit-graph-lane-2: #ff7b72;
+  --commit-graph-lane-3: #f778ba;
+  --commit-graph-lane-4: #d29922;
+  --commit-graph-lane-5: #a371f7;
+  --commit-graph-lane-6: #ffa657;
+
   // PR status icon colors
   --pr-open-icon-color: #{$green-500};
   --pr-draft-icon-color: #{$gray-400};

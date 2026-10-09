@@ -1,4 +1,5 @@
-import { readdir } from 'fs/promises'
+import { readdir, stat } from 'fs/promises'
+import { Dirent } from 'fs'
 import * as Path from 'path'
 import { git } from '../git/core'
 import { Repository } from '../../models/repository'
@@ -22,14 +23,18 @@ export async function readWorkingDirectory(
   const absoluteDir = Path.join(repository.path, relativePath)
   const dirents = await readdir(absoluteDir, { withFileTypes: true })
 
-  const candidates: FileTreeEntry[] = dirents
-    // Hide the repository's own git directory (root level only).
-    .filter(d => !(relativePath === '' && d.name === '.git'))
-    .map(d => ({
-      name: d.name,
-      path: relativePath === '' ? d.name : `${relativePath}/${d.name}`,
-      kind: d.isDirectory() ? ('directory' as const) : ('file' as const),
-    }))
+  const candidates: FileTreeEntry[] = await Promise.all(
+    dirents
+      // Hide the repository's own git directory (root level only).
+      .filter(d => !(relativePath === '' && d.name === '.git'))
+      .map(async d => ({
+        name: d.name,
+        path: relativePath === '' ? d.name : `${relativePath}/${d.name}`,
+        kind: (await isDirectoryEntry(d, Path.join(absoluteDir, d.name)))
+          ? ('directory' as const)
+          : ('file' as const),
+      }))
+  )
 
   const ignored = await getIgnoredPaths(
     repository,
@@ -37,6 +42,24 @@ export async function readWorkingDirectory(
   )
 
   return candidates.filter(c => !ignored.has(c.path)).sort(compareEntries)
+}
+
+/**
+ * Whether a directory entry is a directory. Symlinks are resolved with `stat`
+ * so a link to a directory is browsable; broken links count as files.
+ */
+async function isDirectoryEntry(
+  dirent: Dirent,
+  absolutePath: string
+): Promise<boolean> {
+  if (!dirent.isSymbolicLink()) {
+    return dirent.isDirectory()
+  }
+  try {
+    return (await stat(absolutePath)).isDirectory()
+  } catch {
+    return false
+  }
 }
 
 /** Sort directories before files, then case-insensitive by name. */

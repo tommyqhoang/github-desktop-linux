@@ -210,4 +210,38 @@ describe('RepoHealthDashboard', () => {
     expect(text).toContain('Failing CI')
     expect(text).toContain('Behind remote')
   })
+
+  it('never counts errored or unknown-signal repos as clean', () => {
+    const statuses = new Map<number, IRepoHealth>([
+      [1, health({ repositoryId: 1 })],
+      [2, health({ repositoryId: 2, error: 'boom' })],
+      [3, health({ repositoryId: 3, failedSignals: ['aheadBehind'] })],
+    ])
+    const { dash } = makeDashboard({ statuses }, [
+      repo(1, 'a'),
+      repo(2, 'b'),
+      repo(3, 'c'),
+    ])
+    dash.state = { ...dash.state, filter: 'clean' }
+    const tree: any = dash.render()
+    const cards = findByClassName(tree, 'repo-health-dashboard__grid')[0].props
+      .children as any[]
+    expect(cards.map(c => c.key)).toEqual(['1'])
+  })
+
+  it('shows unknown summary tiles before data arrives', () => {
+    const { dash } = makeDashboard()
+    const text = JSON.stringify(dash.render())
+    expect(text).toContain('"label":"Failing CI","value":null')
+  })
+
+  it('refresh button is aria-disabled and inert while refreshing', () => {
+    const { dash, onRefresh } = makeDashboard({ refreshing: new Set([1]) })
+    const tree: any = dash.render()
+    const btn = findByClassName(tree, 'repo-health-dashboard__refresh')[0]
+    expect(btn.props['aria-disabled']).toBe(true)
+    expect(btn.props.disabled).toBeUndefined()
+    btn.props.onClick()
+    expect(onRefresh).not.toHaveBeenCalled()
+  })
 })

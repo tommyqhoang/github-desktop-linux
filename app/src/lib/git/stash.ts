@@ -429,3 +429,15 @@ export async function getStashedFiles(
 
   return parseRawLogWithNumstat(stdout, stashSha, `${stashSha}^`).files
 }
+
+/**
+ * Thrown by the app store when a stash operation failed and the git error has
+ * already been shown to the user, so callers can distinguish a failure from
+ * "nothing to stash" without surfacing the error twice.
+ */
+export class StashOperationFailedError extends Error {
+  public constructor() {
+    super('The stash operation failed.')
+    this.name = 'StashOperationFailedError'
+  }
+}

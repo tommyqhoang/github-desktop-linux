@@ -22,7 +22,11 @@ interface IFileTabsState {
   readonly draggingPath: string | null
   /** The tab the dragged tab is hovering over, for a drop-target indicator. */
   readonly dragOverPath: string | null
+  /** Polite live-region text announcing keyboard reorders. */
+  readonly announcement: string
 }
+
+let nextInstanceId = 0
 
 /**
  * The tab strip shown above the Files viewer. Renders one tab per open file
@@ -33,10 +37,11 @@ interface IFileTabsState {
 export class FileTabs extends React.Component<IFileTabsProps, IFileTabsState> {
   private readonly stripRef = React.createRef<HTMLDivElement>()
   private activeTabRef: HTMLDivElement | null = null
+  private readonly idPrefix = `file-tabs-${nextInstanceId++}`
 
   public constructor(props: IFileTabsProps) {
     super(props)
-    this.state = { draggingPath: null, dragOverPath: null }
+    this.state = { draggingPath: null, dragOverPath: null, announcement: '' }
   }
 
   public componentDidUpdate(prevProps: IFileTabsProps) {
@@ -55,15 +60,28 @@ export class FileTabs extends React.Component<IFileTabsProps, IFileTabsState> {
     }
 
     return (
-      <div className="file-tabs" role="tablist">
+      <div className="file-tabs">
         <div
           className="file-tabs-strip"
+          role="tablist"
+          aria-label="Open files"
           ref={this.stripRef}
           onWheel={this.onWheel}
         >
-          {openFilePaths.map(path =>
-            this.renderTab(path, path === activeFilePath)
+          {openFilePaths.map((path, index) =>
+            this.renderTab(
+              path,
+              path === activeFilePath,
+              index,
+              // Roving tabindex: exactly one tab is a Tab stop.
+              activeFilePath !== null && openFilePaths.includes(activeFilePath)
+                ? path === activeFilePath
+                : index === 0
+            )
           )}
+        </div>
+        <div className="sr-only" role="status" aria-live="polite">
+          {this.state.announcement}
         </div>
         {openFilePaths.length > 1 && (
           <button
@@ -78,8 +96,14 @@ export class FileTabs extends React.Component<IFileTabsProps, IFileTabsState> {
     )
   }
 
-  private renderTab(path: string, isActive: boolean): React.JSX.Element {
+  private renderTab(
+    path: string,
+    isActive: boolean,
+    index: number,
+    isTabStop: boolean
+  ): React.JSX.Element {
     const name = Path.basename(path)
+    const descriptionId = `${this.idPrefix}-path-${index}`
     const className =
       'file-tab' +
       (isActive ? ' active' : '') +
@@ -103,17 +127,25 @@ export class FileTabs extends React.Component<IFileTabsProps, IFileTabsState> {
           className="file-tab-select"
           role="tab"
           aria-selected={isActive}
-          // Screen readers get the full repo-relative path; sighted users get
-          // the base name and can hover for the rest via overflow.
-          aria-label={path}
+          tabIndex={isTabStop ? 0 : -1}
+          // The visible base name is the accessible name; the full
+          // repo-relative path is exposed as the description.
+          aria-describedby={descriptionId}
           onClick={this.onSelect(path)}
           onMouseDown={this.onMiddleClick(path)}
+          onKeyDown={this.onTabKeyDown(path)}
         >
           <span className="file-tab-name">{name}</span>
+          <span id={descriptionId} className="sr-only">
+            {path}
+          </span>
         </button>
         <button
           type="button"
           className="file-tab-close"
+          // Not a Tab stop (roving tabindex); keyboard users press Delete on
+          // the tab instead.
+          tabIndex={-1}
           aria-label={`Close ${name}`}
           onClick={this.onClose(path)}
         >
@@ -121,6 +153,65 @@ export class FileTabs extends React.Component<IFileTabsProps, IFileTabsState> {
         </button>
       </div>
     )
+  }
+
+  private focusTabAt(index: number) {
+    const tabs =
+      this.stripRef.current?.querySelectorAll<HTMLElement>('[role="tab"]')
+    tabs?.[index]?.focus()
+  }
+
+  /**
+   * WAI-ARIA tabs: Left/Right/Home/End move and activate, Delete closes,
+   * Ctrl+Shift+Left/Right reorder the focused tab.
+   */
+  private onTabKeyDown = (path: string) => (e: React.KeyboardEvent) => {
+    const paths = this.props.openFilePaths
+    const ix = paths.indexOf(path)
+    if (ix === -1) {
+      return
+    }
+    const isLeft = e.key === 'ArrowLeft'
+    const isRight = e.key === 'ArrowRight'
+
+    if ((isLeft || isRight) && e.ctrlKey && e.shiftKey) {
+      e.preventDefault()
+      const to = ix + (isLeft ? -1 : 1)
+      if (to < 0 || to >= paths.length) {
+        return
+      }
+      this.props.onReorderTab(path, paths[to])
+      this.setState({
+        announcement: `Moved ${Path.basename(path)} to position ${to + 1} of ${
+          paths.length
+        }`,
+      })
+      return
+    }
+    if (e.key === 'Delete' && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+      e.preventDefault()
+      this.props.onCloseTab(path)
+      return
+    }
+    if (e.ctrlKey || e.altKey || e.metaKey || e.shiftKey) {
+      return
+    }
+    let next: number | null = null
+    if (isLeft) {
+      next = (ix - 1 + paths.length) % paths.length
+    } else if (isRight) {
+      next = (ix + 1) % paths.length
+    } else if (e.key === 'Home') {
+      next = 0
+    } else if (e.key === 'End') {
+      next = paths.length - 1
+    }
+    if (next === null) {
+      return
+    }
+    e.preventDefault()
+    this.props.onSelectTab(paths[next])
+    this.focusTabAt(next)
   }
 
   private onActiveTabRef = (ref: HTMLDivElement | null) => {

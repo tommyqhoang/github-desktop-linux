@@ -12,7 +12,9 @@ import { WorkflowRunListItem } from './workflow-run-list-item'
 import { WorkflowRunToolbar } from './workflow-run-toolbar'
 import { PopupType } from '../../models/popup'
 import { getAccountForRepository } from '../../lib/get-account-for-repository'
-import { API } from '../../lib/api'
+import { API, IAPIWorkflow } from '../../lib/api'
+import { WorkflowRunsUnavailableReason } from '../../lib/stores/workflow-runs-store'
+import { ListLoadError } from '../lib/list-load-error'
 
 interface IWorkflowRunListProps {
   readonly entries: ReadonlyArray<IWorkflowRun>
@@ -21,6 +23,15 @@ interface IWorkflowRunListProps {
   readonly dispatcher: Dispatcher
   readonly accounts: ReadonlyArray<Account>
   readonly branch: string
+
+  /** The most recent load failure; previously loaded runs stay listed. */
+  readonly error?: Error | null
+
+  /** Why Actions data can't be shown (not an error), if known. */
+  readonly unavailable?: WorkflowRunsUnavailableReason | null
+
+  /** Reload the runs (Retry button). */
+  readonly onRetry?: () => void
 
   /**
    * Invoked when a run row is activated. When provided, the run is
@@ -34,6 +45,8 @@ interface IWorkflowRunListProps {
 
 interface IWorkflowRunListState {
   readonly filter: WorkflowRunFilter
+  /** True while "Run workflow" is fetching the list of workflows. */
+  readonly preparingDispatch: boolean
 }
 
 /**
@@ -49,6 +62,7 @@ export class WorkflowRunList extends React.Component<
     super(props)
     this.state = {
       filter: 'all',
+      preparingDispatch: false,
     }
   }
 
@@ -59,6 +73,7 @@ export class WorkflowRunList extends React.Component<
           selectedFilter={this.state.filter}
           onFilterChange={this.onFilterChange}
           onRunWorkflow={this.onRunWorkflow}
+          runWorkflowDisabled={this.state.preparingDispatch}
         />
         {this.renderBody()}
       </div>
@@ -66,7 +81,28 @@ export class WorkflowRunList extends React.Component<
   }
 
   private renderBody(): React.JSX.Element {
-    if (this.props.loading) {
+    const { entries, loading, error, unavailable } = this.props
+
+    if (unavailable != null && entries.length === 0) {
+      return (
+        <div className="workflow-run-list-empty" role="status">
+          {getUnavailableMessage(unavailable)}
+        </div>
+      )
+    }
+
+    if (error != null && entries.length === 0) {
+      return (
+        <ListLoadError
+          className="workflow-run-list-empty"
+          title="Couldn’t load workflow runs"
+          error={error}
+          onRetry={this.props.onRetry}
+        />
+      )
+    }
+
+    if (loading && entries.length === 0) {
       return (
         <div className="workflow-run-list-loading" role="status">
           Loading workflow runs…
@@ -78,7 +114,7 @@ export class WorkflowRunList extends React.Component<
     if (filtered.length === 0) {
       return (
         <div className="workflow-run-list-empty">
-          {this.props.entries.length === 0
+          {entries.length === 0
             ? 'No workflow runs yet. Trigger one with “Run workflow”, or push a commit to a branch with a configured workflow.'
             : 'No runs match this filter.'}
         </div>
@@ -86,7 +122,15 @@ export class WorkflowRunList extends React.Component<
     }
 
     return (
-      <div className="workflow-run-list-items" role="grid">
+      <div className="workflow-run-list-items" role="grid" aria-busy={loading}>
+        {error != null && (
+          <ListLoadError
+            className="workflow-run-list-empty"
+            title="Couldn’t refresh workflow runs"
+            error={error}
+            onRetry={this.props.onRetry}
+          />
+        )}
         {filtered.map(entry => (
           <WorkflowRunListItem
             key={entry.id}
@@ -142,6 +186,9 @@ export class WorkflowRunList extends React.Component<
   }
 
   private onRunWorkflow = async () => {
+    if (this.state.preparingDispatch) {
+      return
+    }
     const { repository, dispatcher, accounts, branch } = this.props
     const account = getAccountForRepository(accounts, repository)
     if (account === null || repository.gitHubRepository === null) {
@@ -155,14 +202,29 @@ export class WorkflowRunList extends React.Component<
 
     const { owner, name } = repository.gitHubRepository
 
+    this.setState({ preparingDispatch: true })
     try {
       const api = API.fromAccount(account)
       const response = await api.fetchWorkflows(owner.login, name)
-      const workflows = response?.workflows ?? []
+
+      if (response === null) {
+        dispatcher.postError(
+          new Error(
+            'GitHub Actions isn’t available for this repository, or your account can’t see its workflows.'
+          )
+        )
+        return
+      }
+
+      const workflows = getDispatchableWorkflows(response.workflows)
 
       if (workflows.length === 0) {
         dispatcher.postError(
-          new Error('This repository has no workflows that can be run.')
+          new Error(
+            response.workflows.length === 0
+              ? 'This repository has no workflows.'
+              : 'None of this repository’s workflows are active, so none can be run.'
+          )
         )
         return
       }
@@ -171,12 +233,39 @@ export class WorkflowRunList extends React.Component<
         type: PopupType.WorkflowRunDispatch,
         repository,
         branch,
-        workflows: workflows.map(w => ({ id: w.id, name: w.name })),
+        workflows,
       })
     } catch (error) {
       dispatcher.postError(
         error instanceof Error ? error : new Error(String(error))
       )
+    } finally {
+      this.setState({ preparingDispatch: false })
     }
+  }
+}
+
+/** Only active workflows can be dispatched (not deleted/disabled ones). */
+export function getDispatchableWorkflows(
+  workflows: ReadonlyArray<IAPIWorkflow>
+): ReadonlyArray<{ id: number; name: string }> {
+  return workflows
+    .filter(w => w.state === 'active')
+    .map(w => ({ id: w.id, name: w.name }))
+}
+
+/** User-facing explanation for each "Actions unavailable" reason. */
+export function getUnavailableMessage(
+  reason: WorkflowRunsUnavailableReason
+): string {
+  switch (reason) {
+    case 'signed-out':
+      return 'Sign in to GitHub to see Actions.'
+    case 'not-github':
+      return 'This repository isn’t on GitHub, so it has no Actions.'
+    case 'no-actions':
+      return 'GitHub Actions isn’t available for this repository, or your account can’t see it.'
+    case 'no-branch':
+      return 'Check out a branch to see its workflow runs.'
   }
 }

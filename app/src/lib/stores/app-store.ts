@@ -255,6 +255,7 @@ import {
   getParentPath,
 } from '../file-tree/file-operations'
 import { WorkflowRunsStore } from './workflow-runs-store'
+import { StashOperationFailedError } from '../git/stash'
 import {
   addWorktree,
   removeWorktree,
@@ -541,6 +542,8 @@ export class AppStore extends TypedBaseStore<IAppState> {
   private readonly focusRefreshGate = new MinIntervalGate<number>(
     FocusRefreshMinIntervalMs
   )
+  /** Memoized result of shell detection (stable for the app session). */
+  private cachedTerminalShell: IDetectedShell | null = null
   private readonly terminalStore: TerminalStore =
     typeof window !== 'undefined'
       ? new TerminalStore(window.localStorage)
@@ -3788,7 +3791,9 @@ export class AppStore extends TypedBaseStore<IAppState> {
     } else if (section === RepositorySectionTab.Submodules) {
       refreshSectionPromise = this.submoduleStore.loadSubmodules(repository)
     } else if (section === RepositorySectionTab.Actions) {
-      refreshSectionPromise = this._loadWorkflowRuns(repository)
+      refreshSectionPromise = this._loadWorkflowRuns(repository, {
+        background: true,
+      })
     } else if (section === RepositorySectionTab.Files) {
       refreshSectionPromise = this.fileTreeStore.refreshTree(repository)
     } else {
@@ -7211,12 +7216,20 @@ export class AppStore extends TypedBaseStore<IAppState> {
 
   /** This shouldn't be called directly. See `Dispatcher`. */
   public async _popStashEntry(repository: Repository, stashEntry: IStashEntry) {
-    await popStashEntry(repository, stashEntry.stashSha)
-    log.info(
-      `[AppStore. _popStashEntry] popped stash with commit id ${stashEntry.stashSha}`
-    )
+    const gitStore = this.gitStoreCache.get(repository)
+    const popped = await gitStore.performFailableOperation(async () => {
+      await popStashEntry(repository, stashEntry.stashSha)
+      return true
+    })
 
-    this.statsStore.increment('stashRestoreCount')
+    if (popped === true) {
+      log.info(
+        `[AppStore. _popStashEntry] popped stash with commit id ${stashEntry.stashSha}`
+      )
+      this.statsStore.increment('stashRestoreCount')
+    }
+    // Refresh either way: a failed pop may still have partially changed the
+    // working directory or the stash list.
     await this._refreshRepository(repository)
   }
 
@@ -7267,14 +7280,37 @@ export class AppStore extends TypedBaseStore<IAppState> {
     repository: Repository,
     paths: ReadonlyArray<string> = []
   ): Promise<void> {
-    await updateSubmodules(repository, paths)
-    await this.submoduleStore.loadSubmodules(repository)
+    await this.runSubmoduleOperation(repository, () =>
+      updateSubmodules(repository, paths)
+    )
   }
 
   /** Sync submodule remote URLs from .gitmodules, then refresh the list. */
   public async _syncSubmodules(repository: Repository): Promise<void> {
-    await syncSubmodules(repository)
-    await this.submoduleStore.loadSubmodules(repository)
+    await this.runSubmoduleOperation(repository, () =>
+      syncSubmodules(repository)
+    )
+  }
+
+  /**
+   * Run a submodule update/sync with per-repository busy state. A git failure
+   * is surfaced to the user via `emitError` instead of being swallowed by the
+   * fire-and-forget button handlers.
+   */
+  private async runSubmoduleOperation(
+    repository: Repository,
+    operation: () => Promise<void>
+  ): Promise<void> {
+    try {
+      await this.submoduleStore.runExclusive(repository, operation)
+    } catch (err) {
+      this.emitError(err instanceof Error ? err : new Error(String(err)))
+    }
+  }
+
+  /** True while a submodule update/sync is running for the repository. */
+  public _isSubmoduleBusy(repository: Repository): boolean {
+    return this.submoduleStore.isBusy(repository)
   }
 
   /** Load the repository's working-tree root for the Files tab. */
@@ -7444,17 +7480,20 @@ export class AppStore extends TypedBaseStore<IAppState> {
     background: boolean
   ): Promise<void> {
     if (repository.gitHubRepository === null) {
+      this.workflowRunsStore.setUnavailable(repository.id, 'not-github')
       return
     }
 
     const account = getAccountForRepository(this.accounts, repository)
     if (account === null) {
+      this.workflowRunsStore.setUnavailable(repository.id, 'signed-out')
       return
     }
 
     const branchState = this.repositoryStateCache.get(repository).branchesState
     const tip = branchState.tip
     if (tip.kind !== TipState.Valid) {
+      this.workflowRunsStore.setUnavailable(repository.id, 'no-branch')
       return
     }
     const branchName = tip.branch.name
@@ -7463,7 +7502,11 @@ export class AppStore extends TypedBaseStore<IAppState> {
 
     // Background polls refresh in place; flipping `loading` would flash the
     // list's spinner every few seconds.
-    if (!background) {
+    // The very first load has nothing to refresh in place, so it still shows
+    // the loading state.
+    const hasLoadedBefore =
+      this.workflowRunsStore.getState(repository).loadedAt !== null
+    if (!background || !hasLoadedBefore) {
       this.workflowRunsStore.setLoading(repository.id)
     }
 
@@ -7476,7 +7519,8 @@ export class AppStore extends TypedBaseStore<IAppState> {
       )
 
       if (response === null) {
-        this.workflowRunsStore.setRuns(repository.id, [])
+        // 404: Actions isn't available for this repository.
+        this.workflowRunsStore.setUnavailable(repository.id, 'no-actions')
         return
       }
 
@@ -7512,13 +7556,14 @@ export class AppStore extends TypedBaseStore<IAppState> {
       this.workflowRunsStore.setRuns(repository.id, runs)
       this.scheduleWorkflowRunsPoll(repository)
     } catch (error) {
-      // Don't keep hammering an API that is failing; the next manual
-      // refresh or tab switch retries.
-      this.workflowRunsStore.cancelPoll(repository.id)
+      // Keep the runs already on screen and surface the error; the store
+      // preserves them. Keep polling (at the normal interval) while a run is
+      // active so a transient failure recovers on its own.
       this.workflowRunsStore.setError(
         repository.id,
         error instanceof Error ? error : new Error(String(error))
       )
+      this.scheduleWorkflowRunsPoll(repository)
     }
   }
 
@@ -7579,11 +7624,14 @@ export class AppStore extends TypedBaseStore<IAppState> {
     stashSha: string
   ): Promise<void> {
     const gitStore = this.gitStoreCache.get(repository)
-    await gitStore.performFailableOperation(() =>
-      applyStash(repository, stashSha)
-    )
-    log.info(`[AppStore. _applyStash] applied stash ${stashSha}`)
-    this.statsStore.increment('stashRestoreCount')
+    const applied = await gitStore.performFailableOperation(async () => {
+      await applyStash(repository, stashSha)
+      return true
+    })
+    if (applied === true) {
+      log.info(`[AppStore. _applyStash] applied stash ${stashSha}`)
+      this.statsStore.increment('stashRestoreCount')
+    }
     await this._refreshRepository(repository)
     await this.stashStore.loadStashes(repository)
   }
@@ -7604,7 +7652,12 @@ export class AppStore extends TypedBaseStore<IAppState> {
     }
     await this._refreshRepository(repository)
     await this.stashStore.loadStashes(repository)
-    return created ?? false
+    if (created === undefined) {
+      // performFailableOperation already surfaced the git error; make sure the
+      // caller can tell a failure apart from "nothing to stash".
+      throw new StashOperationFailedError()
+    }
+    return created
   }
 
   /**
@@ -7712,9 +7765,14 @@ export class AppStore extends TypedBaseStore<IAppState> {
    * synchronous filesystem call is required here.
    */
   private detectTerminalShell(): IDetectedShell {
+    // The detected shell can't change within a session; avoid an
+    // fs.existsSync probe on the renderer for every spawn.
+    if (this.cachedTerminalShell !== null) {
+      return this.cachedTerminalShell
+    }
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const fs = require('fs') as typeof import('fs')
-    return detectShell(
+    const detected = detectShell(
       process.platform,
       process.env as Record<string, string>,
       (p: string) => {
@@ -7726,12 +7784,19 @@ export class AppStore extends TypedBaseStore<IAppState> {
         }
       }
     )
+    this.cachedTerminalShell = detected
+    return detected
   }
 
   private async spawnTerminalForRepo(
     repo: Repository,
     cwd: string = repo.path
   ): Promise<void> {
+    // Drop duplicate spawns (double Ctrl+` / double click) for the same repo
+    // while the first shell is still starting.
+    if (!this.terminalStore.beginSpawn(repo.id)) {
+      return
+    }
     try {
       const detected = this.detectTerminalShell()
       await this._spawnTerminal(repo.id, {
@@ -7748,6 +7813,8 @@ export class AppStore extends TypedBaseStore<IAppState> {
         err as Error
       )
       this.emitError(err as Error)
+    } finally {
+      this.terminalStore.endSpawn(repo.id)
     }
   }
 
@@ -8036,7 +8103,12 @@ export class AppStore extends TypedBaseStore<IAppState> {
     return {
       uncommittedCount: async repo => {
         const status = await getStatus(repo)
-        return status?.workingDirectory.files.length ?? 0
+        if (status === null) {
+          // Missing/moved repo or broken git: surface as a failed probe
+          // rather than reporting a clean working directory.
+          throw new Error('git status unavailable')
+        }
+        return status.workingDirectory.files.length
       },
       aheadBehind: async repo => {
         // `getAheadBehind` runs `git rev-list --left-right --count <range>`.
@@ -8094,59 +8166,49 @@ export class AppStore extends TypedBaseStore<IAppState> {
         if (!repo.gitHubRepository) {
           return 0
         }
-        try {
-          const prs = await this.pullRequestCoordinator.getAllPullRequests(
-            repo as RepositoryWithGitHubRepository
-          )
-          return prs.length
-        } catch {
-          return 0
-        }
+        // Errors propagate so the collector marks the signal unknown
+        // instead of showing "0 open PRs".
+        const prs = await this.pullRequestCoordinator.getAllPullRequests(
+          repo as RepositoryWithGitHubRepository
+        )
+        return prs.length
       },
       lastActivityUnix: async repo => {
-        try {
-          const r = await git(
-            ['log', '-1', '--all', '--format=%ct'],
-            repo.path,
-            'lastActivity',
-            { successExitCodes: new Set([0, 128, 129]) }
-          )
-          if (r.exitCode !== 0) {
-            return 0
-          }
-          const t = parseInt(r.stdout.trim(), 10)
-          return Number.isFinite(t) ? t : 0
-        } catch {
+        const r = await git(
+          ['log', '-1', '--all', '--format=%ct'],
+          repo.path,
+          'lastActivity',
+          { successExitCodes: new Set([0, 128, 129]) }
+        )
+        if (r.exitCode !== 0) {
           return 0
         }
+        const t = parseInt(r.stdout.trim(), 10)
+        return Number.isFinite(t) ? t : 0
       },
       staleBranchCount: async repo => {
         const cutoff = staleCutoffUnix()
-        try {
-          const r = await git(
-            ['for-each-ref', '--format=%(committerdate:unix)', 'refs/heads/'],
-            repo.path,
-            'staleBranches',
-            { successExitCodes: new Set([0, 128]) }
-          )
-          if (r.exitCode !== 0) {
-            return 0
-          }
-          const lines = r.stdout
-            .split('\n')
-            .map(l => l.trim())
-            .filter(l => l.length > 0)
-          let stale = 0
-          for (const l of lines) {
-            const t = parseInt(l, 10)
-            if (Number.isFinite(t) && t > 0 && t < cutoff) {
-              stale++
-            }
-          }
-          return stale
-        } catch {
+        const r = await git(
+          ['for-each-ref', '--format=%(committerdate:unix)', 'refs/heads/'],
+          repo.path,
+          'staleBranches',
+          { successExitCodes: new Set([0, 128]) }
+        )
+        if (r.exitCode !== 0) {
           return 0
         }
+        const lines = r.stdout
+          .split('\n')
+          .map(l => l.trim())
+          .filter(l => l.length > 0)
+        let stale = 0
+        for (const l of lines) {
+          const t = parseInt(l, 10)
+          if (Number.isFinite(t) && t > 0 && t < cutoff) {
+            stale++
+          }
+        }
+        return stale
       },
     }
   }

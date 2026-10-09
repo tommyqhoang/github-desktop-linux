@@ -408,3 +408,14 @@
     background: var(--color-modified-subtle, rgba(219, 171, 9, 0.25));
   }
 }
+
+.file-tree {
+  .file-tree-error {
+    padding: var(--spacing-half) var(--spacing);
+    color: var(--error-color);
+  }
+
+  .file-tree-retry {
+    margin-left: var(--spacing-half);
+  }
+}

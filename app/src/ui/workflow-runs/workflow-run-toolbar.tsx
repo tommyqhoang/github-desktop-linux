@@ -6,6 +6,8 @@ interface IWorkflowRunToolbarProps {
   readonly selectedFilter: WorkflowRunFilter
   readonly onFilterChange: (filter: WorkflowRunFilter) => void
   readonly onRunWorkflow: () => void
+  /** Disable the button while the workflow list is being fetched. */
+  readonly runWorkflowDisabled?: boolean
 }
 
 /**
@@ -29,7 +31,12 @@ export class WorkflowRunToolbar extends React.Component<IWorkflowRunToolbarProps
           <option value="failure">Failure</option>
           <option value="cancelled">Cancelled</option>
         </select>
-        <Button onClick={this.props.onRunWorkflow}>Run workflow</Button>
+        <Button
+          onClick={this.props.onRunWorkflow}
+          disabled={this.props.runWorkflowDisabled === true}
+        >
+          Run workflow
+        </Button>
       </div>
     )
   }

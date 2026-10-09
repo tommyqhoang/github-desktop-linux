@@ -109,6 +109,10 @@ export function parseConflictSuggestion(content: string): IConflictSuggestion {
     throw new Error('The AI provider returned an invalid conflict suggestion.')
   }
 
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('The AI provider returned an invalid conflict suggestion.')
+  }
+
   if (
     typeof parsed.resolution !== 'string' ||
     parsed.resolution.trim().length === 0

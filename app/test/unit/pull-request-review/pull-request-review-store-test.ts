@@ -285,4 +285,75 @@ describe('PullRequestReviewStore', () => {
       expect(store.getSession()).toBeNull()
     })
   })
+
+  describe('robustness', () => {
+    it('marks the session truncated when a later comments page fails', async () => {
+      const full = Array.from({ length: 100 }, (_, i) => ({
+        id: i + 1,
+        node_id: `N${i + 1}`,
+        path: 'a.ts',
+        line: 1,
+        body: 'x',
+        user: { login: 'u', avatar_url: '' },
+        created_at: '2024-01-01T00:00:00Z',
+      }))
+      const http = new FakeHttp().enqueue(ok(full)).enqueue({
+        ok: false,
+        status: 500,
+        body: null,
+      })
+      const store = new PullRequestReviewStore(http)
+      await store.open(1, 'o', 'r', 7)
+      expect(store.getSession()!.truncated).toBe(true)
+    })
+
+    it('does not touch a different PR session that replaced the closed one during submit', async () => {
+      let releaseSubmit: () => void = () => {}
+      const gate = new Promise<void>(r => (releaseSubmit = r))
+      let n = 0
+      const http: IHttpClient = {
+        async request() {
+          n++
+          if (n === 2) {
+            await gate
+          }
+          return { ok: true, status: 200, body: n === 2 ? { id: 1 } : [] }
+        },
+      }
+      const store = new PullRequestReviewStore(http)
+      await store.open(1, 'o', 'r', 7)
+      store.setVerdict({ kind: 'approve' })
+      const submitting = store.submit('o', 'r')
+      store.close()
+      await store.open(1, 'o', 'r', 8)
+      store.setSummary('draft for PR 8')
+      releaseSubmit()
+      await submitting
+      const s = store.getSession()!
+      expect(s.prNumber).toBe(8)
+      expect(s.status).toBe('ready')
+      expect(s.summary).toBe('draft for PR 8')
+    })
+
+    it('reloads threads after a successful submit', async () => {
+      const comment = {
+        id: 5,
+        node_id: 'N5',
+        path: 'a.ts',
+        line: 2,
+        body: 'posted',
+        user: { login: 'u', avatar_url: '' },
+        created_at: '2024-01-01T00:00:00Z',
+      }
+      const http = new FakeHttp()
+        .enqueue(ok([]))
+        .enqueue(ok({ id: 1 }))
+        .enqueue(ok([comment]))
+      const store = new PullRequestReviewStore(http)
+      await store.open(1, 'o', 'r', 7)
+      store.setVerdict({ kind: 'comment' })
+      expect(await store.submit('o', 'r')).toBe(true)
+      expect(store.getSession()!.threads).toHaveLength(1)
+    })
+  })
 })

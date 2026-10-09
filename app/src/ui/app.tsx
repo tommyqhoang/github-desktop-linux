@@ -3713,6 +3713,10 @@ export class App extends React.Component<IAppProps, IAppState> {
             state.stashesByRepoId.get(selectedState.repository.id)?.loading ??
             false
           }
+          stashesError={
+            state.stashesByRepoId.get(selectedState.repository.id)?.error ??
+            null
+          }
           worktreeEntries={
             state.worktreesByRepoId.get(selectedState.repository.id)?.entries ??
             []
@@ -3721,6 +3725,10 @@ export class App extends React.Component<IAppProps, IAppState> {
             state.worktreesByRepoId.get(selectedState.repository.id)?.loading ??
             false
           }
+          worktreesError={
+            state.worktreesByRepoId.get(selectedState.repository.id)?.error ??
+            null
+          }
           submoduleEntries={
             state.submodulesByRepoId.get(selectedState.repository.id)
               ?.entries ?? []
@@ -3728,6 +3736,14 @@ export class App extends React.Component<IAppProps, IAppState> {
           submodulesLoading={
             state.submodulesByRepoId.get(selectedState.repository.id)
               ?.loading ?? false
+          }
+          submodulesError={
+            state.submodulesByRepoId.get(selectedState.repository.id)?.error ??
+            null
+          }
+          submodulesBusy={
+            state.submodulesByRepoId.get(selectedState.repository.id)?.busy ??
+            false
           }
           fileTreeState={
             state.fileTreeByRepoId.get(selectedState.repository.id) ?? {
@@ -3748,6 +3764,14 @@ export class App extends React.Component<IAppProps, IAppState> {
           workflowRunsLoading={
             state.workflowRunsByRepoId.get(selectedState.repository.id)
               ?.loading ?? false
+          }
+          workflowRunsError={
+            state.workflowRunsByRepoId.get(selectedState.repository.id)
+              ?.error ?? null
+          }
+          workflowRunsUnavailable={
+            state.workflowRunsByRepoId.get(selectedState.repository.id)
+              ?.unavailable ?? null
           }
         />
       )

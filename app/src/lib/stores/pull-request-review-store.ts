@@ -6,7 +6,7 @@ import {
   IReviewThread,
 } from '../../models/pull-request-review'
 import {
-  fetchPullRequestThreads,
+  fetchPullRequestThreadsDetailed,
   submitReview as submitReviewApi,
   IHttpClient,
 } from '../api/pull-request-reviews'
@@ -18,6 +18,12 @@ import {
  */
 export class PullRequestReviewStore extends BaseStore {
   private session: IPRReviewSession | null = null
+  /**
+   * Bumped whenever a session is opened or closed. Session objects are
+   * replaced on every edit, so identity of the object can't tell "same
+   * review, edited" from "a different PR replaced it"; this can.
+   */
+  private sessionGeneration = 0
   private readonly client: IHttpClient
 
   public constructor(client: IHttpClient) {
@@ -52,10 +58,11 @@ export class PullRequestReviewStore extends BaseStore {
       error: null,
     }
     this.session = session
+    this.sessionGeneration++
     this.emitUpdate()
 
     try {
-      const threads = await fetchPullRequestThreads(
+      const { threads, truncated } = await fetchPullRequestThreadsDetailed(
         this.client,
         owner,
         repo,
@@ -64,7 +71,7 @@ export class PullRequestReviewStore extends BaseStore {
       if (this.session !== session) {
         return
       }
-      this.session = { ...session, threads, status: 'ready' }
+      this.session = { ...session, threads, truncated, status: 'ready' }
       this.emitUpdate()
     } catch (e) {
       const error = e instanceof Error ? e : new Error(String(e))
@@ -79,6 +86,7 @@ export class PullRequestReviewStore extends BaseStore {
   /** Close the active session (e.g., dialog dismissed). */
   public close(): void {
     this.session = null
+    this.sessionGeneration++
     this.emitUpdate()
   }
 
@@ -154,6 +162,7 @@ export class PullRequestReviewStore extends BaseStore {
     if (this.session.status === 'submitting') {
       return false
     }
+    const generation = this.sessionGeneration
     this.session = { ...this.session, status: 'submitting', error: null }
     this.emitUpdate()
 
@@ -177,7 +186,7 @@ export class PullRequestReviewStore extends BaseStore {
       )
     } catch (e) {
       const error = e instanceof Error ? e : new Error(String(e))
-      if (this.session !== null) {
+      if (this.session !== null && generation === this.sessionGeneration) {
         this.session = { ...this.session, status: 'ready', error }
         this.emitUpdate()
       }
@@ -185,9 +194,9 @@ export class PullRequestReviewStore extends BaseStore {
       return false
     }
 
-    // Session may have been closed while we awaited the network. Don't
-    // resurrect it.
-    if (this.session === null) {
+    // The session may have been closed — or replaced by a different PR's
+    // session — while we awaited the network. Don't touch it.
+    if (this.session === null || generation !== this.sessionGeneration) {
       return result.ok
     }
 
@@ -209,6 +218,23 @@ export class PullRequestReviewStore extends BaseStore {
       summary: '',
     }
     this.emitUpdate()
+
+    // Reload threads so the freshly-posted comments show up. A failure here
+    // must not turn a successful submit into a failure.
+    try {
+      const { threads, truncated } = await fetchPullRequestThreadsDetailed(
+        this.client,
+        owner,
+        repo,
+        this.session.prNumber
+      )
+      if (this.session !== null && generation === this.sessionGeneration) {
+        this.session = { ...this.session, threads, truncated }
+        this.emitUpdate()
+      }
+    } catch {
+      // keep the previously loaded threads
+    }
     return true
   }
 

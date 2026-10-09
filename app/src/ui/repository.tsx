@@ -55,6 +55,7 @@ import { ISubmoduleStatusEntry } from '../models/submodule'
 import { SubmoduleList } from './submodules/submodule-list'
 import { IWorkflowRun } from '../models/workflow-run'
 import { WorkflowRunList } from './workflow-runs/workflow-run-list'
+import { WorkflowRunsUnavailableReason } from '../lib/stores/workflow-runs-store'
 import { WorkflowRunDetail } from './workflow-runs/workflow-run-detail'
 import { PopupType } from '../models/popup'
 import { TutorialPanel, TutorialWelcome, TutorialDone } from './tutorial'
@@ -92,9 +93,12 @@ interface IRepositoryViewProps {
   readonly accounts: ReadonlyArray<Account>
   readonly worktreeEntries: ReadonlyArray<IWorktreeEntry>
   readonly worktreesLoading: boolean
+  readonly worktreesError?: Error | null
 
   readonly submoduleEntries: ReadonlyArray<ISubmoduleStatusEntry>
   readonly submodulesLoading: boolean
+  readonly submodulesError?: Error | null
+  readonly submodulesBusy?: boolean
 
   /** Cached working-tree file structure for this repository (Files tab). */
   readonly fileTreeState: IRepoFileTreeState
@@ -102,6 +106,8 @@ interface IRepositoryViewProps {
   /** Cached workflow run entries for this repository (Actions tab). */
   readonly workflowRunEntries: ReadonlyArray<IWorkflowRun>
   readonly workflowRunsLoading: boolean
+  readonly workflowRunsError?: Error | null
+  readonly workflowRunsUnavailable?: WorkflowRunsUnavailableReason | null
 
   /**
    * A value indicating whether or not the application is currently presenting
@@ -156,12 +162,17 @@ interface IRepositoryViewProps {
   /** Cached stash entries for this repository (Stashes tab). */
   readonly stashEntries: ReadonlyArray<IStashEntry>
   readonly stashesLoading: boolean
+  readonly stashesError?: Error | null
 }
 
 interface IRepositoryViewState {
   readonly changesListScrollTop: number
   readonly compareListScrollTop: number
   readonly selectedStashSha: string | null
+  /** True while an Apply / Pop / Drop on a stash is running. */
+  readonly stashBusy: boolean
+  /** True while Prune worktrees is running. */
+  readonly worktreePruning: boolean
   readonly selectedWorkflowRunId: number | null
   /** Bumped on Ctrl/Cmd+F to ask the Files viewer to open its find bar. */
   readonly openFindToken: number
@@ -198,6 +209,8 @@ export class RepositoryView extends React.Component<
       changesListScrollTop: 0,
       compareListScrollTop: 0,
       selectedStashSha: null,
+      stashBusy: false,
+      worktreePruning: false,
       selectedWorkflowRunId: null,
       openFindToken: 0,
     }
@@ -313,15 +326,8 @@ export class RepositoryView extends React.Component<
       this.props.repository,
       section
     )
-    if (section === RepositorySectionTab.Stashes) {
-      this.props.dispatcher.loadStashes(this.props.repository)
-    }
-    if (section === RepositorySectionTab.Worktrees) {
-      this.props.dispatcher.loadWorktrees(this.props.repository)
-    }
-    if (section === RepositorySectionTab.Submodules) {
-      this.props.dispatcher.loadSubmodules(this.props.repository)
-    }
+    // changeRepositorySection already loads the new section's data; loading
+    // again here would queue a redundant trailing refresh.
   }
 
   private renderChangesSidebar(): React.JSX.Element {
@@ -475,6 +481,8 @@ export class RepositoryView extends React.Component<
         onContextMenu={this.onFileTreeContextMenu}
         onSubmitRename={this.onSubmitFileTreeRename}
         onCancelRename={this.onCancelFileTreeRename}
+        onBeginRename={this.onBeginFileTreeRename}
+        onRetry={this.onRetryFileTree}
       />
     )
   }
@@ -544,6 +552,14 @@ export class RepositoryView extends React.Component<
       return
     }
     dispatcher.renameFileTreeEntry(repository, entry.path, newName)
+  }
+
+  private onBeginFileTreeRename = (entry: FileTreeEntry) => {
+    this.props.dispatcher.beginFileTreeRename(this.props.repository, entry.path)
+  }
+
+  private onRetryFileTree = () => {
+    this.props.dispatcher.refreshFileTree(this.props.repository)
   }
 
   private onCancelFileTreeRename = () => {
@@ -639,10 +655,17 @@ export class RepositoryView extends React.Component<
         dispatcher={this.props.dispatcher}
         accounts={this.props.accounts}
         branch={currentBranch}
+        error={this.props.workflowRunsError}
+        unavailable={this.props.workflowRunsUnavailable}
+        onRetry={this.onRetryWorkflowRuns}
         onSelectRun={this.onSelectWorkflowRun}
         selectedRunId={this.state.selectedWorkflowRunId}
       />
     )
+  }
+
+  private onRetryWorkflowRuns = () => {
+    this.props.dispatcher.loadWorkflowRuns(this.props.repository)
   }
 
   private onSelectWorkflowRun = (entry: IWorkflowRun) => {
@@ -657,6 +680,8 @@ export class RepositoryView extends React.Component<
         selectedSha={this.state.selectedStashSha}
         onSelect={this.onSelectStash}
         onCreateClick={this.onCreateStashClick}
+        error={this.props.stashesError}
+        onRetry={this.onRetryStashes}
       />
     )
   }
@@ -681,20 +706,31 @@ export class RepositoryView extends React.Component<
         onUpdateAll={this.onUpdateAllSubmodules}
         onSyncAll={this.onSyncSubmodules}
         onUpdateSubmodule={this.onUpdateSubmodule}
+        error={this.props.submodulesError}
+        busy={this.props.submodulesBusy}
+        onRetry={this.onRetrySubmodules}
       />
     )
   }
 
-  private onUpdateAllSubmodules = () => {
-    this.props.dispatcher.updateSubmodules(this.props.repository)
+  private onRetrySubmodules = () => {
+    this.props.dispatcher.loadSubmodules(this.props.repository)
   }
 
-  private onSyncSubmodules = () => {
-    this.props.dispatcher.syncSubmodules(this.props.repository)
+  // Failures are surfaced by the store (error dialog); busy state disables
+  // the buttons so a slow run can't be double-fired.
+  private onUpdateAllSubmodules = async () => {
+    await this.props.dispatcher.updateSubmodules(this.props.repository)
   }
 
-  private onUpdateSubmodule = (entry: ISubmoduleStatusEntry) => {
-    this.props.dispatcher.updateSubmodules(this.props.repository, [entry.path])
+  private onSyncSubmodules = async () => {
+    await this.props.dispatcher.syncSubmodules(this.props.repository)
+  }
+
+  private onUpdateSubmodule = async (entry: ISubmoduleStatusEntry) => {
+    await this.props.dispatcher.updateSubmodules(this.props.repository, [
+      entry.path,
+    ])
   }
 
   /**
@@ -710,6 +746,9 @@ export class RepositoryView extends React.Component<
         onCreateWorktree={this.onCreateWorktree}
         onPruneWorktrees={this.onPruneWorktrees}
         onRemoveWorktree={this.onRemoveWorktree}
+        error={this.props.worktreesError}
+        busy={this.state.worktreePruning}
+        onRetry={this.onRetryWorktrees}
       />
     )
   }
@@ -721,8 +760,20 @@ export class RepositoryView extends React.Component<
     })
   }
 
-  private onPruneWorktrees = () => {
-    this.props.dispatcher.pruneWorktrees(this.props.repository)
+  private onRetryWorktrees = () => {
+    this.props.dispatcher.loadWorktrees(this.props.repository)
+  }
+
+  private onPruneWorktrees = async () => {
+    if (this.state.worktreePruning) {
+      return
+    }
+    this.setState({ worktreePruning: true })
+    try {
+      await this.props.dispatcher.pruneWorktrees(this.props.repository)
+    } finally {
+      this.setState({ worktreePruning: false })
+    }
   }
 
   private onRemoveWorktree = (entry: IWorktreeEntry) => {
@@ -732,6 +783,10 @@ export class RepositoryView extends React.Component<
       worktreePath: entry.path,
       branch: entry.branch,
     })
+  }
+
+  private onRetryStashes = () => {
+    this.props.dispatcher.loadStashes(this.props.repository)
   }
 
   private onSelectStash = (entry: IStashEntry) => {
@@ -1079,11 +1134,29 @@ export class RepositoryView extends React.Component<
           <span>SHA: {entry.stashSha.slice(0, 8)}</span>
         </div>
         <div className="stash-detail-pane__actions">
-          <button onClick={this.applySelectedStash}>Apply (keep)</button>
-          <button onClick={this.popSelectedStash}>
+          <button
+            onClick={this.applySelectedStash}
+            disabled={this.state.stashBusy}
+          >
+            Apply (keep)
+          </button>
+          <button
+            onClick={this.popSelectedStash}
+            disabled={this.state.stashBusy}
+          >
             Pop (apply &amp; drop)
           </button>
-          <button onClick={this.dropSelectedStash}>Drop&hellip;</button>
+          <button
+            onClick={this.dropSelectedStash}
+            disabled={this.state.stashBusy}
+          >
+            Drop&hellip;
+          </button>
+          {this.state.stashBusy && (
+            <span className="sr-only" role="status">
+              Working on the stash…
+            </span>
+          )}
         </div>
       </div>
     )
@@ -1112,31 +1185,41 @@ export class RepositoryView extends React.Component<
     )
   }
 
-  private applySelectedStash = () => {
+  /**
+   * Run a stash action with the buttons disabled until it settles. The
+   * selection is left alone: once the stash is really gone from the list the
+   * selected entry simply no longer resolves, whereas a failed pop/drop keeps
+   * it selected so the user can retry.
+   */
+  private async runStashAction(
+    action: (entry: IStashEntry) => Promise<void>
+  ): Promise<void> {
     const entry = this.getSelectedStashEntry()
-    if (entry === null) {
+    if (entry === null || this.state.stashBusy) {
       return
     }
-    this.props.dispatcher.applyStash(this.props.repository, entry.stashSha)
+    this.setState({ stashBusy: true })
+    try {
+      await action(entry)
+    } finally {
+      this.setState({ stashBusy: false })
+    }
   }
 
-  private popSelectedStash = () => {
-    const entry = this.getSelectedStashEntry()
-    if (entry === null) {
-      return
-    }
-    this.props.dispatcher.popStash(this.props.repository, entry)
-    this.setState({ selectedStashSha: null })
-  }
+  private applySelectedStash = () =>
+    this.runStashAction(entry =>
+      this.props.dispatcher.applyStash(this.props.repository, entry.stashSha)
+    )
 
-  private dropSelectedStash = () => {
-    const entry = this.getSelectedStashEntry()
-    if (entry === null) {
-      return
-    }
-    this.props.dispatcher.dropStash(this.props.repository, entry)
-    this.setState({ selectedStashSha: null })
-  }
+  private popSelectedStash = () =>
+    this.runStashAction(entry =>
+      this.props.dispatcher.popStash(this.props.repository, entry)
+    )
+
+  private dropSelectedStash = () =>
+    this.runStashAction(entry =>
+      this.props.dispatcher.dropStash(this.props.repository, entry)
+    )
 
   public render() {
     return (
@@ -1270,15 +1353,6 @@ export class RepositoryView extends React.Component<
     if (next === RepositorySectionTab.Files) {
       this.props.dispatcher.refreshFileTree(this.props.repository)
     }
-    if (next === RepositorySectionTab.Stashes) {
-      this.props.dispatcher.loadStashes(this.props.repository)
-    }
-    if (next === RepositorySectionTab.Worktrees) {
-      this.props.dispatcher.loadWorktrees(this.props.repository)
-    }
-    if (next === RepositorySectionTab.Actions) {
-      this.props.dispatcher.loadWorkflowRuns(this.props.repository)
-    }
   }
 
   private onTabClicked = (tab: Tab) => {
@@ -1297,9 +1371,6 @@ export class RepositoryView extends React.Component<
     )
     if (section === RepositorySectionTab.Files) {
       this.props.dispatcher.refreshFileTree(this.props.repository)
-    }
-    if (section === RepositorySectionTab.Actions) {
-      this.props.dispatcher.loadWorkflowRuns(this.props.repository)
     }
     if (section === RepositorySectionTab.History) {
       this.props.dispatcher.updateCompareForm(this.props.repository, {

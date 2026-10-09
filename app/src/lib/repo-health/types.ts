@@ -17,6 +17,11 @@ export interface IRepoHealth {
   readonly attentionScore: number
   readonly collectedAt: number
   readonly error: string | null
+  /**
+   * Signals whose probe failed; their values are placeholders and must be
+   * rendered as unknown. Keys: changes, aheadBehind, ci, prs, last, stale.
+   */
+  readonly failedSignals?: ReadonlyArray<string>
 }
 
 export interface IRepoHealthSnapshot {

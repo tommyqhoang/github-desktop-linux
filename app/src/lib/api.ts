@@ -516,6 +516,10 @@ export interface IAPIWorkflows {
   readonly workflows: ReadonlyArray<IAPIWorkflow>
 }
 
+/** Page size / page cap when listing a repository's workflows. */
+const WorkflowsPerPage = 100
+const MaxWorkflowPages = 5
+
 /** GitHub's maximum page size for the workflow jobs endpoint. */
 const WorkflowJobsPerPage = 100
 
@@ -1674,16 +1678,14 @@ export class API {
     )
     const response = await this.request('GET', path)
 
+    // 404 means Actions isn't available for this repository (or it can't be
+    // seen with this account); any other failure is thrown so callers can
+    // keep what they already have and show the error instead of "no runs".
     if (response.status === 404) {
       return null
     }
 
-    try {
-      return await parsedResponse<IAPIWorkflowRuns>(response)
-    } catch (e) {
-      log.warn(`Failed fetching workflow runs for ${branch} (${owner}/${name})`)
-      return null
-    }
+    return await parsedResponse<IAPIWorkflowRuns>(response)
   }
 
   /**
@@ -1727,25 +1729,37 @@ export class API {
   }
 
   /**
-   * List workflows for a repository.
+   * List workflows for a repository (up to a sane page cap). Returns `null`
+   * on 404 and throws on any other failure.
    */
   public async fetchWorkflows(
     owner: string,
     name: string
   ): Promise<IAPIWorkflows | null> {
-    const path = `repos/${owner}/${name}/actions/workflows`
-    const response = await this.request('GET', path)
+    const workflows: IAPIWorkflow[] = []
+    let totalCount = 0
 
-    if (response.status === 404) {
-      return null
+    for (let page = 1; page <= MaxWorkflowPages; page++) {
+      const path =
+        `repos/${owner}/${name}/actions/workflows` +
+        `?per_page=${WorkflowsPerPage}&page=${page}`
+      const response = await this.request('GET', path)
+
+      // 404 means Actions isn't available here: distinct from an empty list
+      // and from a transient failure (which throws).
+      if (response.status === 404) {
+        return page === 1 ? null : { total_count: totalCount, workflows }
+      }
+
+      const result = await parsedResponse<IAPIWorkflows>(response)
+      totalCount = result.total_count
+      workflows.push(...result.workflows)
+      if (result.workflows.length === 0 || workflows.length >= totalCount) {
+        break
+      }
     }
 
-    try {
-      return await parsedResponse<IAPIWorkflows>(response)
-    } catch (e) {
-      log.warn(`Failed fetching workflows for ${owner}/${name})`)
-      return null
-    }
+    return { total_count: totalCount, workflows }
   }
 
   /**

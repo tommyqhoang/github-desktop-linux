@@ -63,4 +63,58 @@ describe('AIResultDialog', () => {
     })
     expect(html).toContain('Apply')
   })
+
+  it('marks the error as an alert and keeps an always-mounted live region', () => {
+    const html = render({ error: 'boom' })
+    expect(html).toContain('role="alert"')
+    expect(html).toContain('aria-live="polite"')
+  })
+
+  it('offers Try again in the empty state once an error was dismissed', () => {
+    const html = render({ onRetry: () => undefined })
+    expect(html).toContain('Try again')
+  })
+
+  it('announces a ready result', () => {
+    expect(render({ result: 'x' })).toContain('Result ready')
+  })
+
+  it('does not dismiss the dialog when Enter submits the form', () => {
+    const onDismissed = jest.fn()
+    const dialog = new AIResultDialog({
+      title: 't',
+      loading: false,
+      error: null,
+      result: null,
+      renderResult: () => <div />,
+      onRegenerate: () => undefined,
+      onDismissed,
+    })
+    ;(dialog as any).onSubmit()
+    expect(onDismissed).not.toHaveBeenCalled()
+  })
+
+  it('shows Copied feedback after copying', () => {
+    jest.useFakeTimers()
+    const onCopy = jest.fn()
+    const dialog = new AIResultDialog({
+      title: 't',
+      loading: false,
+      error: null,
+      result: 'x',
+      renderResult: () => <div />,
+      onRegenerate: () => undefined,
+      onDismissed: () => undefined,
+      onCopy,
+    })
+    ;(dialog as any).setState = function (p: any) {
+      this.state = { ...this.state, ...p }
+    }
+    ;(dialog as any).onCopyClick()
+    expect(onCopy).toHaveBeenCalled()
+    expect((dialog as any).liveMessage()).toBe('Copied to clipboard')
+    jest.runAllTimers()
+    expect((dialog as any).liveMessage()).toBe('Result ready')
+    jest.useRealTimers()
+  })
 })

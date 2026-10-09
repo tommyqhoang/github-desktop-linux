@@ -24,6 +24,8 @@ interface IPRReviewDialogState {
   readonly newCommentBody: string
   readonly newCommentPath: string
   readonly newCommentLine: string
+  /** Local, dialog-level message (e.g. submit blocked). */
+  readonly notice: string | null
 }
 
 /**
@@ -43,7 +45,12 @@ export class PRReviewDialog extends React.Component<
 > {
   public constructor(props: IPRReviewDialogProps) {
     super(props)
-    this.state = { newCommentBody: '', newCommentPath: '', newCommentLine: '' }
+    this.state = {
+      newCommentBody: '',
+      newCommentPath: '',
+      newCommentLine: '',
+      notice: null,
+    }
   }
 
   public componentDidMount() {
@@ -77,9 +84,12 @@ export class PRReviewDialog extends React.Component<
             ? this.renderEmpty()
             : session.status === 'loading'
               ? this.renderLoading()
-              : this.renderReady(session)}
+              : session.status === 'error'
+                ? this.renderLoadError(session)
+                : this.renderReady(session)}
         </DialogContent>
         <DialogFooter>
+          {this.renderSubmitHint(session)}
           <OkCancelButtonGroup
             okButtonText={__DARWIN__ ? 'Submit Review' : 'Submit review'}
             okButtonDisabled={
@@ -98,16 +108,71 @@ export class PRReviewDialog extends React.Component<
   }
 
   private renderLoading() {
-    return <Row>Loading review threads…</Row>
+    return (
+      <Row>
+        <span role="status">Loading review threads…</span>
+      </Row>
+    )
+  }
+
+  private renderLoadError(session: IPRReviewSession) {
+    return (
+      <>
+        <Row>
+          <span className="error" role="alert">
+            Couldn't load this pull request's review.
+            {session.error ? ` ${session.error.message}` : ''}
+          </span>
+        </Row>
+        <Row>
+          <button type="button" onClick={this.onRetryClick}>
+            Retry
+          </button>
+        </Row>
+      </>
+    )
+  }
+
+  /** A visible reason why Submit is unavailable, if it is. */
+  private renderSubmitHint(session: IPRReviewSession | null) {
+    if (session === null || session.status !== 'ready') {
+      return null
+    }
+    if (session.verdict.kind === 'pending') {
+      return (
+        <p className="pr-review-submit-hint" role="status">
+          Choose a verdict (Comment, Approve or Request changes) to enable
+          Submit.
+        </p>
+      )
+    }
+    return null
+  }
+
+  private onRetryClick = () => {
+    this.props.dispatcher.openPullRequestReview(
+      this.props.repository,
+      this.props.prNumber
+    )
   }
 
   private renderReady(session: IPRReviewSession) {
     const grouped = groupThreadsByPath(session.threads)
     return (
       <>
-        {session.error && (
+        {(session.error || this.state.notice) && (
           <Row>
-            <span className="error">{session.error.message}</span>
+            <span className="error" role="alert">
+              {session.error?.message ?? this.state.notice}
+            </span>
+          </Row>
+        )}
+        {session.truncated === true && (
+          <Row>
+            <span role="status">
+              Some review comments couldn't be loaded, so this list may be
+              incomplete.
+            </span>
           </Row>
         )}
         <Row>
@@ -142,6 +207,7 @@ export class PRReviewDialog extends React.Component<
             label="Path"
             value={this.state.newCommentPath}
             onValueChanged={this.onNewCommentPathChange}
+            onKeyDown={this.onDraftFieldKeyDown}
           />
         </Row>
         <Row>
@@ -149,6 +215,7 @@ export class PRReviewDialog extends React.Component<
             label="Line"
             value={this.state.newCommentLine}
             onValueChanged={this.onNewCommentLineChange}
+            onKeyDown={this.onDraftFieldKeyDown}
           />
         </Row>
         <Row>
@@ -156,6 +223,7 @@ export class PRReviewDialog extends React.Component<
             label="Comment"
             value={this.state.newCommentBody}
             onValueChanged={this.onNewCommentBodyChange}
+            onKeyDown={this.onDraftFieldKeyDown}
           />
         </Row>
         <Row>
@@ -172,14 +240,36 @@ export class PRReviewDialog extends React.Component<
           </button>
         </Row>
         {session.draftComments.length > 0 && (
-          <Row>
-            <strong>{session.draftComments.length} pending draft(s)</strong>
-          </Row>
+          <>
+            <Row>
+              <strong>{session.draftComments.length} pending draft(s)</strong>
+            </Row>
+            <ul className="pr-review-drafts">
+              {session.draftComments.map(d => (
+                <li key={d.id} className="pr-review-draft">
+                  <span>
+                    {d.path}:{d.line} — {d.body}
+                  </span>{' '}
+                  <button
+                    type="button"
+                    // eslint-disable-next-line react/jsx-no-bind
+                    onClick={() =>
+                      this.props.dispatcher.discardReviewDraft(d.id)
+                    }
+                  >
+                    Remove
+                    <span className="sr-only">
+                      {' '}
+                      draft on {d.path} line {d.line}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </>
         )}
-        <Row>
-          <h4>Verdict</h4>
-        </Row>
-        <Row>
+        <fieldset className="pr-review-verdict">
+          <legend>Verdict</legend>
           {(['comment', 'approve', 'request_changes'] as const).map(kind => (
             <label key={kind} style={{ marginRight: 12 }}>
               <input
@@ -192,7 +282,7 @@ export class PRReviewDialog extends React.Component<
               {labelFor(kind)}
             </label>
           ))}
-        </Row>
+        </fieldset>
         <Row>
           <TextBox
             label="Summary"
@@ -231,6 +321,17 @@ export class PRReviewDialog extends React.Component<
     this.props.dispatcher.setReviewSummary(s)
   }
 
+  /**
+   * Enter in a draft field adds the draft. It must never fall through to the
+   * dialog's form submit, which would post the whole review.
+   */
+  private onDraftFieldKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      this.onAddDraftClick()
+    }
+  }
+
   private onAddDraftClick = () => {
     const path = this.state.newCommentPath.trim()
     const line = parseInt(this.state.newCommentLine.trim(), 10)
@@ -256,8 +357,13 @@ export class PRReviewDialog extends React.Component<
     const owner = repository.gitHubRepository?.owner?.login
     const repo = repository.gitHubRepository?.name
     if (!owner || !repo) {
+      this.setState({
+        notice:
+          "This repository isn't linked to GitHub, so the review can't be submitted.",
+      })
       return
     }
+    this.setState({ notice: null })
     const ok = await this.props.dispatcher.submitReview(owner, repo)
     if (ok) {
       this.props.onDismissed()

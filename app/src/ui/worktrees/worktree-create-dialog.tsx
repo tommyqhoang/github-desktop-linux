@@ -104,8 +104,17 @@ export class WorktreeCreateDialog extends React.Component<
           </Row>
           {this.state.error !== null && (
             <Row>
-              <span className="error">{this.state.error}</span>
+              <span className="error" role="alert">
+                {this.state.error}
+              </span>
             </Row>
+          )}
+          {this.isSubmitDisabled() && (
+            <span className="sr-only" role="status">
+              {this.state.path.trim().length === 0
+                ? 'Enter a folder path to enable adding the worktree.'
+                : 'Enter a branch name to enable adding the worktree.'}
+            </span>
           )}
         </DialogContent>
         <DialogFooter>

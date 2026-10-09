@@ -9,6 +9,8 @@ interface ISubmoduleListItemProps {
   readonly entry: ISubmoduleStatusEntry
   /** Invoked when the user asks to update (init/checkout) this submodule. */
   readonly onUpdate: (entry: ISubmoduleStatusEntry) => void
+  /** Disable the Update action (e.g. while another update is running). */
+  readonly disabled?: boolean
 }
 
 /** Human-readable label + badge modifier for each work-dir state. */
@@ -58,6 +60,7 @@ export class SubmoduleListItem extends React.Component<ISubmoduleListItemProps> 
         <Button
           className="submodule-list__update"
           onClick={this.onUpdateClick}
+          disabled={this.props.disabled === true}
           tooltip={`Update the submodule at ${entry.path}`}
         >
           Update

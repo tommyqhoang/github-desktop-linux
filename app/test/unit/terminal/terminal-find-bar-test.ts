@@ -130,7 +130,50 @@ describe('TerminalFindBar', () => {
     const tree: any = bar.render()
     const input = findInput(tree)
     input.props.onChange({ target: { value: 'typed' } })
-    expect(setStateSpy).toHaveBeenCalledWith({ text: 'typed' })
+    expect(setStateSpy).toHaveBeenCalledWith({ text: 'typed', status: 'idle' })
     expect(bar.state.text).toBe('typed')
+  })
+})
+
+describe('TerminalFindBar accessibility', () => {
+  it('gives the search input an accessible name', () => {
+    const { bar } = makeBar(true)
+    const input = findInput(bar.render())
+    expect(input.props['aria-label']).toBe('Find in terminal')
+  })
+
+  it('announces "No results" when the search finds nothing', () => {
+    const { bar, handlers } = makeBar(true)
+    handlers.onFindNext.mockReturnValue(false)
+    ;(bar as any).state = { text: 'zzz', status: 'idle' }
+    ;(bar as any).setState = (p: any) => {
+      ;(bar as any).state = { ...(bar as any).state, ...p }
+    }
+    findInput(bar.render()).props.onKeyDown({
+      key: 'Enter',
+      shiftKey: false,
+      preventDefault: jest.fn(),
+    })
+    const tree: any = bar.render()
+    const live = tree.props.children[tree.props.children.length - 1]
+    expect(live.props.role).toBe('status')
+    expect(live.props.children).toBe('No results')
+  })
+
+  it('announces a match, and clears when the text changes', () => {
+    const { bar, handlers } = makeBar(true)
+    handlers.onFindNext.mockReturnValue(true)
+    ;(bar as any).state = { text: 'a', status: 'idle' }
+    ;(bar as any).setState = (p: any) => {
+      ;(bar as any).state = { ...(bar as any).state, ...p }
+    }
+    findInput(bar.render()).props.onKeyDown({
+      key: 'Enter',
+      shiftKey: false,
+      preventDefault: jest.fn(),
+    })
+    expect((bar as any).state.status).toBe('found')
+    findInput(bar.render()).props.onChange({ target: { value: 'ab' } })
+    expect((bar as any).state.status).toBe('idle')
   })
 })

@@ -35,79 +35,91 @@ export interface ICollectorOptions {
   readonly now?: () => number
 }
 
-/** Helper: turn a promise into `value | fallback` on rejection. */
-async function safe<T>(p: Promise<T>, fallback: T): Promise<T> {
+/** Signals that can fail independently. */
+export type RepoHealthSignalKey =
+  'changes' | 'aheadBehind' | 'ci' | 'prs' | 'last' | 'stale'
+
+/**
+ * Run a probe, recording the signal name in `failed` and returning
+ * `fallback` when it rejects (or throws synchronously).
+ */
+async function safe<T>(
+  key: RepoHealthSignalKey,
+  failed: RepoHealthSignalKey[],
+  run: () => Promise<T>,
+  fallback: T
+): Promise<{ value: T; message: string | null }> {
   try {
-    return await p
-  } catch {
-    return fallback
+    return { value: await run(), message: null }
+  } catch (e) {
+    failed.push(key)
+    return {
+      value: fallback,
+      message: e instanceof Error ? e.message : String(e),
+    }
   }
 }
 
 /**
  * Collect every signal for a single repository. Signals run in parallel; a
- * rejected probe degrades to a sensible default rather than failing the
- * whole snapshot.
+ * rejected probe degrades to a default value but is recorded in
+ * `failedSignals` so the UI can show it as unknown rather than 0. When the
+ * git status probe itself fails the repository is considered unreadable and
+ * `error` is set.
  */
 export async function collectRepoHealth(
   repo: Repository,
   opts: ICollectorOptions
 ): Promise<IRepoHealth> {
   const now = (opts.now ?? Date.now)()
-  try {
-    const [
-      uncommittedCount,
-      aheadBehind,
-      defaultBranchStatus,
-      openPullRequestCount,
-      lastActivityUnix,
-      staleBranchCount,
-    ] = await Promise.all([
-      safe(opts.probes.uncommittedCount(repo), 0),
-      safe(opts.probes.aheadBehind(repo), { ahead: 0, behind: 0 }),
-      safe<IRepoHealth['defaultBranchStatus']>(
-        opts.probes.defaultBranchStatus(repo),
-        'unknown'
-      ),
-      safe(opts.probes.openPullRequestCount(repo), 0),
-      safe(opts.probes.lastActivityUnix(repo), 0),
-      safe(opts.probes.staleBranchCount(repo), 0),
-    ])
+  const failed: RepoHealthSignalKey[] = []
+  const p = opts.probes
+  const [
+    uncommitted,
+    aheadBehind,
+    defaultBranchStatus,
+    openPullRequestCount,
+    lastActivityUnix,
+    staleBranchCount,
+  ] = await Promise.all([
+    safe('changes', failed, () => p.uncommittedCount(repo), 0),
+    safe('aheadBehind', failed, () => p.aheadBehind(repo), {
+      ahead: 0,
+      behind: 0,
+    }),
+    safe<IRepoHealth['defaultBranchStatus']>(
+      'ci',
+      failed,
+      () => p.defaultBranchStatus(repo),
+      'unknown'
+    ),
+    safe('prs', failed, () => p.openPullRequestCount(repo), 0),
+    safe('last', failed, () => p.lastActivityUnix(repo), 0),
+    safe('stale', failed, () => p.staleBranchCount(repo), 0),
+  ])
 
-    return {
-      repositoryId: repo.id,
-      uncommittedCount,
-      aheadBy: aheadBehind.ahead,
-      behindBy: aheadBehind.behind,
-      defaultBranchStatus,
-      openPullRequestCount,
-      lastActivityUnix,
-      staleBranchCount,
-      attentionScore: computeAttentionScore({
-        uncommittedCount,
-        aheadBy: aheadBehind.ahead,
-        behindBy: aheadBehind.behind,
-        defaultBranchStatus,
-        openPullRequestCount,
-      }),
-      collectedAt: now,
-      error: null,
-    }
-  } catch (e) {
-    const message = e instanceof Error ? e.message : String(e)
-    return {
-      repositoryId: repo.id,
-      uncommittedCount: 0,
-      aheadBy: 0,
-      behindBy: 0,
-      defaultBranchStatus: 'unknown',
-      openPullRequestCount: 0,
-      lastActivityUnix: 0,
-      staleBranchCount: 0,
-      attentionScore: 0,
-      collectedAt: now,
-      error: message,
-    }
+  const signals = {
+    uncommittedCount: uncommitted.value,
+    aheadBy: aheadBehind.value.ahead,
+    behindBy: aheadBehind.value.behind,
+    defaultBranchStatus: defaultBranchStatus.value,
+    openPullRequestCount: openPullRequestCount.value,
+  }
+
+  return {
+    repositoryId: repo.id,
+    ...signals,
+    lastActivityUnix: lastActivityUnix.value,
+    staleBranchCount: staleBranchCount.value,
+    attentionScore: computeAttentionScore(signals),
+    collectedAt: now,
+    // If git status itself failed the repo is unreadable (moved, deleted,
+    // broken git): report it as an error rather than a clean repo.
+    error:
+      uncommitted.message !== null
+        ? `Could not read repository status: ${uncommitted.message}`
+        : null,
+    failedSignals: failed,
   }
 }
 
@@ -124,7 +136,8 @@ export async function collectMany(
   repos: ReadonlyArray<Repository>,
   opts: ICollectorOptions,
   concurrency: number = 4,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  onResult?: (health: IRepoHealth) => void
 ): Promise<ReadonlyArray<IRepoHealth>> {
   if (concurrency < 1) {
     concurrency = 1
@@ -140,7 +153,9 @@ export async function collectMany(
       if (idx >= repos.length) {
         return
       }
-      results[idx] = await collectRepoHealth(repos[idx], opts)
+      const health = await collectRepoHealth(repos[idx], opts)
+      results[idx] = health
+      onResult?.(health)
     }
   }
   const workers = Array.from(

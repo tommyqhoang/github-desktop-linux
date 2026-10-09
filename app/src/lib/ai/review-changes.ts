@@ -56,6 +56,9 @@ export function parseReviewFindings(
   } catch (e) {
     throw new Error('The AI provider returned an invalid review.')
   }
+  if (parsed === null || typeof parsed !== 'object') {
+    throw new Error('The AI provider returned an invalid review.')
+  }
 
   const list: any[] = Array.isArray(parsed)
     ? parsed

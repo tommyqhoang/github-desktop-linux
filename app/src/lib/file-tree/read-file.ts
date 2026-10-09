@@ -1,4 +1,4 @@
-import { readFile, stat } from 'fs/promises'
+import { readFile, realpath, stat } from 'fs/promises'
 import * as Path from 'path'
 import { Repository } from '../../models/repository'
 import { FileViewerContents, MediaViewerContents } from '../../models/file-tree'
@@ -24,6 +24,28 @@ export async function statMtimeMs(
   }
 }
 
+/** Message shown when a symlink resolves outside the repository. */
+export const OutsideRepositoryMessage =
+  'This link points outside the repository'
+
+/**
+ * Throw when `absolutePath` resolves (through symlinks) to somewhere outside
+ * the repository root, so the viewer never reads arbitrary files via a link.
+ */
+async function assertInsideRepository(
+  repository: Repository,
+  absolutePath: string
+): Promise<void> {
+  const [root, target] = await Promise.all([
+    realpath(repository.path),
+    realpath(absolutePath),
+  ])
+  const rel = Path.relative(root, target)
+  if (rel === '..' || rel.startsWith(`..${Path.sep}`) || Path.isAbsolute(rel)) {
+    throw new Error(OutsideRepositoryMessage)
+  }
+}
+
 /** Largest media file rendered inline as a data URL (50 MB). */
 const MaxMediaFileSize = 50 * 1024 * 1024
 
@@ -42,6 +64,7 @@ export async function readMediaForViewer(
   }
 
   const absolutePath = Path.join(repository.path, relativePath)
+  await assertInsideRepository(repository, absolutePath)
 
   const stats = await stat(absolutePath)
   if (stats.size > MaxMediaFileSize) {
@@ -69,6 +92,7 @@ export async function readFileForViewer(
   relativePath: string
 ): Promise<FileViewerContents> {
   const absolutePath = Path.join(repository.path, relativePath)
+  await assertInsideRepository(repository, absolutePath)
 
   const stats = await stat(absolutePath)
   if (stats.size > MaxViewerFileSize) {
@@ -77,11 +101,32 @@ export async function readFileForViewer(
 
   const buffer = await readFile(absolutePath)
 
+  // UTF-16 text is full of NUL bytes; a BOM marks it as text, not binary.
+  const hasUtf16Bom =
+    buffer.length >= 2 &&
+    ((buffer[0] === 0xff && buffer[1] === 0xfe) ||
+      (buffer[0] === 0xfe && buffer[1] === 0xff))
+
   const sniffLength = Math.min(buffer.length, BinarySniffLength)
   const nulIndex = buffer.indexOf(0)
-  if (nulIndex !== -1 && nulIndex < sniffLength) {
+  if (!hasUtf16Bom && nulIndex !== -1 && nulIndex < sniffLength) {
     return { content: '', isBinary: true, tooLarge: false }
   }
 
-  return { content: buffer.toString('utf8'), isBinary: false, tooLarge: false }
+  return { content: decodeText(buffer), isBinary: false, tooLarge: false }
+}
+
+/** Decode a text buffer, honouring UTF-8 / UTF-16 byte-order marks. */
+function decodeText(buffer: Buffer): string {
+  if (buffer.length >= 2 && buffer[0] === 0xff && buffer[1] === 0xfe) {
+    return buffer.subarray(2).toString('utf16le')
+  }
+  if (buffer.length >= 2 && buffer[0] === 0xfe && buffer[1] === 0xff) {
+    // UTF-16BE: swap byte pairs, then decode as little-endian.
+    const body = Buffer.from(buffer.subarray(2))
+    body.swap16()
+    return body.toString('utf16le')
+  }
+  const text = buffer.toString('utf8')
+  return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text
 }

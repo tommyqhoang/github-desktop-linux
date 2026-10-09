@@ -140,6 +140,22 @@ export async function fetchPullRequestThreads(
   repo: string,
   prNumber: number
 ): Promise<ReadonlyArray<IReviewThread>> {
+  return (await fetchPullRequestThreadsDetailed(client, owner, repo, prNumber))
+    .threads
+}
+
+/**
+ * Like {@link fetchPullRequestThreads} but also reports whether the result is
+ * `truncated` (a page after the first failed, or the page cap was reached) so
+ * the UI can tell the user the thread list may be incomplete.
+ */
+export async function fetchPullRequestThreadsDetailed(
+  client: IHttpClient,
+  owner: string,
+  repo: string,
+  prNumber: number
+): Promise<{ threads: ReadonlyArray<IReviewThread>; truncated: boolean }> {
+  let truncated = false
   const comments: IReviewComment[] = []
   for (let page = 1; page <= MAX_COMMENT_PAGES; page++) {
     const path =
@@ -156,6 +172,7 @@ export async function fetchPullRequestThreads(
               )}`
         )
       }
+      truncated = true
       break
     }
     for (const raw of res.body) {
@@ -164,8 +181,11 @@ export async function fetchPullRequestThreads(
     if (res.body.length < COMMENTS_PER_PAGE) {
       break
     }
+    if (page === MAX_COMMENT_PAGES) {
+      truncated = true
+    }
   }
-  return buildThreads(comments)
+  return { threads: buildThreads(comments), truncated }
 }
 
 /**
@@ -231,6 +251,32 @@ export async function postLineComment(
     body: string
   }
 ): Promise<IReviewComment | null> {
+  const result = await postLineCommentDetailed(
+    client,
+    owner,
+    repo,
+    prNumber,
+    args
+  )
+  return result.ok ? result.comment : null
+}
+
+/** Like {@link postLineComment} but reports why a post failed. */
+export async function postLineCommentDetailed(
+  client: IHttpClient,
+  owner: string,
+  repo: string,
+  prNumber: number,
+  args: {
+    commitSha: string
+    path: string
+    line: number
+    side: 'LEFT' | 'RIGHT'
+    body: string
+  }
+): Promise<
+  { ok: true; comment: IReviewComment } | { ok: false; error: string }
+> {
   const res = await client.request(
     'POST',
     `/repos/${owner}/${repo}/pulls/${prNumber}/comments`,
@@ -242,10 +288,17 @@ export async function postLineComment(
       body: args.body,
     }
   )
-  if (!res.ok || res.body === null || typeof res.body !== 'object') {
-    return null
+  if (!res.ok) {
+    return { ok: false, error: extractErrorMessage(res.body, res.status) }
   }
-  return mapComment(res.body)
+  if (res.body === null || typeof res.body !== 'object') {
+    return {
+      ok: false,
+      error:
+        'GitHub returned an unexpected response while posting the comment.',
+    }
+  }
+  return { ok: true, comment: mapComment(res.body) }
 }
 
 function verdictToEvent(

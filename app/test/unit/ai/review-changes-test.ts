@@ -71,4 +71,9 @@ describe('parseReviewFindings', () => {
   it('throws on invalid JSON', () => {
     expect(() => parseReviewFindings('not json')).toThrow()
   })
+
+  it('throws a friendly error (not a TypeError) for JSON null / non-objects', () => {
+    expect(() => parseReviewFindings('null')).toThrow(/invalid/)
+    expect(() => parseReviewFindings('42')).toThrow(/invalid/)
+  })
 })

@@ -21,6 +21,25 @@ interface IWorkflowRunDispatchDialogState {
 }
 
 /**
+ * Turn the dispatch API's bare `HTTP <status>` failure into something the user
+ * can act on. GitHub answers 422 when the workflow has no `workflow_dispatch`
+ * trigger on the chosen ref, and 404 when the workflow or ref doesn't exist.
+ */
+export function describeDispatchError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error)
+  if (/HTTP 422\b/.test(message)) {
+    return 'GitHub rejected the request. Make sure this workflow has a “workflow_dispatch” trigger on the selected branch, and that the branch exists on GitHub.'
+  }
+  if (/HTTP 404\b/.test(message)) {
+    return 'The workflow or branch wasn’t found on GitHub. Check the branch name and that you have write access.'
+  }
+  if (/HTTP 403\b/.test(message)) {
+    return 'You don’t have permission to run workflows in this repository.'
+  }
+  return message
+}
+
+/**
  * Dialog to dispatch a new workflow run. Presents a dropdown of available
  * workflows and a branch input, then delegates to the dispatcher.
  */
@@ -70,7 +89,14 @@ export class WorkflowRunDispatchDialog extends React.Component<
               onValueChanged={this.onBranchChange}
             />
             {this.state.error !== null && (
-              <span className="error">{this.state.error}</span>
+              <span className="error" role="alert">
+                {this.state.error}
+              </span>
+            )}
+            {this.isSubmitDisabled() && (
+              <span className="sr-only" role="status">
+                Choose a workflow and enter a branch to enable running.
+              </span>
             )}
           </div>
         </DialogContent>
@@ -113,7 +139,7 @@ export class WorkflowRunDispatchDialog extends React.Component<
       // Keep the dialog open so the user can correct the input and retry.
       this.setState({
         running: false,
-        error: error instanceof Error ? error.message : String(error),
+        error: describeDispatchError(error),
       })
     }
   }

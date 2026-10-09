@@ -410,6 +410,22 @@ describe('FileViewer load', () => {
     expect(viewer.state.error).toBeNull()
   })
 
+  it('falls back to plain text when the highlighter throws', async () => {
+    jest.spyOn(readFile, 'readFileForViewer').mockResolvedValue({
+      content: 'const x = 1\n',
+      isBinary: false,
+      tooLarge: false,
+    })
+    jest.spyOn(worker, 'highlight').mockRejectedValue(new Error('worker died'))
+
+    const viewer = makeViewer('a.ts')
+    await (viewer as any).load('a.ts')
+
+    expect(viewer.state.error).toBeNull()
+    expect(viewer.state.contents?.content).toBe('const x = 1\n')
+    expect(viewer.state.tokens).toEqual({})
+  })
+
   it('does not highlight binary files', async () => {
     jest.spyOn(readFile, 'readFileForViewer').mockResolvedValue({
       content: '',
@@ -818,5 +834,27 @@ describe('FileViewer unmount', () => {
     await pending
 
     expect(viewer.state.blame).toBeNull()
+  })
+})
+
+describe('FileViewer find bar accessibility', () => {
+  it('announces the match count via role=status', () => {
+    const viewer = makeViewer('a.txt')
+    setContents(viewer, { content: 'a', isBinary: false, tooLarge: false })
+    ;(viewer as any).state = { ...viewer.state, findVisible: true }
+    const html = renderViewer(viewer)
+    expect(html).toMatch(
+      /file-viewer-find-count"[^>]*role="status"|role="status"[^>]*file-viewer-find-count/
+    )
+  })
+
+  it('returns focus to the Find toggle when Escape closes the find bar', () => {
+    const viewer = makeViewer('a.txt')
+    const focus = jest.fn()
+    ;(viewer as any).findToggleButton = { focus }
+    ;(viewer as any).setState = (_p: unknown, cb?: () => void) => cb?.()
+    const preventDefault = jest.fn()
+    ;(viewer as any).onFindKeyDown({ key: 'Escape', preventDefault })
+    expect(focus).toHaveBeenCalled()
   })
 })
