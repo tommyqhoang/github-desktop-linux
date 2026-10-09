@@ -40,6 +40,8 @@ export async function packageElectronBuilder(): Promise<Array<string>> {
     getArchitecture(),
     '--config',
     configPath,
+    '--publish',
+    'never',
   ]
 
   const { error } = cp.spawnSync(electronBuilder, args, { stdio: 'inherit' })
