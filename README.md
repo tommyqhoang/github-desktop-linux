@@ -124,7 +124,7 @@ Maintainers publish a release with the **Build and Release (Linux + macOS)**
 GitHub Actions workflow (`ci-linux.yml`). Use **Run workflow** and choose the
 branch, tag, or SHA to build. It builds the Linux `.deb` and the macOS arm64
 `.zip` in parallel and, if both succeed, publishes them together as a
-pre-release tagged `release-<version>-linux.<run number>`.
+pre-release tagged `release-<version>-build.<run number>`.
 
 ## Development
 
