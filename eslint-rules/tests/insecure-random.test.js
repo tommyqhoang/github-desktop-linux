@@ -3,12 +3,12 @@
 const RuleTester = require('eslint').RuleTester
 const rule = require('../insecure-random')
 
-const parserOptions = {
+const languageOptions = {
   ecmaVersion: 2015,
   sourceType: 'module',
 }
 
-const ruleTester = new RuleTester({ parserOptions })
+const ruleTester = new RuleTester({ languageOptions })
 ruleTester.run('react-no-unbound-dispatcher-props', rule, {
   valid: [
     'const b = crypto.randomBytes();',

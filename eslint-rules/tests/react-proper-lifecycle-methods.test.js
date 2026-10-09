@@ -1,8 +1,7 @@
 // @ts-check
 
-const { ESLintUtils } = require('@typescript-eslint/experimental-utils')
-
-const RuleTester = ESLintUtils.RuleTester
+const { RuleTester } = require('eslint')
+const tsParser = require('@typescript-eslint/parser')
 const rule = require('../react-proper-lifecycle-methods')
 
 // ------------------------------------------------------------------------------
@@ -10,8 +9,8 @@ const rule = require('../react-proper-lifecycle-methods')
 // ------------------------------------------------------------------------------
 
 const ruleTester = new RuleTester({
-  parser: '@typescript-eslint/parser',
-  parserOptions: {
+  languageOptions: {
+    parser: tsParser,
     ecmaVersion: 2015,
     sourceType: 'module',
   },

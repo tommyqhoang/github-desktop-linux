@@ -622,7 +622,7 @@ export interface IAPIRepoRule {
    * The parameters that apply to the rule if it is a metadata rule.
    * Other rule types may have parameters, but they are not used in
    * this app so they are ignored. Do not attempt to use this field
-   * unless you know {@link type} matches a metadata rule type.
+   * unless you know `type` matches a metadata rule type.
    */
   readonly parameters?: IAPIRepoRuleMetadataParameters
 }
@@ -674,7 +674,7 @@ export interface IAPIRepoRuleMetadataParameters {
 
   /**
    * Whether the operator is negated. For example, if `true`
-   * and {@link operator} is `starts_with`, then the rule
+   * and `operator` is `starts_with`, then the rule
    * will be negated to 'does not start with'.
    */
   negate: boolean
@@ -682,13 +682,13 @@ export interface IAPIRepoRuleMetadataParameters {
   /**
    * The pattern to match against. If the operator is 'regex', then
    * this is a regex string match. Otherwise, it is a raw string match
-   * of the type specified by {@link operator} with no additional parsing.
+   * of the type specified by `operator` with no additional parsing.
    */
   pattern: string
 
   /**
    * The type of match to use for the pattern. For example, `starts_with`
-   * means {@link pattern} must be at the start of the string.
+   * means `pattern` must be at the start of the string.
    */
   operator: APIRepoRuleMetadataOperator
 }

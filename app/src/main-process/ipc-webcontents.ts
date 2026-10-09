@@ -1,4 +1,4 @@
-/* eslint-disable no-loosely-typed-webcontents-ipc */
+/* eslint-disable desktop/no-loosely-typed-webcontents-ipc */
 
 import { WebContents } from 'electron'
 import { RequestChannels } from '../lib/ipc-shared'

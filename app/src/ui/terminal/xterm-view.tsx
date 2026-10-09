@@ -625,7 +625,7 @@ export class XtermView extends React.Component<
       }
     } catch (err) {
       log.warn(
-        '[xterm] webgl init failed; falling back to canvas',
+        '[xterm] webgl init failed; falling back to the DOM renderer',
         err as Error
       )
       this.installCanvas()
@@ -636,14 +636,14 @@ export class XtermView extends React.Component<
     if (this.canvasAddon !== null) {
       return
     }
+    // xterm 6 dropped its canvas renderer, so there is no built-in addon to
+    // fall back to: when WebGL is unavailable the DOM renderer is used. A
+    // factory can still be injected (tests, or a future renderer addon).
+    const factory = this.props.canvasAddonFactory
+    if (factory === undefined) {
+      return
+    }
     try {
-      const factory =
-        this.props.canvasAddonFactory ??
-        (() => {
-          // eslint-disable-next-line @typescript-eslint/no-var-requires
-          const { CanvasAddon } = require('@xterm/addon-canvas')
-          return new CanvasAddon()
-        })
       const addon = factory()
       this.term!.loadAddon(addon)
       this.canvasAddon = addon

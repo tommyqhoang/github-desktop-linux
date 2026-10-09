@@ -1,6 +1,6 @@
 # TypeScript Style Guide
 
-Most of our preferred style when writing typescript is configured in our [`.eslintrc.yml`](../../.eslintrc.yml) files.
+Most of our preferred style when writing typescript is configured in our [`eslint.config.mjs`](../../eslint.config.mjs).
 
 ## Do
  - Use camelCase for methods
