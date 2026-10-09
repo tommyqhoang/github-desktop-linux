@@ -69,7 +69,7 @@ export async function log(level: LogLevel, message: string) {
   try {
     const logger = await getLogger()
     await new Promise<void>((resolve, reject) => {
-      logger(level, message, error => {
+      logger(level, message, (error?: Error | null) => {
         if (error) {
           reject(error)
         } else {

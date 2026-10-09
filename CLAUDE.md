@@ -13,7 +13,7 @@ and Git fixture repositories in `app/test/fixtures`.
 
 ## Build, Test, and Development Commands
 
-Use Yarn 1.x and Node 20.x, as described in `docs/contributing/setup.md`.
+Use Yarn 1.x and Node 22.x, as described in `docs/contributing/setup.md`.
 
 - `yarn` installs root and app dependencies.
 - `yarn build:dev` compiles a development build.
