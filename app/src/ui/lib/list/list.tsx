@@ -1362,8 +1362,8 @@ export class List extends React.Component<IListProps, IListState> {
       this.props.shouldDisableTabFocus === true
         ? -1
         : this.props.selectedRows.length < 1
-        ? 0
-        : -1
+          ? 0
+          : -1
 
     // we select the last item from the selection array for this prop
     const activeDescendant =

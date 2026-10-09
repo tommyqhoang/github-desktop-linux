@@ -48,10 +48,7 @@ export type RebaseLoading = {
 }
 
 export type RebasePreview =
-  | CleanRebase
-  | RebaseWithConflicts
-  | RebaseNotSupported
-  | RebaseLoading
+  CleanRebase | RebaseWithConflicts | RebaseNotSupported | RebaseLoading
 
 /** Represents a snapshot of the rebase state from the Git repository  */
 export type GitRebaseSnapshot = {

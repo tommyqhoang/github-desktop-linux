@@ -545,8 +545,8 @@ export class RepositoriesStore extends TypedBaseStore<
     // with the same name or the parent getting deleted, etc) we assume that the
     // value we've got is valid until we're certain its not.
     const parentID = ignoreParent
-      ? existingRepo?.parentID ?? null
-      : parent?.dbID ?? null
+      ? (existingRepo?.parentID ?? null)
+      : (parent?.dbID ?? null)
 
     const updatedGitHubRepo: IDatabaseGitHubRepository = {
       ...(existingRepo?.id !== undefined && { id: existingRepo.id }),

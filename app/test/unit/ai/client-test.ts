@@ -136,7 +136,7 @@ describe('createAIClient timeout and cancellation', () => {
         ok: true,
         status: 200,
         json: async () => ({ choices: [{ message: { content: 'done' } }] }),
-      } as unknown as Response)) as unknown as typeof fetch
+      }) as unknown as Response) as unknown as typeof fetch
     const client = createAIClient({ ...settings, fetcher })
 
     const result = await client.complete([{ role: 'user', content: 'hi' }])
@@ -177,7 +177,7 @@ describe('createAIClient timeout and cancellation', () => {
         ok: true,
         status: 200,
         json: async () => ({ choices: [{ message: { content: 'ok' } }] }),
-      } as unknown as Response)) as unknown as typeof fetch
+      }) as unknown as Response) as unknown as typeof fetch
     const client = createAIClient({ ...settings, fetcher })
 
     await client.complete([{ role: 'user', content: 'hi' }])

@@ -61,8 +61,7 @@ class AsyncListenerSet<TDetails, TResponse> {
   public constructor(
     private readonly subscribe: (
       listener:
-        | ((details: TDetails, cb: (response: TResponse) => void) => void)
-        | null
+        ((details: TDetails, cb: (response: TResponse) => void) => void) | null
     ) => void,
     private readonly eventHandler: (
       listeners: Iterable<AsyncListener<TDetails, TResponse>>,

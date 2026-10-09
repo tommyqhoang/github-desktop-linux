@@ -8,8 +8,7 @@ import { executeMenuItemById } from '../main-process-proxy'
 import { sendNonFatalException } from '../../lib/helpers/non-fatal-exception'
 import classNames from 'classnames'
 
-export interface IDropdownSuggestedActionOption
-  extends IDropdownSelectButtonOption {
+export interface IDropdownSuggestedActionOption extends IDropdownSelectButtonOption {
   /**
    * The title, or "header" text for a suggested
    * action.

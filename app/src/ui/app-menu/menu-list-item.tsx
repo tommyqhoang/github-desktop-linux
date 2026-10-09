@@ -178,8 +178,8 @@ export class MenuListItem extends React.Component<IMenuListItemProps, {}> {
     const role = this.props.hasNoRole
       ? undefined
       : type === 'checkbox'
-      ? 'menuitemradio'
-      : 'menuitem'
+        ? 'menuitemradio'
+        : 'menuitem'
     const ariaChecked = type === 'checkbox' ? item.checked : undefined
 
     return (

@@ -17,7 +17,7 @@ import { tailByLine } from '../file-system'
  * be overwritten.
  */
 export async function executionOptionsWithProgress<
-  T extends IGitExecutionOptions
+  T extends IGitExecutionOptions,
 >(
   options: T,
   parser: GitProgressParser,

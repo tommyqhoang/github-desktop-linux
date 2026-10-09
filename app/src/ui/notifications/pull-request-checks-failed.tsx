@@ -108,7 +108,9 @@ export class PullRequestChecksFailed extends React.Component<
           </div>
           <span className="pr-title">
             {pullRequest.title}{' '}
-            <span className="pr-number">#{pullRequest.pullRequestNumber}</span>{' '}
+            <span className="pr-number">
+              #{pullRequest.pullRequestNumber}
+            </span>{' '}
           </span>
         </div>
       </div>

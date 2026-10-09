@@ -758,8 +758,8 @@ export class CommitMessage extends React.Component<
         ? 'Remove Co-Authors'
         : 'Remove co-authors'
       : __DARWIN__
-      ? 'Add Co-Authors'
-      : 'Add co-authors'
+        ? 'Add Co-Authors'
+        : 'Add co-authors'
   }
 
   private getAddRemoveCoAuthorsMenuItem(): IMenuItem {
@@ -955,10 +955,10 @@ export class CommitMessage extends React.Component<
       (this.props.anyFilesSelected === false
         ? 'Select at least one changed file first'
         : this.state.aiCommitMessagesDisabledForRepository
-        ? 'Enable AI commit messages in Repository settings'
-        : this.state.aiCommitMessagesConfigured
-        ? 'Generate a commit message from selected changes'
-        : 'Configure AI commit messages in Preferences')
+          ? 'Enable AI commit messages in Repository settings'
+          : this.state.aiCommitMessagesConfigured
+            ? 'Generate a commit message from selected changes'
+            : 'Configure AI commit messages in Preferences')
 
     return (
       <Button

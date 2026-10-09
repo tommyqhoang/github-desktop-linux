@@ -160,8 +160,8 @@ export class SubmoduleDiff extends React.Component<ISubmoduleDiffProps> {
       diff.status.untrackedChanges && diff.status.modifiedChanges
         ? 'modified and untracked'
         : diff.status.untrackedChanges
-        ? 'untracked'
-        : 'modified'
+          ? 'untracked'
+          : 'modified'
 
     return this.renderSubmoduleDiffItem(
       { octicon: octicons.fileDiff, className: 'untracked-icon' },

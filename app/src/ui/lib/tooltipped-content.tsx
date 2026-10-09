@@ -6,8 +6,10 @@ import { createObservableRef } from './observable-ref'
  * ITooltippedContentProps is a superset of ITooltipProps but does not
  * define the `target` prop as that's set programatically in render
  */
-interface ITooltippedContentProps
-  extends Omit<ITooltipProps<HTMLElement>, 'target'> {
+interface ITooltippedContentProps extends Omit<
+  ITooltipProps<HTMLElement>,
+  'target'
+> {
   /** The tooltip contents */
   readonly tooltip: JSX.Element | string | undefined
 

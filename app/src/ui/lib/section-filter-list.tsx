@@ -40,8 +40,7 @@ interface IFlattenedItem<T extends IFilterListItem> {
  * flattened.
  */
 type IFilterListRow<T extends IFilterListItem> =
-  | IFlattenedGroup
-  | IFlattenedItem<T>
+  IFlattenedGroup | IFlattenedItem<T>
 
 interface ISectionFilterListProps<T extends IFilterListItem> {
   /** A class name for the wrapping element. */
@@ -178,7 +177,7 @@ interface IFilterListState<T extends IFilterListItem> {
 
 /** A List which includes the ability to filter based on its contents. */
 export class SectionFilterList<
-  T extends IFilterListItem
+  T extends IFilterListItem,
 > extends React.Component<ISectionFilterListProps<T>, IFilterListState<T>> {
   private list: SectionList | null = null
   private filterTextBox: TextBox | null = null

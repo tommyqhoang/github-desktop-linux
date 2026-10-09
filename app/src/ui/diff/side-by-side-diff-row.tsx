@@ -649,8 +649,8 @@ export class SideBySideDiffRow extends React.Component<
               {diffType === DiffRowType.Added
                 ? 'added'
                 : diffType === DiffRowType.Deleted
-                ? 'deleted'
-                : 'modified'}
+                  ? 'deleted'
+                  : 'modified'}
             </span>
           )}
         </span>
@@ -667,8 +667,8 @@ export class SideBySideDiffRow extends React.Component<
           selectionState === DiffSelectionType.All
             ? true
             : selectionState === DiffSelectionType.Partial
-            ? 'mixed'
-            : false
+              ? 'mixed'
+              : false
         }
         onChange={this.onClickHunk}
         onFocus={this.onHunkFocus}

@@ -34,13 +34,13 @@ function mapSubmoduleStatusFileModes(
         modifiedChanges: false,
       }
     : (srcMode === SubmoduleFileMode && status === 'D') ||
-      (dstMode === SubmoduleFileMode && status === 'A')
-    ? {
-        commitChanged: false,
-        untrackedChanges: false,
-        modifiedChanges: false,
-      }
-    : undefined
+        (dstMode === SubmoduleFileMode && status === 'A')
+      ? {
+          commitChanged: false,
+          untrackedChanges: false,
+          modifiedChanges: false,
+        }
+      : undefined
 }
 
 /**

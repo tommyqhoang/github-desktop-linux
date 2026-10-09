@@ -52,9 +52,7 @@ function userToHit(
 }
 
 /** The autocompletion provider for user mentions in a GitHub repository. */
-export class UserAutocompletionProvider
-  implements IAutocompletionProvider<UserHit>
-{
+export class UserAutocompletionProvider implements IAutocompletionProvider<UserHit> {
   public readonly kind = 'user'
 
   private readonly gitHubUserStore: GitHubUserStore

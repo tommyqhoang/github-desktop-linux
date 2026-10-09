@@ -60,8 +60,8 @@ export function parseReviewFindings(
   const list: any[] = Array.isArray(parsed)
     ? parsed
     : Array.isArray(parsed?.findings)
-    ? parsed.findings
-    : []
+      ? parsed.findings
+      : []
 
   const findings = new Array<IReviewFinding>()
   for (const entry of list) {

@@ -126,8 +126,8 @@ export function findNextSelectableRow(
   let currentRow = isValidRow(row, rowCount)
     ? rowIndex
     : direction === 'up'
-    ? totalRowCount - 1
-    : 0
+      ? totalRowCount - 1
+      : 0
 
   // handle specific case from switching from filter text to list
   //

@@ -39,10 +39,7 @@ declare const __SHA__: string
 
 /** The channel for which the release was created. */
 declare const __RELEASE_CHANNEL__:
-  | 'production'
-  | 'beta'
-  | 'test'
-  | 'development'
+  'production' | 'beta' | 'test' | 'development'
 
 declare const __CLI_COMMANDS__: ReadonlyArray<string>
 

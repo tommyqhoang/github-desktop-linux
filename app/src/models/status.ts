@@ -243,10 +243,7 @@ type UntrackedEntry = {
 
 /** The union of possible entries from the git status */
 export type FileEntry =
-  | OrdinaryEntry
-  | RenamedOrCopiedEntry
-  | UnmergedEntry
-  | UntrackedEntry
+  OrdinaryEntry | RenamedOrCopiedEntry | UnmergedEntry | UntrackedEntry
 
 /** encapsulate changes to a file associated with a commit */
 export class FileChange {

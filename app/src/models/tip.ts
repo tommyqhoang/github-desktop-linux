@@ -41,10 +41,7 @@ export interface IValidBranch {
 }
 
 export type Tip =
-  | IUnknownRepository
-  | IUnbornRepository
-  | IDetachedHead
-  | IValidBranch
+  IUnknownRepository | IUnbornRepository | IDetachedHead | IValidBranch
 
 /**
  * Gets a value indicating whether two Tip instances refer to the

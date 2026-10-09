@@ -25,8 +25,7 @@ type WindowsExternalEditorPathInfo =
        * 'InstallLocation' or 'UninstallString' will be assumed.
        **/
       readonly installLocationRegistryKey?:
-        | 'InstallLocation'
-        | 'UninstallString'
+        'InstallLocation' | 'UninstallString'
 
       /**
        * List of lists of path components from the editor's installation folder to

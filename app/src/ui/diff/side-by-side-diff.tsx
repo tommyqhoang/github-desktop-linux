@@ -836,8 +836,8 @@ export class SideBySideDiff extends React.Component<
       hasAfter && hasBefore
         ? DiffRowType.Modified
         : hasAfter
-        ? DiffRowType.Added
-        : DiffRowType.Deleted
+          ? DiffRowType.Added
+          : DiffRowType.Deleted
 
     const data: IRowSelectableGroupStaticData = {
       diffRowStartIndex,

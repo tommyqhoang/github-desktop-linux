@@ -77,8 +77,7 @@ export class DiffSelection {
    */
   private constructor(
     private readonly defaultSelectionType:
-      | DiffSelectionType.All
-      | DiffSelectionType.None,
+      DiffSelectionType.All | DiffSelectionType.None,
     private readonly divergingLines: Set<number> | null = null,
     private readonly selectableLines: Set<number> | null = null
   ) {}

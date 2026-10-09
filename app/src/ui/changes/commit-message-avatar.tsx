@@ -21,9 +21,7 @@ import { RepoRulesMetadataFailureList } from '../repository-rules/repo-rules-fai
 import { Account } from '../../models/account'
 
 export type CommitMessageAvatarWarningType =
-  | 'none'
-  | 'misattribution'
-  | 'disallowedEmail'
+  'none' | 'misattribution' | 'disallowedEmail'
 
 interface ICommitMessageAvatarState {
   readonly isPopoverOpen: boolean

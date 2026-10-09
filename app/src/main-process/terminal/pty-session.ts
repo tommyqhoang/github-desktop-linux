@@ -250,8 +250,8 @@ export class PtySession {
             typeof bytes === 'string'
               ? bytes.length
               : ArrayBuffer.isView(bytes)
-              ? bytes.byteLength
-              : -1
+                ? bytes.byteLength
+                : -1
           if (length < 0 || length > MAX_INPUT_BYTES) {
             return
           }

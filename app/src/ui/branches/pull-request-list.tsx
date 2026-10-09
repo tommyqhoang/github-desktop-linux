@@ -135,8 +135,8 @@ export class PullRequestList extends React.Component<
     const screenReaderStateMessage = loadingStarted
       ? 'Hang Tight. Loading pull requests as fast as I can!'
       : loadingComplete
-      ? `${numPullRequests} pull request${plural} found`
-      : null
+        ? `${numPullRequests} pull request${plural} found`
+        : null
 
     this.setState({
       groupedItems: [group],

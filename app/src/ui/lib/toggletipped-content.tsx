@@ -8,8 +8,10 @@ import { AriaLiveContainer } from '../accessibility/aria-live-container'
  * IToggledtippedContentProps is a superset of ITooltipProps but does not
  * define the `target` prop as that's set programatically in render
  */
-interface IToggledtippedContentProps
-  extends Omit<ITooltipProps<HTMLElement>, 'target'> {
+interface IToggledtippedContentProps extends Omit<
+  ITooltipProps<HTMLElement>,
+  'target'
+> {
   /** The tooltip contents */
   readonly tooltip: JSX.Element | string | undefined
 

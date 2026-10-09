@@ -170,7 +170,7 @@ describe('XtermView performance behavior', () => {
         preventDefault: jest.fn(),
         stopPropagation: jest.fn(),
         ...mods,
-      } as unknown as KeyboardEvent)
+      }) as unknown as KeyboardEvent
 
     it('clears the terminal and drops stale command blocks', () => {
       const clear = jest.fn()

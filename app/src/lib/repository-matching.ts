@@ -54,7 +54,7 @@ export function matchGitHubRepository(
  * @param path The path on disk which might be a repository
  */
 export function matchExistingRepository<
-  T extends Repository | CloningRepository
+  T extends Repository | CloningRepository,
 >(repos: ReadonlyArray<T>, path: string): T | undefined {
   // Windows is guaranteed to be case-insensitive so we can be a bit less strict
   const normalize = __WIN32__

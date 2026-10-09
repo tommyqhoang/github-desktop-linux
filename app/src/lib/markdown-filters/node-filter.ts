@@ -158,7 +158,4 @@ async function applyNodeFilter(
 
 /** The context of which markdown resides */
 export type MarkdownContext =
-  | 'PullRequest'
-  | 'PullRequestComment'
-  | 'IssueComment'
-  | 'Commit'
+  'PullRequest' | 'PullRequestComment' | 'IssueComment' | 'Commit'

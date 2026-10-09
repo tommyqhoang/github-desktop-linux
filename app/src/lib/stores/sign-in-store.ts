@@ -147,8 +147,7 @@ interface IAuthenticationEvent {
 }
 
 export type SignInResult =
-  | { kind: 'success'; account: Account }
-  | { kind: 'cancelled' }
+  { kind: 'success'; account: Account } | { kind: 'cancelled' }
 
 /**
  * A store encapsulating all logic related to signing in a user

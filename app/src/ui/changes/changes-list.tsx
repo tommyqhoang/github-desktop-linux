@@ -349,14 +349,14 @@ export class ChangesList extends React.Component<
       selection === DiffSelectionType.All
         ? true
         : selection === DiffSelectionType.None
-        ? false
-        : null
+          ? false
+          : null
 
     const include = isUncommittableSubmodule
       ? false
       : rebaseConflictState !== null
-      ? file.status.kind !== AppFileStatusKind.Untracked
-      : includeAll
+        ? file.status.kind !== AppFileStatusKind.Untracked
+        : includeAll
 
     const disableSelection =
       isCommitting || rebaseConflictState !== null || isUncommittableSubmodule
@@ -364,8 +364,8 @@ export class ChangesList extends React.Component<
     const checkboxTooltip = isUncommittableSubmodule
       ? 'This submodule change cannot be added to a commit in this repository because it contains changes that have not been committed.'
       : isPartiallyCommittableSubmodule
-      ? 'Only changes that have been committed within the submodule will be added to this repository. You need to commit any other modified or untracked changes in the submodule before including them in this repository.'
-      : undefined
+        ? 'Only changes that have been committed within the submodule will be added to this repository. You need to commit any other modified or untracked changes in the submodule before including them in this repository.'
+        : undefined
 
     return (
       <ChangedFile
@@ -433,8 +433,8 @@ export class ChangesList extends React.Component<
           ? `Discard Changes`
           : `Discard changes`
         : __DARWIN__
-        ? `Discard ${files.length} Selected Changes`
-        : `Discard ${files.length} selected changes`
+          ? `Discard ${files.length} Selected Changes`
+          : `Discard ${files.length} selected changes`
 
     return this.props.askForConfirmationOnDiscardChanges ? `${label}…` : label
   }

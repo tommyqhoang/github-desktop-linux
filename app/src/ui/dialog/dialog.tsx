@@ -251,7 +251,7 @@ interface IDialogState {
  */
 export class Dialog extends React.Component<DialogProps, IDialogState> {
   public static contextType = DialogStackContext
-  public declare context: React.ContextType<typeof DialogStackContext>
+  declare public context: React.ContextType<typeof DialogStackContext>
 
   private checkIsTopMostDialog = isTopMostDialog(
     () => {

@@ -668,8 +668,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
 
   /** The function to resolve the current Open in Desktop flow. */
   private resolveOpenInDesktop:
-    | ((repository: Repository | null) => void)
-    | null = null
+    ((repository: Repository | null) => void) | null = null
 
   private selectedCloneRepositoryTab = CloneRepositoryTab.DotCom
 
@@ -706,8 +705,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
   private popupManager = new PopupManager()
 
   private pullRequestSuggestedNextAction:
-    | PullRequestSuggestedNextAction
-    | undefined = undefined
+    PullRequestSuggestedNextAction | undefined = undefined
 
   private showDiffCheckMarks: boolean = showDiffCheckMarksDefault
 
@@ -5154,9 +5152,8 @@ export class AppStore extends TypedBaseStore<IAppState> {
 
   private async fastForwardBranches(repository: Repository) {
     try {
-      const eligibleBranches = await getBranchesDifferingFromUpstream(
-        repository
-      )
+      const eligibleBranches =
+        await getBranchesDifferingFromUpstream(repository)
 
       await fastForwardBranches(repository, eligibleBranches)
     } catch (e) {
@@ -6466,9 +6463,8 @@ export class AppStore extends TypedBaseStore<IAppState> {
           continue
         }
 
-        const addedRepo = await this.repositoriesStore.addRepository(
-          validatedPath
-        )
+        const addedRepo =
+          await this.repositoriesStore.addRepository(validatedPath)
 
         const [refreshedRepo, usingLFS] = await Promise.all([
           this.repositoryWithRefreshedGitHubRepository(addedRepo),
@@ -6615,9 +6611,8 @@ export class AppStore extends TypedBaseStore<IAppState> {
     // association is out of date. So try again before we bail on providing an
     // authenticating user.
     if (!account) {
-      updatedRepository = await this.repositoryWithRefreshedGitHubRepository(
-        repository
-      )
+      updatedRepository =
+        await this.repositoryWithRefreshedGitHubRepository(repository)
     }
 
     return fn(updatedRepository)
@@ -7650,7 +7645,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
     const repo =
       repositoryId === undefined
         ? this.selectedRepository
-        : this.repositories.find(r => r.id === repositoryId) ?? null
+        : (this.repositories.find(r => r.id === repositoryId) ?? null)
     if (!(repo instanceof Repository)) {
       return
     }

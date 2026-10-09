@@ -76,8 +76,8 @@ export class PRReviewDialog extends React.Component<
           {session === null
             ? this.renderEmpty()
             : session.status === 'loading'
-            ? this.renderLoading()
-            : this.renderReady(session)}
+              ? this.renderLoading()
+              : this.renderReady(session)}
         </DialogContent>
         <DialogFooter>
           <OkCancelButtonGroup

@@ -164,7 +164,11 @@
     .beneath-summary {
       background: var(--box-overflow-shadow-background-two);
       background-repeat: no-repeat;
-      background-size: 100% 20px, 100% 20px, 100% 10px, 100% 10px;
+      background-size:
+        100% 20px,
+        100% 20px,
+        100% 10px,
+        100% 10px;
       background-attachment: local, local, scroll, scroll;
     }
 

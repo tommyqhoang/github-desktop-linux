@@ -254,7 +254,7 @@ export class FileTreeStore extends BaseStore {
       openFilePaths.includes(current.activeFilePath)
     const activeFilePath = stillActive
       ? current.activeFilePath
-      : openFilePaths[0] ?? null
+      : (openFilePaths[0] ?? null)
 
     this.update(repository.id, current, { openFilePaths, activeFilePath })
   }
@@ -290,8 +290,8 @@ export class FileTreeStore extends BaseStore {
       p === oldPath
         ? newPath
         : p.startsWith(prefix)
-        ? newPath + p.slice(oldPath.length)
-        : p
+          ? newPath + p.slice(oldPath.length)
+          : p
 
     const openFilePaths = current.openFilePaths.map(rewrite)
     const activeFilePath =

@@ -737,8 +737,7 @@ export class App extends React.Component<IAppProps, IAppState> {
    */
   private resizeActiveResizable(
     menuId:
-      | 'increase-active-resizable-width'
-      | 'decrease-active-resizable-width'
+      'increase-active-resizable-width' | 'decrease-active-resizable-width'
   ) {
     document.activeElement?.dispatchEvent(
       new CustomEvent(menuId, {
@@ -3649,7 +3648,7 @@ export class App extends React.Component<IAppProps, IAppState> {
     if (selectedState.type === SelectionType.Repository) {
       const externalEditorLabel = state.useCustomEditor
         ? undefined
-        : state.selectedExternalEditor ?? undefined
+        : (state.selectedExternalEditor ?? undefined)
 
       return (
         <RepositoryView

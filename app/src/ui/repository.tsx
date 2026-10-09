@@ -244,12 +244,12 @@ export class RepositoryView extends React.Component<
       section === RepositorySectionTab.Changes
         ? Tab.Changes
         : section === RepositorySectionTab.History
-        ? Tab.History
-        : section === RepositorySectionTab.Files
-        ? Tab.Files
-        : section === RepositorySectionTab.Actions
-        ? Tab.Actions
-        : -1 // Stashes / Worktrees live in the overflow menu.
+          ? Tab.History
+          : section === RepositorySectionTab.Files
+            ? Tab.Files
+            : section === RepositorySectionTab.Actions
+              ? Tab.Actions
+              : -1 // Stashes / Worktrees live in the overflow menu.
 
     const overflowActive =
       section === RepositorySectionTab.Stashes ||
@@ -1029,7 +1029,7 @@ export class RepositoryView extends React.Component<
     const run =
       runId === null
         ? null
-        : this.props.workflowRunEntries.find(r => r.id === runId) ?? null
+        : (this.props.workflowRunEntries.find(r => r.id === runId) ?? null)
 
     if (run === null) {
       return (
@@ -1286,10 +1286,10 @@ export class RepositoryView extends React.Component<
       tab === Tab.History
         ? RepositorySectionTab.History
         : tab === Tab.Files
-        ? RepositorySectionTab.Files
-        : tab === Tab.Actions
-        ? RepositorySectionTab.Actions
-        : RepositorySectionTab.Changes
+          ? RepositorySectionTab.Files
+          : tab === Tab.Actions
+            ? RepositorySectionTab.Actions
+            : RepositorySectionTab.Changes
 
     this.props.dispatcher.changeRepositorySection(
       this.props.repository,

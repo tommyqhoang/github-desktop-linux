@@ -142,7 +142,10 @@
   border-radius: var(--border-radius);
   background: var(--background-color);
   cursor: pointer;
-  transition: border-color 120ms ease, transform 120ms ease, box-shadow 120ms ease;
+  transition:
+    border-color 120ms ease,
+    transform 120ms ease,
+    box-shadow 120ms ease;
   outline: none;
   min-height: 180px;
 

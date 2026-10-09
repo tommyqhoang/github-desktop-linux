@@ -209,7 +209,7 @@ export class Integrations extends React.Component<
         value={
           useCustomEditor
             ? CustomIntegrationValue
-            : selectedExternalEditor ?? undefined
+            : (selectedExternalEditor ?? undefined)
         }
         onChange={this.onSelectedEditorChanged}
       >

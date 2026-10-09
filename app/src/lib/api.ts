@@ -729,11 +729,7 @@ export interface IAPIPullRequestReview {
   readonly html_url: string
   readonly submitted_at: string
   readonly state:
-    | 'APPROVED'
-    | 'DISMISSED'
-    | 'PENDING'
-    | 'COMMENTED'
-    | 'CHANGES_REQUESTED'
+    'APPROVED' | 'DISMISSED' | 'PENDING' | 'COMMENTED' | 'CHANGES_REQUESTED'
 }
 
 /** Represents both issue comments and PR review comments */
@@ -2097,9 +2093,8 @@ export class API {
       if (response.status === HttpStatusCode.NotModified) {
         return null
       }
-      const users = await parsedResponse<ReadonlyArray<IAPIMentionableUser>>(
-        response
-      )
+      const users =
+        await parsedResponse<ReadonlyArray<IAPIMentionableUser>>(response)
       const etag = response.headers.get('etag') || undefined
       return { users, etag }
     } catch (e) {

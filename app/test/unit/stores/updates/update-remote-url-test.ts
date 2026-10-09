@@ -90,9 +90,8 @@ describe('Update remote url', () => {
       ...apiRepository,
       clone_url: originalUrl,
     }
-    const { gitHubRepository, gitStore } = await createRepository(
-      sshApiRepository
-    )
+    const { gitHubRepository, gitStore } =
+      await createRepository(sshApiRepository)
     const updatedUrl = 'https://github.com/my-user/my-updated-repo'
     const updatedApiRepository = { ...apiRepository, clone_url: updatedUrl }
 

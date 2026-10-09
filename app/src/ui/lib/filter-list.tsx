@@ -49,8 +49,7 @@ interface IFlattenedItem<T extends IFilterListItem> {
  * flattened.
  */
 type IFilterListRow<T extends IFilterListItem> =
-  | IFlattenedGroup
-  | IFlattenedItem<T>
+  IFlattenedGroup | IFlattenedItem<T>
 
 interface IFilterListProps<T extends IFilterListItem> {
   /** A class name for the wrapping element. */

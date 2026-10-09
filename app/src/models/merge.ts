@@ -34,7 +34,4 @@ export type MergeTreeLoading = {
 }
 
 export type MergeTreeResult =
-  | MergeTreeSuccess
-  | MergeTreeError
-  | MergeTreeUnsupported
-  | MergeTreeLoading
+  MergeTreeSuccess | MergeTreeError | MergeTreeUnsupported | MergeTreeLoading

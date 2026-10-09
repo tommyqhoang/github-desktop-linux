@@ -420,7 +420,7 @@ export class BranchDropdown extends React.Component<IBranchDropdownProps> {
     // items that are given for non-action checks.
     const currentBranchName =
       tip.kind === TipState.Valid
-        ? tip.branch.upstreamWithoutRemote ?? tip.branch.name
+        ? (tip.branch.upstreamWithoutRemote ?? tip.branch.name)
         : ''
 
     if (pr === null) {
