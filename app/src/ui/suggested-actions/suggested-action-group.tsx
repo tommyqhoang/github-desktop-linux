@@ -1,8 +1,11 @@
 import * as React from 'react'
 
-import ReactCSSTransitionReplace from 'react-css-transition-replace'
+import { TransitionGroup } from 'react-transition-group'
+import { CSSTransitionContents } from '../lib/css-transition-contents'
 
 interface ISuggestedActionGroup {
+  readonly children?: React.ReactNode
+
   /**
    * `primary` groups are visually distinct from `normal`
    * ones for emphasis. Defaults to `normal`.
@@ -37,20 +40,25 @@ export const SuggestedActionGroup: React.FunctionComponent<
   if (props.transitions === 'replace') {
     const enableTransitions =
       props.enableTransitions !== undefined ? props.enableTransitions : true
+    // The single child is swapped for the next one with an enter/exit
+    // animation (see the `replace-*` rules in _suggested-action-group.scss).
+    const child = React.Children.only(props.children)
     return (
-      <ReactCSSTransitionReplace
-        transitionAppear={false}
-        overflowHidden={false}
-        transitionEnter={enableTransitions}
-        transitionLeave={enableTransitions}
-        transitionName={props.transitions}
-        component="div"
-        className={cn}
-        transitionEnterTimeout={750}
-        transitionLeaveTimeout={500}
+      <TransitionGroup
+        className={cn + ' replace-container'}
+        enter={enableTransitions}
+        exit={enableTransitions}
       >
-        {props.children}
-      </ReactCSSTransitionReplace>
+        <CSSTransitionContents
+          key={
+            React.isValidElement(child) ? (child.key ?? undefined) : undefined
+          }
+          classNames={props.transitions}
+          timeout={{ enter: 750, exit: 500 }}
+        >
+          {child}
+        </CSSTransitionContents>
+      </TransitionGroup>
     )
   }
   return <div className={cn}>{props.children}</div>

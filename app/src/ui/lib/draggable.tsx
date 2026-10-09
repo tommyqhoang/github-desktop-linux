@@ -5,6 +5,9 @@ import { sleep } from '../../lib/promise'
 import { DropTargetSelector } from '../../models/drag-drop'
 
 interface IDraggableProps {
+  /** Content rendered inside the component. */
+  readonly children?: React.ReactNode
+
   /**
    * Callback for when a drag starts - user must hold down (mouse down event)
    * and move the mouse (mouse move event)

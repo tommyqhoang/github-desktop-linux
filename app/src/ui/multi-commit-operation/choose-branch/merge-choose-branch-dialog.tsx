@@ -135,7 +135,7 @@ export class MergeChooseBranchDialog extends React.Component<
     this.setState({ commitCount, mergeStatus })
   }
 
-  private renderStatusPreviewMessage(): JSX.Element | null {
+  private renderStatusPreviewMessage(): React.JSX.Element | null {
     const { mergeStatus, selectedBranch: branch } = this.state
     const { currentBranch } = this.props
 

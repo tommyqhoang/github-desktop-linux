@@ -139,7 +139,7 @@ class MouseScroller {
     }
 
     let parent: Element | null
-    for (parent = element; (parent = parent.parentElement); ) {
+    for (parent = element; (parent = parent.parentElement);) {
       const { position: parentPosition } = getComputedStyle(parent)
 
       // exclude static parents

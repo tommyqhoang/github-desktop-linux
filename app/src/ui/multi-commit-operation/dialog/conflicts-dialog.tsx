@@ -32,7 +32,7 @@ interface IConflictsDialogProps {
   readonly ourBranch?: string
   readonly theirBranch?: string
   readonly manualResolutions: Map<string, ManualConflictResolution>
-  readonly headerTitle: string | JSX.Element
+  readonly headerTitle: string | React.JSX.Element
   readonly submitButton: string
   readonly abortButton: string
   readonly onSubmit: () => Promise<void>
@@ -174,7 +174,7 @@ export class ConflictsDialog extends React.Component<
   private renderContent(
     unmergedFiles: ReadonlyArray<WorkingDirectoryFileChange>,
     conflictedFilesCount: number
-  ): JSX.Element {
+  ): React.JSX.Element {
     if (unmergedFiles.length === 0) {
       return renderAllResolved()
     }

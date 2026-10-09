@@ -1,5 +1,6 @@
 import { Account } from '../../models/account'
 import { IHttpClient, IHttpResponse } from './pull-request-reviews'
+import { fetchWithTimeout, RequestTimeoutMs } from '../http'
 
 /**
  * Minimal `IHttpClient` backed by `fetch` and an `Account` for auth headers.
@@ -17,7 +18,8 @@ import { IHttpClient, IHttpResponse } from './pull-request-reviews'
  */
 export function makeAccountHttpClient(
   account: Account,
-  fetchImpl: typeof fetch = fetch
+  fetchImpl: typeof fetch = fetch,
+  timeoutMs: number = RequestTimeoutMs
 ): IHttpClient {
   return {
     async request(method, path, body) {
@@ -36,31 +38,31 @@ export function makeAccountHttpClient(
         headers['Content-Type'] = 'application/json'
         init.body = JSON.stringify(body)
       }
-      let res: Response
+      let res: { status: number; ok: boolean; text: string }
       try {
-        res = await fetchImpl(url, init)
+        // The deadline covers the body read too, so a stalled response can
+        // never leave a caller (e.g. review submit) pending forever.
+        res = await fetchWithTimeout(url, init, {
+          timeoutMs,
+          fetchImpl,
+          settle: async r => ({
+            status: r.status,
+            ok: r.ok,
+            text: await r.text(),
+          }),
+        })
       } catch (err) {
-        // Network-level failure (DNS, offline, refused, aborted, CORS in
-        // dev). Surface as a non-ok response so callers don't see an
-        // unhandled rejection.
+        // Network-level failure (DNS, offline, refused, aborted, timeout).
+        // Surface as a non-ok response so callers don't see an unhandled
+        // rejection.
         log.warn(
-          `[account-http-client] ${method} ${path} fetch failed: ${
+          `[account-http-client] ${method} ${path} request failed: ${
             (err as Error)?.message ?? String(err)
           }`
         )
         return { status: 0, ok: false, body: null }
       }
-      let text: string
-      try {
-        text = await res.text()
-      } catch (err) {
-        log.warn(
-          `[account-http-client] ${method} ${path} body read failed: ${
-            (err as Error)?.message ?? String(err)
-          }`
-        )
-        return { status: res.status, ok: false, body: null }
-      }
+      const text = res.text
       let parsed: unknown = null
       if (text.length > 0) {
         try {

@@ -8,9 +8,12 @@ import classNames from 'classnames'
 const maxPopoverContentHeight = 500
 
 interface IPopoverDropdownProps {
+  /** Content rendered inside the component. */
+  readonly children?: React.ReactNode
+
   readonly className?: string
   readonly contentTitle: string
-  readonly buttonContent: JSX.Element | string
+  readonly buttonContent: React.JSX.Element | string
   readonly label: string
 }
 

@@ -8,8 +8,7 @@ import { executeMenuItemById } from '../main-process-proxy'
 import { sendNonFatalException } from '../../lib/helpers/non-fatal-exception'
 import classNames from 'classnames'
 
-export interface IDropdownSuggestedActionOption
-  extends IDropdownSelectButtonOption {
+export interface IDropdownSuggestedActionOption extends IDropdownSelectButtonOption {
   /**
    * The title, or "header" text for a suggested
    * action.
@@ -21,7 +20,7 @@ export interface IDropdownSuggestedActionOption
    * to the user about how and where to access the action
    * outside of the suggested action.
    */
-  readonly discoverabilityContent?: string | JSX.Element
+  readonly discoverabilityContent?: string | React.JSX.Element
 
   /**
    * A callback which is invoked when the user clicks
@@ -39,7 +38,7 @@ export interface IDropdownSuggestedActionOption
   /**
    * An image to illustrate what this component's action does
    */
-  readonly image?: JSX.Element
+  readonly image?: React.JSX.Element
 
   /**
    * The id of the menu item backing this action.

@@ -89,7 +89,7 @@ interface IBranchDropdownProps {
 export class BranchDropdown extends React.Component<IBranchDropdownProps> {
   private badgeRef: HTMLElement | null = null
 
-  private renderBranchFoldout = (): JSX.Element | null => {
+  private renderBranchFoldout = (): React.JSX.Element | null => {
     const repositoryState = this.props.repositoryState
     const branchesState = repositoryState.branchesState
 
@@ -420,7 +420,7 @@ export class BranchDropdown extends React.Component<IBranchDropdownProps> {
     // items that are given for non-action checks.
     const currentBranchName =
       tip.kind === TipState.Valid
-        ? tip.branch.upstreamWithoutRemote ?? tip.branch.name
+        ? (tip.branch.upstreamWithoutRemote ?? tip.branch.name)
         : ''
 
     if (pr === null) {

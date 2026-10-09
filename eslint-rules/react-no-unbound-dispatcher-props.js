@@ -44,7 +44,7 @@ module.exports = {
   create: function (context) {
     const sourceCode = context.getSourceCode()
     return {
-      JSXExpressionContainer(node) {
+      JSXExpressionContainer(/** @type {any} */ node) {
         const text = sourceCode.getText(node)
 
         if (/^\{this\.props\.dispatcher\./.test(text)) {

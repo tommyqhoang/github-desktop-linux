@@ -9,9 +9,7 @@ import { ThrottledScheduler } from '../lib/throttled-scheduler'
 const UpdateIssuesThrottleInterval = 1000 * 60
 
 /** The autocompletion provider for issues in a GitHub repository. */
-export class IssuesAutocompletionProvider
-  implements IAutocompletionProvider<IIssueHit>
-{
+export class IssuesAutocompletionProvider implements IAutocompletionProvider<IIssueHit> {
   public readonly kind = 'issue'
 
   private readonly issuesStore: IssuesStore
@@ -50,7 +48,7 @@ export class IssuesAutocompletionProvider
     return this.issuesStore.getIssuesMatching(this.repository, text)
   }
 
-  public renderItem(item: IIssueHit): JSX.Element {
+  public renderItem(item: IIssueHit): React.JSX.Element {
     return (
       <div className="issue" key={item.number}>
         <span className="number">#{item.number}</span>&nbsp;

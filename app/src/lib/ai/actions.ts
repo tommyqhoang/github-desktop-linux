@@ -8,6 +8,7 @@ import {
   getBranchDiffText,
   getCommitDiffText,
   getWorkingDiffText,
+  isAIExcludedPath,
 } from './git-context'
 import {
   buildPRDescriptionPrompt,
@@ -52,20 +53,26 @@ async function resolveClient(injected?: IAIClient): Promise<IAIClient> {
 export async function runPRDescription(
   repository: Repository,
   baseRef: string,
-  client?: IAIClient
+  client?: IAIClient,
+  signal?: AbortSignal
 ): Promise<IAIPRDescription> {
   const ai = await resolveClient(client)
   const [summaries, diff] = await Promise.all([
     getBranchCommitSummaries(repository, baseRef),
     getBranchDiffText(repository, baseRef),
   ])
+  if (diff.trim().length === 0) {
+    throw new Error(
+      'There are no changes between this branch and its base to describe.'
+    )
+  }
   const prompt = buildPRDescriptionPrompt(summaries, diff)
   const content = await ai.complete(
     [
       { role: 'system', content: SystemPromptJSON },
       { role: 'user', content: prompt },
     ],
-    { maxTokens: 700 }
+    { maxTokens: 1200, signal }
   )
   return parsePRDescription(content)
 }
@@ -74,7 +81,8 @@ export async function runPRDescription(
 export async function runSummary(
   repository: Repository,
   source: { kind: SummaryKind; sha?: string },
-  client?: IAIClient
+  client?: IAIClient,
+  signal?: AbortSignal
 ): Promise<string> {
   const ai = await resolveClient(client)
   const diff =
@@ -90,7 +98,7 @@ export async function runSummary(
       { role: 'system', content: SystemPromptText },
       { role: 'user', content: prompt },
     ],
-    { maxTokens: 500 }
+    { maxTokens: 500, allowTruncated: true, signal }
   )
   return parseSummary(content)
 }
@@ -98,7 +106,8 @@ export async function runSummary(
 /** Review the uncommitted working changes for likely issues. */
 export async function runReview(
   repository: Repository,
-  client?: IAIClient
+  client?: IAIClient,
+  signal?: AbortSignal
 ): Promise<ReadonlyArray<IReviewFinding>> {
   const ai = await resolveClient(client)
   const diff = await getWorkingDiffText(repository)
@@ -111,7 +120,7 @@ export async function runReview(
       { role: 'system', content: SystemPromptJSON },
       { role: 'user', content: prompt },
     ],
-    { maxTokens: 800 }
+    { maxTokens: 1500, signal }
   )
   return parseReviewFindings(content)
 }
@@ -120,10 +129,28 @@ export async function runReview(
 export async function runConflictAssist(
   repository: Repository,
   filePath: string,
-  client?: IAIClient
+  client?: IAIClient,
+  signal?: AbortSignal
 ): Promise<IConflictSuggestion> {
   const ai = await resolveClient(client)
-  const fileText = await readFile(Path.join(repository.path, filePath), 'utf8')
+  const absolutePath = Path.resolve(repository.path, filePath)
+  const relative = Path.relative(repository.path, absolutePath)
+  if (
+    relative === '' ||
+    relative === '..' ||
+    relative.startsWith(`..${Path.sep}`) ||
+    Path.isAbsolute(relative)
+  ) {
+    throw new Error('That file is outside the repository.')
+  }
+  // The conflicted file is read straight from disk, bypassing the diff
+  // pathspecs, so apply the same secret/lockfile exclusion here.
+  if (isAIExcludedPath(relative)) {
+    throw new Error(
+      "This file may contain secrets or is a generated lockfile, so it won't be sent to the AI provider."
+    )
+  }
+  const fileText = await readFile(absolutePath, 'utf8')
   const hunks = parseConflictHunks(fileText)
   if (hunks.length === 0) {
     throw new Error('No conflict markers found in this file.')
@@ -134,7 +161,7 @@ export async function runConflictAssist(
       { role: 'system', content: SystemPromptJSON },
       { role: 'user', content: prompt },
     ],
-    { maxTokens: 700 }
+    { maxTokens: 1500, signal }
   )
   return parseConflictSuggestion(content)
 }

@@ -23,6 +23,8 @@ interface IInteractiveRebaseDialogState {
   readonly entries: ReadonlyArray<IInteractiveRebaseEntry>
   readonly dragIndex: number | null
   readonly dragOverIndex: number | null
+  /** Polite live-region text describing the last keyboard reorder. */
+  readonly announcement: string
 }
 
 const ACTION_LABELS: Record<RebaseTodoAction, string> = {
@@ -31,6 +33,10 @@ const ACTION_LABELS: Record<RebaseTodoAction, string> = {
   fixup: 'Fixup',
   drop: 'Drop',
 }
+
+const rowId = (sha: string) => `interactive-rebase-row-${sha}`
+const moveUpId = (sha: string) => `interactive-rebase-up-${sha}`
+const moveDownId = (sha: string) => `interactive-rebase-down-${sha}`
 
 export class InteractiveRebaseDialog extends React.Component<
   IInteractiveRebaseDialogProps,
@@ -42,6 +48,52 @@ export class InteractiveRebaseDialog extends React.Component<
       entries: props.commits.map(commit => ({ commit, action: 'pick' })),
       dragIndex: null,
       dragOverIndex: null,
+      announcement: '',
+    }
+  }
+
+  /**
+   * Move the entry at `from` to `to` (keyboard / button path). `focusId` is
+   * the DOM id to focus once the list re-renders (falls back to the row).
+   */
+  private moveEntry(from: number, to: number, focusId: string) {
+    const { entries } = this.state
+    if (from === to || to < 0 || to >= entries.length) {
+      return
+    }
+    const next = [...entries]
+    const [moved] = next.splice(from, 1)
+    next.splice(to, 0, moved)
+    this.setState(
+      {
+        entries: next,
+        announcement: `Moved ${moved.commit.summary} to position ${to + 1} of ${
+          next.length
+        }`,
+      },
+      () => {
+        const el = document.getElementById(focusId)
+        const target =
+          el !== null && !(el as HTMLButtonElement).disabled
+            ? el
+            : document.getElementById(rowId(moved.commit.sha))
+        target?.focus()
+      }
+    )
+  }
+
+  private onRowKeyDown = (e: React.KeyboardEvent<HTMLElement>, i: number) => {
+    // Only the row itself: Alt+Down opens a focused <select>.
+    if (e.target !== e.currentTarget || !e.altKey) {
+      return
+    }
+    const sha = this.state.entries[i].commit.sha
+    if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      this.moveEntry(i, i - 1, rowId(sha))
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      this.moveEntry(i, i + 1, rowId(sha))
     }
   }
 
@@ -111,7 +163,7 @@ export class InteractiveRebaseDialog extends React.Component<
   }
 
   public render() {
-    const { entries, dragOverIndex } = this.state
+    const { entries, dragOverIndex, dragIndex } = this.state
     const oldestKeptIsSquash = this.oldestKeptIsSquash()
     const disabled = this.allDropped() || oldestKeptIsSquash
 
@@ -124,15 +176,24 @@ export class InteractiveRebaseDialog extends React.Component<
         <DialogContent>
           <p className="interactive-rebase-description">
             Commits are listed newest first. Reorder them or set an action for
-            each. Squash combines a commit into the older one below it; Fixup
-            does the same but discards the message; Drop removes the commit
-            entirely.
+            each — drag a row, or focus it and press Alt+Up or Alt+Down. Squash
+            combines a commit into the older one below it; Fixup does the same
+            but discards the message; Drop removes the commit entirely.
           </p>
           <div className="interactive-rebase-list" role="list">
             {entries.map((entry, i) => (
+              // Rows are focusable so keyboard users can reorder them with
+              // Alt+Arrow keys.
+              // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
               <div
                 key={entry.commit.sha}
+                id={rowId(entry.commit.sha)}
                 role="listitem"
+                // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
+                tabIndex={0}
+                aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
+                // eslint-disable-next-line react/jsx-no-bind
+                onKeyDown={e => this.onRowKeyDown(e, i)}
                 className={`interactive-rebase-row${
                   entry.action === 'drop' ? ' interactive-rebase-row--drop' : ''
                 }${
@@ -159,6 +220,39 @@ export class InteractiveRebaseDialog extends React.Component<
                 <span className="interactive-rebase-summary">
                   {entry.commit.summary}
                 </span>
+                {dragIndex !== null &&
+                  dragOverIndex === i &&
+                  dragIndex !== i && (
+                    <span className="interactive-rebase-drop-marker">
+                      Drop here
+                    </span>
+                  )}
+                <button
+                  type="button"
+                  id={moveUpId(entry.commit.sha)}
+                  className="interactive-rebase-move"
+                  disabled={i === 0}
+                  aria-label={`Move ${entry.commit.summary} up`}
+                  // eslint-disable-next-line react/jsx-no-bind
+                  onClick={() =>
+                    this.moveEntry(i, i - 1, moveUpId(entry.commit.sha))
+                  }
+                >
+                  <Octicon symbol={OcticonSymbol.arrowUp} />
+                </button>
+                <button
+                  type="button"
+                  id={moveDownId(entry.commit.sha)}
+                  className="interactive-rebase-move"
+                  disabled={i === entries.length - 1}
+                  aria-label={`Move ${entry.commit.summary} down`}
+                  // eslint-disable-next-line react/jsx-no-bind
+                  onClick={() =>
+                    this.moveEntry(i, i + 1, moveDownId(entry.commit.sha))
+                  }
+                >
+                  <Octicon symbol={OcticonSymbol.arrowDown} />
+                </button>
                 <select
                   className="interactive-rebase-action"
                   value={entry.action}
@@ -179,6 +273,14 @@ export class InteractiveRebaseDialog extends React.Component<
               </div>
             ))}
           </div>
+          <div className="sr-only" role="status" aria-live="polite">
+            {this.state.announcement}
+          </div>
+          {this.allDropped() && (
+            <p className="interactive-rebase-warning" role="status">
+              Keep at least one commit.
+            </p>
+          )}
           {oldestKeptIsSquash && (
             <p className="interactive-rebase-warning" role="alert">
               The oldest commit can't be squashed or fixed up — there's no
@@ -187,8 +289,8 @@ export class InteractiveRebaseDialog extends React.Component<
           )}
           {this.hasOnlyPicks() && (
             <p className="interactive-rebase-hint">
-              Tip: Drag rows to reorder commits, or change the action to squash
-              or drop commits.
+              Tip: Drag rows (or use Alt+Up/Alt+Down) to reorder commits, or
+              change the action to squash or drop commits.
             </p>
           )}
         </DialogContent>

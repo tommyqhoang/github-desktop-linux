@@ -1,9 +1,7 @@
 import { IAPIPullRequestReview } from './api'
 
 export type ValidNotificationPullRequestReviewState =
-  | 'APPROVED'
-  | 'CHANGES_REQUESTED'
-  | 'COMMENTED'
+  'APPROVED' | 'CHANGES_REQUESTED' | 'COMMENTED'
 
 export type ValidNotificationPullRequestReview = IAPIPullRequestReview & {
   state: ValidNotificationPullRequestReviewState

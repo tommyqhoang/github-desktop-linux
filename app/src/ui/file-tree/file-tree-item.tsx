@@ -15,6 +15,16 @@ interface IFileTreeItemProps {
   readonly onContextMenu: (entry: FileTreeEntry) => void
   readonly onSubmitRename: (entry: FileTreeEntry, newName: string) => void
   readonly onCancelRename: () => void
+  /** 1-based nesting level for `aria-level` (defaults to depth + 1). */
+  readonly level?: number
+  /** Number of siblings in this row's group, for `aria-setsize`. */
+  readonly setSize?: number
+  /** 1-based position among siblings, for `aria-posinset`. */
+  readonly posInSet?: number
+  /** Roving tabindex: 0 for the tree's single Tab stop, -1 otherwise. */
+  readonly tabIndex?: number
+  /** Reports that this row received focus (keeps the roving stop in sync). */
+  readonly onFocusItem?: (path: string) => void
   /** Attaches to the row's root element so the tree can scroll it into view. */
   readonly innerRef?: (element: HTMLElement | null) => void
 }
@@ -73,7 +83,17 @@ export class FileTreeItem extends React.PureComponent<IFileTreeItemProps> {
       return
     }
     this.settleRename()
+    // Blur only commits a real change; leaving the name untouched just
+    // closes the editor.
+    if (event.currentTarget.value === this.props.entry.name) {
+      this.props.onCancelRename()
+      return
+    }
     this.props.onSubmitRename(this.props.entry, event.currentTarget.value)
+  }
+
+  private onFocus = () => {
+    this.props.onFocusItem?.(this.props.entry.path)
   }
 
   private settleRename() {
@@ -86,6 +106,12 @@ export class FileTreeItem extends React.PureComponent<IFileTreeItemProps> {
     const isDirectory = entry.kind === 'directory'
 
     const className = 'file-tree-item' + (isSelected ? ' selected' : '')
+    const treeAttrs = {
+      'aria-level': this.props.level ?? depth + 1,
+      'aria-setsize': this.props.setSize,
+      'aria-posinset': this.props.posInSet,
+      'data-path': entry.path,
+    }
 
     const icon = isDirectory
       ? isExpanded
@@ -100,6 +126,8 @@ export class FileTreeItem extends React.PureComponent<IFileTreeItemProps> {
           style={{ paddingLeft: `${depth * 12 + 8}px` }}
           role="treeitem"
           aria-selected={isSelected}
+          aria-expanded={isDirectory ? isExpanded : undefined}
+          {...treeAttrs}
           ref={this.props.innerRef}
         >
           <Octicon className="file-tree-icon" symbol={icon} />
@@ -124,14 +152,20 @@ export class FileTreeItem extends React.PureComponent<IFileTreeItemProps> {
         role="treeitem"
         aria-selected={isSelected}
         aria-expanded={isDirectory ? isExpanded : undefined}
+        {...treeAttrs}
+        tabIndex={this.props.tabIndex}
         ref={this.props.innerRef}
         onClick={this.onClick}
+        onFocus={this.onFocus}
         onContextMenu={this.onContextMenu}
       >
         <Octicon className="file-tree-icon" symbol={icon} />
         <span className="file-tree-name">{entry.name}</span>
         {isLoading && (
-          <Octicon className="file-tree-spinner" symbol={octicons.sync} />
+          <>
+            <Octicon className="file-tree-spinner" symbol={octicons.sync} />
+            <span className="sr-only">Loading</span>
+          </>
         )}
       </button>
     )

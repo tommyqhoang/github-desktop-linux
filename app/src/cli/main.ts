@@ -1,8 +1,4 @@
-import mri, {
-  DictionaryObject,
-  Options as MriOptions,
-  ArrayOrString,
-} from 'mri'
+import mri, { Options as MriOptions } from 'mri'
 import chalk from 'chalk'
 
 import { dasherizeOption, CommandError } from './util'
@@ -51,9 +47,9 @@ function logError(err: CommandError) {
 console.log() // nice blank line before the command prompt
 
 interface IMRIOpts extends MriOptions {
-  alias: DictionaryObject<ArrayOrString>
+  alias: Record<string, string | string[]>
   boolean: Array<string>
-  default: DictionaryObject
+  default: Record<string, unknown>
   string: Array<string>
 }
 
@@ -69,7 +65,7 @@ function runCommand(name: string) {
     for (const flag of Object.keys(command.options)) {
       const flagOptions = command.options[flag]
       if (flagOptions.aliases) {
-        opts.alias[flag] = flagOptions.aliases
+        opts.alias[flag] = [...flagOptions.aliases]
       }
       if (Object.hasOwn(flagOptions, 'default')) {
         opts.default[flag] = flagOptions.default

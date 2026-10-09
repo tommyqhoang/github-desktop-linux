@@ -4,6 +4,10 @@
  * @typedef {import('eslint').Rule.RuleModule} RuleModule
  */
 
+/**
+ * @param {any} context
+ * @param {any} node
+ */
 function isLooselyTypesWebContentsCall(context, node) {
   const { callee } = node
 
@@ -55,8 +59,10 @@ module.exports = {
   },
   create(context) {
     return {
-      OptionalCallExpression: n => isLooselyTypesWebContentsCall(context, n),
-      CallExpression: n => isLooselyTypesWebContentsCall(context, n),
+      OptionalCallExpression: (/** @type {any} */ n) =>
+        isLooselyTypesWebContentsCall(context, n),
+      CallExpression: (/** @type {any} */ n) =>
+        isLooselyTypesWebContentsCall(context, n),
     }
   },
 }

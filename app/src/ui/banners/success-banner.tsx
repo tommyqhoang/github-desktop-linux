@@ -5,6 +5,9 @@ import * as octicons from '../octicons/octicons.generated'
 import { Banner } from './banner'
 
 interface ISuccessBannerProps {
+  /** Content rendered inside the component. */
+  readonly children?: React.ReactNode
+
   readonly timeout: number
   readonly onDismissed: () => void
   readonly onUndo?: () => void

@@ -303,4 +303,75 @@ describe('FileTreeStore', () => {
     await pending
     expect(store.getAllState().has(repo.id)).toBe(false)
   })
+
+  it('refreshTree quietly forgets expanded directories that no longer exist', async () => {
+    const store = new FileTreeStore()
+    const repo = makeRepo(7)
+    const onError = jest.fn()
+    store.onDidError(onError)
+    await store.expand(repo, 'gone')
+    await store.expand(repo, 'gone/child')
+    await store.expand(repo, 'kept')
+    store.openFile(repo, 'gone/child/x.ts')
+    store.openFile(repo, 'kept/y.ts')
+
+    readSpy.mockImplementation(async (_r: Repository, p: string) => {
+      if (p === 'gone' || p.startsWith('gone/')) {
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+      }
+      return []
+    })
+    await store.refreshTree(repo)
+
+    const state = store.getState(repo)
+    expect([...state.expandedPaths]).toEqual(['kept'])
+    expect(state.childrenByPath.has('gone')).toBe(false)
+    expect(state.childrenByPath.has('gone/child')).toBe(false)
+    expect(state.loadingPaths.size).toBe(0)
+    expect(state.openFilePaths).toEqual(['kept/y.ts'])
+    expect(state.activeFilePath).toBe('kept/y.ts')
+    expect(state.error).toBeNull()
+    expect(onError).not.toHaveBeenCalled()
+  })
+
+  it('still reports real (non-ENOENT) errors and records them in state', async () => {
+    const store = new FileTreeStore()
+    const repo = makeRepo(8)
+    const onError = jest.fn()
+    store.onDidError(onError)
+    readSpy.mockRejectedValue(
+      Object.assign(new Error('nope'), { code: 'EACCES' })
+    )
+    await store.loadRoot(repo)
+    expect(onError).toHaveBeenCalledTimes(1)
+    expect(store.getState(repo).error?.message).toBe('nope')
+    expect(store.getState(repo).loadingPaths.size).toBe(0)
+  })
+
+  it('queues a trailing reload instead of returning a stale in-flight load', async () => {
+    const store = new FileTreeStore()
+    const repo = makeRepo(9)
+    let release: () => void = () => {}
+    const gate = new Promise<void>(r => (release = r))
+    let call = 0
+    readSpy.mockImplementation(async () => {
+      call++
+      if (call === 1) {
+        await gate
+        return [{ name: 'old', path: 'old', kind: 'file' }]
+      }
+      return [{ name: 'new', path: 'new', kind: 'file' }]
+    })
+    const first = store.loadRoot(repo)
+    const second = store.reloadDirectory(repo, '')
+    release()
+    await Promise.all([first, second])
+    expect(call).toBe(2)
+    expect(
+      store
+        .getState(repo)
+        .childrenByPath.get('')
+        ?.map(e => e.name)
+    ).toEqual(['new'])
+  })
 })

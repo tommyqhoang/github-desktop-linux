@@ -1,6 +1,7 @@
 import { StashCreateDialog } from '../../../src/ui/stashes/stash-create-dialog'
 import { Repository } from '../../../src/models/repository'
 import { Dispatcher } from '../../../src/ui/dispatcher'
+import { StashOperationFailedError } from '../../../src/lib/git/stash'
 
 function makeDispatcher(create: jest.Mock = jest.fn()): Dispatcher {
   return { createStash: create } as unknown as Dispatcher
@@ -88,6 +89,18 @@ describe('StashCreateDialog', () => {
       'No changes in the working directory to stash.'
     )
     expect(component.state.creating).toBe(false)
+  })
+
+  it('reports a git failure distinctly from "nothing to stash"', async () => {
+    const create = jest.fn().mockRejectedValue(new StashOperationFailedError())
+    const onDismissed = jest.fn()
+    const { component } = makeDialog(makeDispatcher(create), onDismissed)
+    ;(component as any).onMessageChange('try')
+    await (component as any).onSubmit()
+
+    expect(onDismissed).not.toHaveBeenCalled()
+    expect(component.state.error).toContain('Stashing failed')
+    expect(component.state.error).not.toContain('No changes')
   })
 
   it('captures error message from a thrown Error and clears creating', async () => {

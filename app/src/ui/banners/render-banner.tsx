@@ -25,7 +25,7 @@ export function renderBanner(
   banner: Banner,
   dispatcher: Dispatcher,
   onDismissed: () => void
-): JSX.Element {
+): React.JSX.Element {
   switch (banner.type) {
     case BannerType.SuccessfulMerge:
       return (

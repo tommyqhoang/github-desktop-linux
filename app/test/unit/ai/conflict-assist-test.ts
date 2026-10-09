@@ -119,4 +119,9 @@ describe('parseConflictSuggestion', () => {
       parseConflictSuggestion('{"explanation": "only explanation"}')
     ).toThrow()
   })
+
+  it('throws a friendly error (not a TypeError) for JSON null / non-objects', () => {
+    expect(() => parseConflictSuggestion('null')).toThrow(/invalid/)
+    expect(() => parseConflictSuggestion('42')).toThrow(/invalid/)
+  })
 })

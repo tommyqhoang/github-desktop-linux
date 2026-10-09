@@ -49,6 +49,7 @@ export class AIActionDialog extends React.Component<
 > {
   private runToken = 0
   private isMounted_ = false
+  private abortController: AbortController | null = null
 
   public constructor(props: IAIActionDialogProps) {
     super(props)
@@ -63,13 +64,18 @@ export class AIActionDialog extends React.Component<
   public componentWillUnmount() {
     // Stop any in-flight request from calling setState after the dialog closes.
     this.isMounted_ = false
+    this.abortController?.abort()
   }
 
   private run = async () => {
     const token = ++this.runToken
+    // Cancel any earlier request still in flight (Regenerate, dismiss).
+    this.abortController?.abort()
+    const controller = new AbortController()
+    this.abortController = controller
     this.setState({ loading: true, error: null, result: null })
     try {
-      const result = await this.execute()
+      const result = await this.execute(controller.signal)
       if (this.isMounted_ && token === this.runToken) {
         this.setState({ loading: false, result })
       }
@@ -81,33 +87,53 @@ export class AIActionDialog extends React.Component<
     }
   }
 
-  private async execute(): Promise<AIResult> {
+  private async execute(signal: AbortSignal): Promise<AIResult> {
     const { repository, action } = this.props
     switch (action.kind) {
       case 'pr-description':
         return {
           kind: 'pr-description',
-          value: await runPRDescription(repository, action.baseRef),
+          value: await runPRDescription(
+            repository,
+            action.baseRef,
+            undefined,
+            signal
+          ),
         }
       case 'review':
-        return { kind: 'review', value: await runReview(repository) }
+        return {
+          kind: 'review',
+          value: await runReview(repository, undefined, signal),
+        }
       case 'summarize-changes':
         return {
           kind: 'summary',
-          value: await runSummary(repository, { kind: 'changes' }),
+          value: await runSummary(
+            repository,
+            { kind: 'changes' },
+            undefined,
+            signal
+          ),
         }
       case 'summarize-commit':
         return {
           kind: 'summary',
-          value: await runSummary(repository, {
-            kind: 'commit',
-            sha: action.sha,
-          }),
+          value: await runSummary(
+            repository,
+            { kind: 'commit', sha: action.sha },
+            undefined,
+            signal
+          ),
         }
       case 'conflict':
         return {
           kind: 'conflict',
-          value: await runConflictAssist(repository, action.filePath),
+          value: await runConflictAssist(
+            repository,
+            action.filePath,
+            undefined,
+            signal
+          ),
         }
     }
   }
@@ -116,6 +142,11 @@ export class AIActionDialog extends React.Component<
     if (this.state.result !== null) {
       clipboard.writeText(aiResultCopyText(this.state.result))
     }
+  }
+
+  private onDismissed = () => {
+    this.abortController?.abort()
+    this.props.onDismissed()
   }
 
   private onDismissError = () => {
@@ -132,9 +163,10 @@ export class AIActionDialog extends React.Component<
         result={result}
         renderResult={renderAIResult}
         onRegenerate={this.run}
+        onRetry={this.run}
         onCopy={result !== null ? this.onCopy : undefined}
         onDismissError={this.onDismissError}
-        onDismissed={this.props.onDismissed}
+        onDismissed={this.onDismissed}
       />
     )
   }

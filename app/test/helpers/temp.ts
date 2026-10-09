@@ -4,7 +4,6 @@
  * `temp` Node module
  */
 import * as temp from 'temp'
-import { promisify } from 'util'
 const _temp = temp.track()
 
 /**
@@ -18,4 +17,9 @@ export const mkdirSync = _temp.mkdirSync
  */
 export const openSync = _temp.openSync
 
-export const createTempDirectory = promisify(_temp.mkdir.bind(_temp))
+export const createTempDirectory = (affixes?: string): Promise<string> =>
+  new Promise((resolve, reject) =>
+    _temp.mkdir(affixes, (error, path) =>
+      error ? reject(error) : resolve(path)
+    )
+  )

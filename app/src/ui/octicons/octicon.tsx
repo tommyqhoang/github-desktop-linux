@@ -1,7 +1,8 @@
 import * as React from 'react'
 import { OcticonSymbol, OcticonSymbolVariant } from '.'
 import classNames from 'classnames'
-import ReactDOM from 'react-dom'
+import { flushSync } from 'react-dom'
+import { createRoot } from 'react-dom/client'
 import { createObservableRef } from '../lib/observable-ref'
 import { Tooltip, TooltipDirection } from '../lib/tooltip'
 
@@ -157,6 +158,7 @@ export function createOcticonElement(
     wrapper.classList.add(className)
   }
   const octicon = <Octicon symbol={symbol} />
-  ReactDOM.render(octicon, wrapper)
+  // Render synchronously so the caller gets a populated element back.
+  flushSync(() => createRoot(wrapper).render(octicon))
   return wrapper
 }

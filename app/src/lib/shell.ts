@@ -57,7 +57,7 @@ export async function updateEnvironmentForProcess(): Promise<void> {
   try {
     const { stdout } = await execFile(shell, ['-ilc', cmd], opts)
 
-    for (const [, k, v] of stdout.matchAll(/\0(.+?)=(.+?)\0/g)) {
+    for (const [, k, v] of stdout.toString().matchAll(/\0(.+?)=(.+?)\0/g)) {
       if (!ExcludedEnvironmentVars.has(k)) {
         process.env[k] = v
       }

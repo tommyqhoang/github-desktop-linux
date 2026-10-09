@@ -124,3 +124,79 @@ describe('PasteConfirmDialog', () => {
     expect(texts.join(' ')).toMatch(/4 more/)
   })
 })
+
+describe('PasteConfirmDialog accessibility', () => {
+  const render = (over: any = {}): any =>
+    (PasteConfirmDialog as any)({
+      text: 'x\ny',
+      onConfirm: jest.fn(),
+      onCancel: jest.fn(),
+      ...over,
+    })
+
+  it('is labelled by its title', () => {
+    const tree = render()
+    const id = tree.props['aria-labelledby']
+    expect(id).toBeTruthy()
+    expect(findByType(tree, 'h3').props.id).toBe(id)
+  })
+
+  it('does not autofocus the risky "Paste anyway" button', () => {
+    const buttons = findAllByType(render(), 'button')
+    expect(buttons.every((b: any) => !b.props.autoFocus)).toBe(true)
+  })
+
+  it('Escape cancels without bubbling', () => {
+    const onCancel = jest.fn()
+    const tree = render({ onCancel })
+    const preventDefault = jest.fn()
+    const stopPropagation = jest.fn()
+    tree.props.onKeyDown({ key: 'Escape', preventDefault, stopPropagation })
+    expect(onCancel).toHaveBeenCalled()
+    expect(preventDefault).toHaveBeenCalled()
+    expect(stopPropagation).toHaveBeenCalled()
+  })
+
+  it('focuses Cancel on mount, traps Tab, and restores focus on unmount', () => {
+    const opener = document.createElement('button')
+    document.body.appendChild(opener)
+    opener.focus()
+
+    const root = document.createElement('div')
+    root.innerHTML =
+      '<button class="paste-confirm-dialog__cancel">Cancel</button><button class="paste-confirm-dialog__confirm">Paste</button>'
+    document.body.appendChild(root)
+    const tree = render()
+
+    tree.ref(root)
+    const [cancel, confirm] = Array.from(root.querySelectorAll('button'))
+    expect(document.activeElement).toBe(cancel)
+
+    // Tab on the last button wraps to the first.
+    confirm.focus()
+    const wrap = { preventDefault: jest.fn() }
+    tree.props.onKeyDown({
+      key: 'Tab',
+      shiftKey: false,
+      currentTarget: root,
+      ...wrap,
+    })
+    expect(wrap.preventDefault).toHaveBeenCalled()
+    expect(document.activeElement).toBe(cancel)
+
+    // Shift+Tab on the first wraps to the last.
+    const back = { preventDefault: jest.fn() }
+    tree.props.onKeyDown({
+      key: 'Tab',
+      shiftKey: true,
+      currentTarget: root,
+      ...back,
+    })
+    expect(document.activeElement).toBe(confirm)
+
+    tree.ref(null)
+    expect(document.activeElement).toBe(opener)
+    root.remove()
+    opener.remove()
+  })
+})

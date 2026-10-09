@@ -25,9 +25,8 @@ describe('git/fetch', () => {
     })
 
     it('fast-forwards branches using fetch', async () => {
-      const eligibleBranches = await getBranchesDifferingFromUpstream(
-        repository
-      )
+      const eligibleBranches =
+        await getBranchesDifferingFromUpstream(repository)
 
       await fastForwardBranches(repository, eligibleBranches)
 
@@ -80,9 +79,8 @@ describe('git/fetch', () => {
     // be something users would rely on, but we want to be good gitizens
     // (:badpundog:) when possible.
     it('does not change FETCH_HEAD after fast-forwarding branches with fetch', async () => {
-      const eligibleBranches = await getBranchesDifferingFromUpstream(
-        repository
-      )
+      const eligibleBranches =
+        await getBranchesDifferingFromUpstream(repository)
 
       const fetchHeadPath = Path.join(repository.path, '.git', 'FETCH_HEAD')
       const previousFetchHead = await FSE.readFile(fetchHeadPath, 'utf-8')

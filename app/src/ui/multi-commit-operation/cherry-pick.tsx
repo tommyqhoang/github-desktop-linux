@@ -60,7 +60,7 @@ export abstract class CherryPick extends BaseMultiCommitOperation {
     this.onInvokeConflictsDialogDismissed('cherry-picking onto')
   }
 
-  protected renderChooseBranch = (): JSX.Element | null => {
+  protected renderChooseBranch = (): React.JSX.Element | null => {
     const {
       state: { step, operationDetail },
     } = this.props
@@ -91,7 +91,7 @@ export abstract class CherryPick extends BaseMultiCommitOperation {
     )
   }
 
-  protected renderCreateBranch = (): JSX.Element | null => {
+  protected renderCreateBranch = (): React.JSX.Element | null => {
     const {
       repository,
       dispatcher,

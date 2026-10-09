@@ -1,3 +1,4 @@
+import * as os from 'os'
 import * as Path from 'path'
 import * as FSE from 'fs-extra'
 import { setupEmptyRepository } from '../../helpers/repositories'
@@ -47,5 +48,32 @@ describe('readWorkingDirectory', () => {
 
     const entries = await readWorkingDirectory(repo, 'app/src')
     expect(entries.map(e => e.path)).toEqual(['app/src/index.ts'])
+  })
+
+  it('classifies symlinks to directories as directories', async () => {
+    const repo = await setupEmptyRepository()
+    await FSE.mkdirp(Path.join(repo.path, 'real'))
+    await FSE.writeFile(Path.join(repo.path, 'f.txt'), 'x')
+    await FSE.symlink('real', Path.join(repo.path, 'dirlink'))
+    await FSE.symlink('f.txt', Path.join(repo.path, 'filelink'))
+    await FSE.symlink('missing', Path.join(repo.path, 'broken'))
+    const entries = await readWorkingDirectory(repo, '')
+    const kind = (n: string) => entries.find(e => e.name === n)?.kind
+    expect(kind('dirlink')).toBe('directory')
+    expect(kind('filelink')).toBe('file')
+    expect(kind('broken')).toBe('file')
+  })
+
+  it('does not let a link to a directory outside the repository be browsed', async () => {
+    const repo = await setupEmptyRepository()
+    const outside = await FSE.mkdtemp(Path.join(os.tmpdir(), 'outside-'))
+    await FSE.writeFile(Path.join(outside, 'secret.txt'), 'x')
+    await FSE.symlink(outside, Path.join(repo.path, 'escape'))
+
+    const entries = await readWorkingDirectory(repo, '')
+    expect(entries.find(e => e.name === 'escape')?.kind).toBe('file')
+    await expect(readWorkingDirectory(repo, 'escape')).rejects.toThrow(
+      'outside the repository'
+    )
   })
 })

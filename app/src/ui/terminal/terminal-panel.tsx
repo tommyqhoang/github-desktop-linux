@@ -106,6 +106,8 @@ interface ITerminalPanelState {
    * session changes while the dialog is open.
    */
   readonly pendingPaste: { text: string; sessionId: string } | null
+  /** Polite live-region text (tab reorder results, etc.). */
+  readonly announcement: string
 }
 
 /**
@@ -132,7 +134,7 @@ export class TerminalPanel extends React.Component<
   private dragStartY: number | null = null
   private dragStartHeight: number = 0
   /** Per-session refs to mounted XtermView instances, used to drive search. */
-  private xtermRefs = new Map<string, React.RefObject<XtermView>>()
+  private xtermRefs = new Map<string, React.RefObject<XtermView | null>>()
   /** Session id of the tab currently being drag-reordered, or null. */
   private dragSessionId: string | null = null
   /**
@@ -165,6 +167,7 @@ export class TerminalPanel extends React.Component<
           ? new Set([props.state.activeSessionId])
           : new Set(),
       pendingPaste: null,
+      announcement: '',
     }
   }
 
@@ -312,7 +315,10 @@ export class TerminalPanel extends React.Component<
         />
         <div className="terminal-panel__body">
           {tabIds.length === 0 && (
-            <TerminalEmptyState onNewTab={this.props.onNewTab} />
+            <TerminalEmptyState
+              onNewTab={this.props.onNewTab}
+              pending={this.isSpawning()}
+            />
           )}
           {/*
             One XtermView per session. The active session's view is shown;
@@ -329,7 +335,17 @@ export class TerminalPanel extends React.Component<
             />
           )}
         </div>
+        <div className="sr-only" role="status" aria-live="polite">
+          {this.state.announcement}
+        </div>
       </div>
+    )
+  }
+
+  private isSpawning(): boolean {
+    const repoId = this.props.repositoryId
+    return (
+      repoId !== null && this.props.state.spawningRepoIds?.has(repoId) === true
     )
   }
 
@@ -346,6 +362,9 @@ export class TerminalPanel extends React.Component<
         return (
           <div
             key={sid}
+            id={tabPanelId(sid)}
+            role="tabpanel"
+            aria-labelledby={tabId(sid)}
             className="terminal-panel__view"
             style={{
               display: sid === activeId ? 'block' : 'none',
@@ -452,6 +471,9 @@ export class TerminalPanel extends React.Component<
 
   private onPasteCancelled = () => {
     this.setState({ pendingPaste: null })
+    // The dialog restores focus on unmount; this covers the case where the
+    // terminal view was the opener but focus was lost.
+    this.focusActiveSession(true)
   }
 
   /** True when the drag carries OS files (as opposed to an internal drag). */
@@ -529,12 +551,7 @@ export class TerminalPanel extends React.Component<
     if (session === undefined) {
       return null
     }
-    const label = formatTabLabel({
-      shell: session.shell,
-      liveCwd: session.liveCwd,
-      homedir: this.getHomedir(),
-      title: session.title,
-    })
+    const label = this.tabLabel(sessionId)
     const showDot = shouldShowActivityDot({
       active,
       hasActivity: session.hasActivity,
@@ -545,12 +562,19 @@ export class TerminalPanel extends React.Component<
       isCommand: false,
     })
     const isRenaming = this.state.renamingSessionId === sessionId
+    const statusText = tabStatusText(session, showDot)
 
     return (
       <div
         key={sessionId}
+        id={tabId(sessionId)}
         role="tab"
         aria-selected={active}
+        aria-controls={
+          this.state.mountedSessionIds.has(sessionId)
+            ? tabPanelId(sessionId)
+            : undefined
+        }
         tabIndex={active ? 0 : -1}
         className={`terminal-panel__tab${active ? ' active' : ''}`}
         draggable={!isRenaming}
@@ -578,12 +602,7 @@ export class TerminalPanel extends React.Component<
         // eslint-disable-next-line react/jsx-no-bind
         onDrop={e => this.onTabDrop(e, sessionId)}
         // eslint-disable-next-line react/jsx-no-bind
-        onKeyDown={e => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault()
-            this.props.onSelectTab(sessionId)
-          }
-        }}
+        onKeyDown={e => this.onTabKeyDown(e, sessionId)}
       >
         <span
           className={`terminal-panel__tab-status ${icon}`}
@@ -602,10 +621,10 @@ export class TerminalPanel extends React.Component<
             onKeyDown={e => {
               if (e.key === 'Enter') {
                 e.preventDefault()
-                this.commitRename(sessionId)
+                this.commitRename(sessionId, true)
               } else if (e.key === 'Escape') {
                 e.preventDefault()
-                this.cancelRename()
+                this.cancelRename(sessionId)
               }
             }}
           />
@@ -626,6 +645,9 @@ export class TerminalPanel extends React.Component<
         >
           ×
         </button>
+        {statusText !== '' && (
+          <span className="sr-only">{`, ${statusText}`}</span>
+        )}
       </div>
     )
   }
@@ -634,16 +656,118 @@ export class TerminalPanel extends React.Component<
     this.setState({ renamingSessionId: sessionId, renameDraft: draft })
   }
 
-  private cancelRename = (): void => {
-    this.setState({ renamingSessionId: null, renameDraft: '' })
+  /**
+   * Leave rename mode. When `refocusSessionId` is given, focus returns to
+   * that tab once the input has unmounted (keyboard users would otherwise
+   * lose their place).
+   */
+  private cancelRename = (refocusSessionId?: string): void => {
+    this.setState(
+      { renamingSessionId: null, renameDraft: '' },
+      refocusSessionId === undefined
+        ? undefined
+        : () => this.focusTab(refocusSessionId)
+    )
   }
 
-  private commitRename(sessionId: string): void {
+  private commitRename(sessionId: string, refocus: boolean = false): void {
     const trimmed = this.state.renameDraft.trim()
     if (trimmed.length > 0) {
       this.props.onRenameTab?.(sessionId, trimmed)
     }
-    this.cancelRename()
+    this.cancelRename(refocus ? sessionId : undefined)
+  }
+
+  private tabLabel(sessionId: string): string {
+    const session = this.props.state.sessions.get(sessionId)
+    if (session === undefined) {
+      return ''
+    }
+    return formatTabLabel({
+      shell: session.shell,
+      liveCwd: session.liveCwd,
+      homedir: this.getHomedir(),
+      title: session.title,
+    })
+  }
+
+  private focusTab(sessionId: string): void {
+    if (typeof document === 'undefined') {
+      return
+    }
+    document.getElementById(tabId(sessionId))?.focus()
+  }
+
+  /**
+   * WAI-ARIA tabs keyboard model: Left/Right/Home/End move (and activate),
+   * Enter/Space activate, F2 renames, Ctrl+Shift+Left/Right reorder.
+   */
+  private onTabKeyDown(
+    e: React.KeyboardEvent<HTMLDivElement>,
+    sessionId: string
+  ): void {
+    // Keys typed into the inline rename input bubble up here; leave them be.
+    if (e.target !== e.currentTarget) {
+      return
+    }
+    const tabs = this.tabsForCurrentRepo()
+    const ix = tabs.indexOf(sessionId)
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      this.props.onSelectTab(sessionId)
+      return
+    }
+    if (e.key === 'F2') {
+      e.preventDefault()
+      const session = this.props.state.sessions.get(sessionId)
+      if (session !== undefined) {
+        this.beginRename(
+          sessionId,
+          session.title ?? this.shellOnly(session.shell)
+        )
+      }
+      return
+    }
+    const isLeft = e.key === 'ArrowLeft'
+    const isRight = e.key === 'ArrowRight'
+    if ((isLeft || isRight) && e.ctrlKey && e.shiftKey) {
+      e.preventDefault()
+      const to = ix + (isLeft ? -1 : 1)
+      const repoId = this.props.repositoryId
+      if (ix === -1 || to < 0 || to >= tabs.length || repoId === null) {
+        return
+      }
+      this.props.onReorderTab?.(repoId, sessionId, to)
+      this.setState({
+        announcement: `Moved ${this.tabLabel(sessionId)} to position ${
+          to + 1
+        } of ${tabs.length}`,
+      })
+      return
+    }
+    if (e.ctrlKey || e.altKey || e.metaKey || e.shiftKey || ix === -1) {
+      return
+    }
+    let next: number | null = null
+    if (isLeft) {
+      next = (ix - 1 + tabs.length) % tabs.length
+    } else if (isRight) {
+      next = (ix + 1) % tabs.length
+    } else if (e.key === 'Home') {
+      next = 0
+    } else if (e.key === 'End') {
+      next = tabs.length - 1
+    }
+    if (next === null) {
+      return
+    }
+    e.preventDefault()
+    const target = tabs[next]
+    // Selecting a tab normally pulls focus into its terminal; keep it on
+    // the tab so the user can keep arrowing.
+    this.lastFocusedSessionId = target
+    this.props.onSelectTab(target)
+    this.focusTab(target)
   }
 
   private getHomedir(): string {
@@ -779,7 +903,7 @@ export class TerminalPanel extends React.Component<
 
   // --- find bar ---
 
-  private refForSession(sid: string): React.RefObject<XtermView> {
+  private refForSession(sid: string): React.RefObject<XtermView | null> {
     let ref = this.xtermRefs.get(sid)
     if (ref === undefined) {
       ref = React.createRef<XtermView>()
@@ -794,24 +918,80 @@ export class TerminalPanel extends React.Component<
 
   private closeFindBar = () => {
     this.setState({ findBarVisible: false })
+    // Hand focus back to the terminal instead of dropping it on <body>.
+    this.focusActiveSession(true)
   }
 
-  private findNextInActive = (text: string) => {
+  private findNextInActive = (text: string): boolean | void => {
     const sid = this.props.state.activeSessionId
     if (sid === null) {
       return
     }
     const ref = this.xtermRefs.get(sid)
-    ref?.current?.findNext(text)
+    return ref?.current?.findNext(text)
   }
 
-  private findPreviousInActive = (text: string) => {
+  private findPreviousInActive = (text: string): boolean | void => {
     const sid = this.props.state.activeSessionId
     if (sid === null) {
       return
     }
     const ref = this.xtermRefs.get(sid)
-    ref?.current?.findPrevious(text)
+    return ref?.current?.findPrevious(text)
+  }
+
+  private targetElement(target: EventTarget | null): HTMLElement | null {
+    return typeof HTMLElement !== 'undefined' && target instanceof HTMLElement
+      ? target
+      : null
+  }
+
+  private isInsidePanel(el: HTMLElement | null): boolean {
+    const panel = this.panelRef.current
+    return el !== null && panel !== null && panel.contains(el)
+  }
+
+  /**
+   * Enter-to-restart applies only when focus is inside the panel on the
+   * terminal itself or non-interactive chrome; never on a button, input or
+   * tab (those handle Enter themselves) and never elsewhere in the app.
+   */
+  private isRestartKeyTarget(target: EventTarget | null): boolean {
+    const el = this.targetElement(target)
+    if (!this.isInsidePanel(el)) {
+      return false
+    }
+    if (el!.classList.contains('xterm-helper-textarea')) {
+      return true
+    }
+    return !el!.closest('button, input, textarea, select, a, [role="tab"]')
+  }
+
+  /**
+   * Window-level shortcuts must not fire while a modal dialog owns the
+   * keyboard, the paste confirmation is open, or the user is typing in an
+   * editable field outside the terminal.
+   */
+  private shouldIgnoreGlobalKey(e: KeyboardEvent): boolean {
+    if (this.state.pendingPaste !== null) {
+      return true
+    }
+    const el = this.targetElement(e.target)
+    if (this.isInsidePanel(el)) {
+      return false
+    }
+    if (
+      el !== null &&
+      (el.isContentEditable ||
+        el.closest('input, textarea, select, [contenteditable="true"]') !==
+          null)
+    ) {
+      return true
+    }
+    return (
+      typeof document !== 'undefined' &&
+      document.querySelector('dialog[open], [aria-modal="true"]') !== null
+    )
   }
 
   private handleGlobalKeyDown = (e: KeyboardEvent) => {
@@ -820,11 +1000,16 @@ export class TerminalPanel extends React.Component<
     if (!this.props.state.visible) {
       return
     }
+    if (this.shouldIgnoreGlobalKey(e)) {
+      return
+    }
     // Enter on an exited tab triggers a restart. Crucially, we ONLY
-    // intercept Enter when the active session is exited — otherwise
-    // Enter must reach the xterm so user typing isn't blocked.
+    // intercept Enter when the active session is exited AND focus is in
+    // the panel (terminal or its non-interactive chrome) — otherwise Enter
+    // must reach whatever control the user is on, and the xterm.
     if (
       e.key === 'Enter' &&
+      this.isRestartKeyTarget(e.target) &&
       !e.ctrlKey &&
       !e.metaKey &&
       !e.shiftKey &&
@@ -894,6 +1079,34 @@ export class TerminalPanel extends React.Component<
       }
     }
   }
+}
+
+function tabStatusText(
+  session: {
+    readonly status: string
+    readonly exitCode: number | null
+    readonly lastExitCode: number | null
+  },
+  hasNewOutput: boolean
+): string {
+  const parts: string[] = []
+  if (session.status === 'exited') {
+    parts.push(`exited with code ${session.exitCode ?? 0}`)
+  } else if (session.lastExitCode !== null && session.lastExitCode !== 0) {
+    parts.push(`last command failed with exit code ${session.lastExitCode}`)
+  }
+  if (hasNewOutput) {
+    parts.push('new output')
+  }
+  return parts.join(', ')
+}
+
+function tabId(sessionId: string): string {
+  return `terminal-tab-${sessionId}`
+}
+
+function tabPanelId(sessionId: string): string {
+  return `terminal-tabpanel-${sessionId}`
 }
 
 function clamp(n: number, min: number, max: number): number {

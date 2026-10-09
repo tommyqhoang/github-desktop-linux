@@ -70,7 +70,9 @@ export class WorktreeRemoveDialog extends React.Component<
           </Row>
           {this.state.error !== null && (
             <Row>
-              <span className="error">{this.state.error}</span>
+              <span className="error" role="alert">
+                {this.state.error}
+              </span>
             </Row>
           )}
         </DialogContent>

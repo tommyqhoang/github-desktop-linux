@@ -2,6 +2,9 @@ import * as React from 'react'
 import classNames from 'classnames'
 
 interface IRowProps {
+  /** Content rendered inside the component. */
+  readonly children?: React.ReactNode
+
   /** The id of the internal element */
   readonly id?: string
 

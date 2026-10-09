@@ -1,0 +1,5 @@
+// Wrapper rendered by CSSTransitionContents: lets react-transition-group find
+// the element to animate without affecting layout.
+.transition-contents {
+  display: contents;
+}

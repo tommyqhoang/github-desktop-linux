@@ -24,10 +24,7 @@ const noopStorage: ITerminalSettingsStorage = {
 }
 
 type ChangeKey =
-  | 'fontSize'
-  | 'scrollback'
-  | 'themeFollowsApp'
-  | 'rendererPreference'
+  'fontSize' | 'scrollback' | 'themeFollowsApp' | 'rendererPreference'
 
 export class TerminalSettings {
   private fontSize: number

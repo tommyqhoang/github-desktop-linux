@@ -1,7 +1,7 @@
 import '../lib/logging/renderer/install'
 
 import * as React from 'react'
-import * as ReactDOM from 'react-dom'
+import { createRoot } from 'react-dom/client'
 import * as Path from 'path'
 import { App } from './app'
 import {
@@ -380,7 +380,7 @@ ipcRenderer.on('url-action', (_, action) =>
   })
 })(Grid.defaultProps, Grid.propTypes)
 
-ReactDOM.render(
+createRoot(document.getElementById('desktop-app-container')!).render(
   <App
     dispatcher={dispatcher}
     appStore={appStore}
@@ -390,6 +390,5 @@ ReactDOM.render(
     aheadBehindStore={aheadBehindStore}
     notificationsDebugStore={notificationsDebugStore}
     startTime={startTime}
-  />,
-  document.getElementById('desktop-app-container')!
+  />
 )

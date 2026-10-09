@@ -71,7 +71,9 @@ export async function readPartialFile(
     let total = 0
 
     createReadStream(path, { start, end })
-      .on('data', (chunk: Buffer) => {
+      .on('data', (data: string | Buffer) => {
+        // No encoding is set on the stream so this is always a Buffer
+        const chunk = typeof data === 'string' ? Buffer.from(data) : data
         chunks.push(chunk)
         total += chunk.length
       })

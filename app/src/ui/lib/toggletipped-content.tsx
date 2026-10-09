@@ -8,10 +8,15 @@ import { AriaLiveContainer } from '../accessibility/aria-live-container'
  * IToggledtippedContentProps is a superset of ITooltipProps but does not
  * define the `target` prop as that's set programatically in render
  */
-interface IToggledtippedContentProps
-  extends Omit<ITooltipProps<HTMLElement>, 'target'> {
+interface IToggledtippedContentProps extends Omit<
+  ITooltipProps<HTMLElement>,
+  'target'
+> {
+  /** Content rendered inside the component. */
+  readonly children?: React.ReactNode
+
   /** The tooltip contents */
-  readonly tooltip: JSX.Element | string | undefined
+  readonly tooltip: React.JSX.Element | string | undefined
 
   /** Likely the tooltips content as a string - whatever needs to be
    * communicated to a screen reader user that is communicated through the

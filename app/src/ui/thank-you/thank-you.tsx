@@ -26,12 +26,12 @@ export class ThankYou extends React.Component<IThankYouProps, IThankYouState> {
   }
   private renderList(
     releaseEntries: ReadonlyArray<ReleaseNote>
-  ): JSX.Element | null {
+  ): React.JSX.Element | null {
     if (releaseEntries.length === 0) {
       return null
     }
 
-    const options = new Array<JSX.Element>()
+    const options = new Array<React.JSX.Element>()
 
     for (const [i, entry] of releaseEntries.entries()) {
       options.push(

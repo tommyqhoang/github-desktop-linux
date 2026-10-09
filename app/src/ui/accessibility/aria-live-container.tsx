@@ -35,7 +35,7 @@ interface IAriaLiveContainerProps {
 
 interface IAriaLiveContainerState {
   /** The generated message for the screen reader */
-  readonly message: JSX.Element | null
+  readonly message: React.JSX.Element | null
 }
 
 /**

@@ -38,7 +38,7 @@ interface IBranchSelectProps {
   readonly onChange?: (branch: Branch) => void
 
   /** Optional: No branches message */
-  readonly noBranchesMessage?: string | JSX.Element
+  readonly noBranchesMessage?: string | React.JSX.Element
 }
 
 interface IBranchSelectState {

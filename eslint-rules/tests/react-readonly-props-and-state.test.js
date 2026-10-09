@@ -1,8 +1,7 @@
 // @ts-check
 
-const { ESLintUtils } = require('@typescript-eslint/experimental-utils')
-
-const RuleTester = ESLintUtils.RuleTester
+const { RuleTester } = require('eslint')
+const tsParser = require('@typescript-eslint/parser')
 const rule = require('../react-readonly-props-and-state')
 
 // ------------------------------------------------------------------------------
@@ -10,7 +9,7 @@ const rule = require('../react-readonly-props-and-state')
 // ------------------------------------------------------------------------------
 
 const ruleTester = new RuleTester({
-  parser: '@typescript-eslint/parser',
+  languageOptions: { parser: tsParser },
 })
 ruleTester.run('react-readonly-props-and-state', rule, {
   valid: [

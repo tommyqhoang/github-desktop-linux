@@ -1,5 +1,5 @@
 import { randomBytes as nodeCryptoGetRandomBytes } from 'crypto'
-import guid from 'uuid/v4'
+import { v4 as guid } from 'uuid'
 
 /**
  * Fills a buffer with the required number of random bytes.

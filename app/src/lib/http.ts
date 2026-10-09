@@ -100,6 +100,63 @@ export function getAbsoluteUrl(endpoint: string, path: string): string {
   return new URL(relativePath, base).toString()
 }
 
+/** How long a GitHub API request may take before it is abandoned. */
+export const RequestTimeoutMs = 30_000
+
+/**
+ * `fetch` with an AbortController-based timeout. Honors a caller-supplied
+ * `signal` (aborting it aborts the request) and rejects with a clear
+ * `Request timed out` error when the deadline passes. The timer is cleared
+ * once `settle` resolves; pass a callback that consumes the body to extend
+ * the deadline across the body read.
+ */
+export async function fetchWithTimeout<T = Response>(
+  url: string,
+  init: RequestInit,
+  options: {
+    readonly timeoutMs?: number
+    readonly fetchImpl?: typeof fetch
+    readonly settle?: (response: Response) => Promise<T>
+  } = {}
+): Promise<T> {
+  const timeoutMs = options.timeoutMs ?? RequestTimeoutMs
+  const fetchImpl = options.fetchImpl ?? fetch
+  const callerSignal = init.signal ?? undefined
+
+  if (callerSignal?.aborted) {
+    throw new DOMException('The request was aborted.', 'AbortError')
+  }
+
+  const controller = new AbortController()
+  let timedOut = false
+  const timer = setTimeout(() => {
+    timedOut = true
+    controller.abort()
+  }, timeoutMs)
+  const onCallerAbort = () => controller.abort()
+  callerSignal?.addEventListener('abort', onCallerAbort, { once: true })
+
+  try {
+    const response = await fetchImpl(url, {
+      ...init,
+      signal: controller.signal,
+    })
+    return options.settle
+      ? await options.settle(response)
+      : (response as unknown as T)
+  } catch (e) {
+    if (timedOut) {
+      throw new Error(
+        `Request timed out after ${Math.round(timeoutMs / 1000)} seconds.`
+      )
+    }
+    throw e
+  } finally {
+    clearTimeout(timer)
+    callerSignal?.removeEventListener('abort', onCallerAbort)
+  }
+}
+
 /**
  * Make an API request.
  *
@@ -112,6 +169,8 @@ export function getAbsoluteUrl(endpoint: string, path: string): string {
  * @param reloadCache   - sets cache option to reload — The browser fetches
  * the resource from the remote server without first looking in the cache, but
  * then will update the cache with the downloaded resource.
+ * @param signal        - optional caller signal; the request is also aborted
+ * after `RequestTimeoutMs`.
  */
 export function request(
   endpoint: string,
@@ -120,7 +179,8 @@ export function request(
   path: string,
   jsonBody?: Object,
   customHeaders?: Object,
-  reloadCache: boolean = false
+  reloadCache: boolean = false,
+  signal?: AbortSignal
 ): Promise<Response> {
   const url = getAbsoluteUrl(endpoint, path)
 
@@ -143,13 +203,14 @@ export function request(
     headers,
     method,
     body: JSON.stringify(jsonBody),
+    signal,
   }
 
   if (reloadCache) {
     options.cache = 'reload' as RequestCache
   }
 
-  return fetch(url, options)
+  return fetchWithTimeout(url, options)
 }
 
 /** Get the user agent to use for all requests. */

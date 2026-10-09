@@ -184,8 +184,8 @@ export function expandTextDiffHunk(
     isExpandingUp && hunkIndex > 0
       ? hunkIndex - 1
       : !isExpandingUp && hunkIndex < diff.hunks.length - 1
-      ? hunkIndex + 1
-      : null
+        ? hunkIndex + 1
+        : null
   const adjacentHunk =
     adjacentHunkIndex !== null ? diff.hunks[adjacentHunkIndex] : null
 

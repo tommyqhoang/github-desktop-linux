@@ -39,8 +39,7 @@ export enum StashedChangesLoadStates {
 export type StashedFileChanges =
   | {
       readonly kind:
-        | StashedChangesLoadStates.NotLoaded
-        | StashedChangesLoadStates.Loading
+        StashedChangesLoadStates.NotLoaded | StashedChangesLoadStates.Loading
     }
   | {
       readonly kind: StashedChangesLoadStates.Loaded

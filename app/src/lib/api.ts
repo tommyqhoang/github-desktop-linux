@@ -516,6 +516,10 @@ export interface IAPIWorkflows {
   readonly workflows: ReadonlyArray<IAPIWorkflow>
 }
 
+/** Page size / page cap when listing a repository's workflows. */
+const WorkflowsPerPage = 100
+const MaxWorkflowPages = 5
+
 /** GitHub's maximum page size for the workflow jobs endpoint. */
 const WorkflowJobsPerPage = 100
 
@@ -618,7 +622,7 @@ export interface IAPIRepoRule {
    * The parameters that apply to the rule if it is a metadata rule.
    * Other rule types may have parameters, but they are not used in
    * this app so they are ignored. Do not attempt to use this field
-   * unless you know {@link type} matches a metadata rule type.
+   * unless you know `type` matches a metadata rule type.
    */
   readonly parameters?: IAPIRepoRuleMetadataParameters
 }
@@ -670,7 +674,7 @@ export interface IAPIRepoRuleMetadataParameters {
 
   /**
    * Whether the operator is negated. For example, if `true`
-   * and {@link operator} is `starts_with`, then the rule
+   * and `operator` is `starts_with`, then the rule
    * will be negated to 'does not start with'.
    */
   negate: boolean
@@ -678,13 +682,13 @@ export interface IAPIRepoRuleMetadataParameters {
   /**
    * The pattern to match against. If the operator is 'regex', then
    * this is a regex string match. Otherwise, it is a raw string match
-   * of the type specified by {@link operator} with no additional parsing.
+   * of the type specified by `operator` with no additional parsing.
    */
   pattern: string
 
   /**
    * The type of match to use for the pattern. For example, `starts_with`
-   * means {@link pattern} must be at the start of the string.
+   * means `pattern` must be at the start of the string.
    */
   operator: APIRepoRuleMetadataOperator
 }
@@ -729,11 +733,7 @@ export interface IAPIPullRequestReview {
   readonly html_url: string
   readonly submitted_at: string
   readonly state:
-    | 'APPROVED'
-    | 'DISMISSED'
-    | 'PENDING'
-    | 'COMMENTED'
-    | 'CHANGES_REQUESTED'
+    'APPROVED' | 'DISMISSED' | 'PENDING' | 'COMMENTED' | 'CHANGES_REQUESTED'
 }
 
 /** Represents both issue comments and PR review comments */
@@ -1678,16 +1678,14 @@ export class API {
     )
     const response = await this.request('GET', path)
 
+    // 404 means Actions isn't available for this repository (or it can't be
+    // seen with this account); any other failure is thrown so callers can
+    // keep what they already have and show the error instead of "no runs".
     if (response.status === 404) {
       return null
     }
 
-    try {
-      return await parsedResponse<IAPIWorkflowRuns>(response)
-    } catch (e) {
-      log.warn(`Failed fetching workflow runs for ${branch} (${owner}/${name})`)
-      return null
-    }
+    return await parsedResponse<IAPIWorkflowRuns>(response)
   }
 
   /**
@@ -1731,25 +1729,37 @@ export class API {
   }
 
   /**
-   * List workflows for a repository.
+   * List workflows for a repository (up to a sane page cap). Returns `null`
+   * on 404 and throws on any other failure.
    */
   public async fetchWorkflows(
     owner: string,
     name: string
   ): Promise<IAPIWorkflows | null> {
-    const path = `repos/${owner}/${name}/actions/workflows`
-    const response = await this.request('GET', path)
+    const workflows: IAPIWorkflow[] = []
+    let totalCount = 0
 
-    if (response.status === 404) {
-      return null
+    for (let page = 1; page <= MaxWorkflowPages; page++) {
+      const path =
+        `repos/${owner}/${name}/actions/workflows` +
+        `?per_page=${WorkflowsPerPage}&page=${page}`
+      const response = await this.request('GET', path)
+
+      // 404 means Actions isn't available here: distinct from an empty list
+      // and from a transient failure (which throws).
+      if (response.status === 404) {
+        return page === 1 ? null : { total_count: totalCount, workflows }
+      }
+
+      const result = await parsedResponse<IAPIWorkflows>(response)
+      totalCount = result.total_count
+      workflows.push(...result.workflows)
+      if (result.workflows.length === 0 || workflows.length >= totalCount) {
+        break
+      }
     }
 
-    try {
-      return await parsedResponse<IAPIWorkflows>(response)
-    } catch (e) {
-      log.warn(`Failed fetching workflows for ${owner}/${name})`)
-      return null
-    }
+    return { total_count: totalCount, workflows }
   }
 
   /**
@@ -2097,9 +2107,8 @@ export class API {
       if (response.status === HttpStatusCode.NotModified) {
         return null
       }
-      const users = await parsedResponse<ReadonlyArray<IAPIMentionableUser>>(
-        response
-      )
+      const users =
+        await parsedResponse<ReadonlyArray<IAPIMentionableUser>>(response)
       const etag = response.headers.get('etag') || undefined
       return { users, etag }
     } catch (e) {

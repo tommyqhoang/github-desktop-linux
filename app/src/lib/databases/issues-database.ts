@@ -10,7 +10,7 @@ export interface IIssue {
 }
 
 export class IssuesDatabase extends BaseDatabase {
-  public declare issues: Dexie.Table<IIssue, number>
+  declare public issues: Dexie.Table<IIssue, number>
 
   public constructor(name: string, schemaVersion?: number) {
     super(name, schemaVersion)

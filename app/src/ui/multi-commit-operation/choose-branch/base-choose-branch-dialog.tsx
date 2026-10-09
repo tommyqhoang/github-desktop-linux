@@ -90,8 +90,11 @@ export interface IBaseChooseBranchDialogProps {
 }
 
 export interface IChooseBranchDialogProps extends IBaseChooseBranchDialogProps {
+  /** Content rendered inside the component. */
+  readonly children?: React.ReactNode
+
   readonly selectedBranch: Branch | null
-  readonly dialogTitle: string | JSX.Element | undefined
+  readonly dialogTitle: string | React.JSX.Element | undefined
   readonly submitButtonTooltip?: string
   readonly canStartOperation: boolean
   readonly start: () => void

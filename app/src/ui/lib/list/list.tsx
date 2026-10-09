@@ -1,5 +1,4 @@
 import * as React from 'react'
-import * as ReactDOM from 'react-dom'
 import { Grid, AutoSizer } from 'react-virtualized'
 import { shallowEquals, arrayEquals } from '../../../lib/equality'
 import { FocusContainer } from '../../lib/focus-container'
@@ -24,6 +23,7 @@ import memoizeOne from 'memoize-one'
 import { RowIndexPath } from './list-row-index-path'
 import { sendNonFatalException } from '../../../lib/helpers/non-fatal-exception'
 import classNames from 'classnames'
+import { getVirtualizedElement } from './virtualized-element'
 
 /**
  * Describe the first argument given to the cellRenderer,
@@ -66,7 +66,7 @@ interface IListProps {
    * of the row, only its contents and may return null although
    * that will result in an empty list item.
    */
-  readonly rowRenderer: (row: number) => JSX.Element | null
+  readonly rowRenderer: (row: number) => React.JSX.Element | null
 
   /**
    * The total number of rows in the list. This is used for
@@ -323,7 +323,7 @@ interface IListProps {
    */
   readonly keyboardInsertionElementRenderer?: (
     data: KeyboardInsertionData
-  ) => JSX.Element | null
+  ) => React.JSX.Element | null
 
   /**
    * Callback to fire when the index path of the position to insert items via
@@ -1099,7 +1099,7 @@ export class List extends React.Component<IListProps, IListState> {
       // The currently focused row is going being unmounted so we'll move focus
       // programmatically to the grid so that keyboard navigation still works
       if (element === null) {
-        const grid = ReactDOM.findDOMNode(this.grid)
+        const grid = getVirtualizedElement(this.grid)
         if (grid instanceof HTMLElement) {
           grid.focus({ preventScroll: true })
         }
@@ -1220,7 +1220,7 @@ export class List extends React.Component<IListProps, IListState> {
   }
 
   public render() {
-    let content: JSX.Element[] | JSX.Element | null
+    let content: React.JSX.Element[] | React.JSX.Element | null
     if (this.resizeObserver) {
       content = this.renderContents(
         this.state.width ?? 0,
@@ -1362,8 +1362,8 @@ export class List extends React.Component<IListProps, IListState> {
       this.props.shouldDisableTabFocus === true
         ? -1
         : this.props.selectedRows.length < 1
-        ? 0
-        : -1
+          ? 0
+          : -1
 
     // we select the last item from the selection array for this prop
     const activeDescendant =
@@ -1468,7 +1468,7 @@ export class List extends React.Component<IListProps, IListState> {
     this.lastScroll = 'fake'
 
     if (this.grid) {
-      const element = ReactDOM.findDOMNode(this.grid)
+      const element = getVirtualizedElement(this.grid)
       if (element instanceof Element) {
         element.scrollTop = e.currentTarget.scrollTop
       }
@@ -1738,7 +1738,7 @@ export class List extends React.Component<IListProps, IListState> {
       this.scrollRowToVisible(lastSelectedRow)
     } else {
       if (this.grid) {
-        const element = ReactDOM.findDOMNode(this.grid) as HTMLDivElement
+        const element = getVirtualizedElement(this.grid) as HTMLDivElement
         if (element) {
           element.focus()
         }

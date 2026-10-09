@@ -2,6 +2,9 @@ import * as React from 'react'
 import classNames from 'classnames'
 
 interface IDialogContentProps {
+  /** Content rendered inside the component. */
+  readonly children?: React.ReactNode
+
   /**
    * An optional className to be applied to the rendered div element.
    */

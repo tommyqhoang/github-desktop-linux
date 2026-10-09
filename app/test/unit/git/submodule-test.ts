@@ -176,3 +176,27 @@ describe('git/submodule', () => {
     })
   })
 })
+
+describe('isNoSubmoduleContextError', () => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const {
+    isNoSubmoduleContextError,
+  } = require('../../../src/lib/git/submodule')
+
+  it('treats a missing work tree as "no submodules"', () => {
+    expect(isNoSubmoduleContextError('fatal: not a git repository')).toBe(true)
+    expect(
+      isNoSubmoduleContextError(
+        'fatal: this operation must be run in a work tree'
+      )
+    ).toBe(true)
+  })
+
+  it('does not hide corrupt .gitmodules errors', () => {
+    expect(
+      isNoSubmoduleContextError(
+        'fatal: no submodule mapping found in .gitmodules for path foo'
+      )
+    ).toBe(false)
+  })
+})

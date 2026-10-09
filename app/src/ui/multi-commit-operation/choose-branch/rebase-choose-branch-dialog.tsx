@@ -97,8 +97,8 @@ export class RebaseChooseBranchDialog extends React.Component<
     return selectedBranchIsCurrentBranch
       ? 'You are not able to rebase this branch onto itself.'
       : !areCommitsToRebase
-      ? 'There are no commits on the current branch to rebase.'
-      : undefined
+        ? 'There are no commits on the current branch to rebase.'
+        : undefined
   }
 
   private getDialogTitle = () => {
@@ -120,7 +120,7 @@ export class RebaseChooseBranchDialog extends React.Component<
     })
   }
 
-  private renderStatusPreviewMessage(): JSX.Element | null {
+  private renderStatusPreviewMessage(): React.JSX.Element | null {
     const { rebasePreview, selectedBranch: baseBranch } = this.state
     if (rebasePreview == null || baseBranch == null) {
       return null

@@ -2,6 +2,9 @@ import * as React from 'react'
 import classNames from 'classnames'
 
 interface IUIViewProps {
+  /** Content rendered inside the component. */
+  readonly children?: React.ReactNode
+
   readonly id: string
   readonly className?: string
 }

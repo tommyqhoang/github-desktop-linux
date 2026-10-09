@@ -52,9 +52,7 @@ function userToHit(
 }
 
 /** The autocompletion provider for user mentions in a GitHub repository. */
-export class UserAutocompletionProvider
-  implements IAutocompletionProvider<UserHit>
-{
+export class UserAutocompletionProvider implements IAutocompletionProvider<UserHit> {
   public readonly kind = 'user'
 
   private readonly gitHubUserStore: GitHubUserStore
@@ -114,7 +112,7 @@ export class UserAutocompletionProvider
     return this.getUserAutocompletionItems(text, false)
   }
 
-  public renderItem(item: UserHit): JSX.Element {
+  public renderItem(item: UserHit): React.JSX.Element {
     return item.kind === 'known-user' ? (
       <div className="user" key={item.username}>
         <span className="username">{item.username}</span>

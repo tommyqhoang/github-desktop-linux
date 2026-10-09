@@ -12,7 +12,7 @@ interface IConflictsFoundBannerProps {
    *  - cherry-picking onto <strong>target-branch-name</strong>
    *  - squashing commits on <strong>target-branch-name</strong>
    */
-  readonly operationDescription: string | JSX.Element
+  readonly operationDescription: string | React.JSX.Element
   /** Callback to fire when the dialog should be reopened */
   readonly onOpenConflictsDialog: () => void
   /** Callback to fire to dismiss the banner */

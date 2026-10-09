@@ -262,7 +262,7 @@ export class PullRequestStore {
       // only thing we really care about to determine whether the
       // repository has already been inserted in the database is the clone
       // url since that's what the upsert method uses as its key.
-      cacheKey: (_, repo) => repo.clone_url,
+      cacheKey: ([, repo]) => repo.clone_url,
     })
 
     for (const pr of pullRequestsFromAPI) {

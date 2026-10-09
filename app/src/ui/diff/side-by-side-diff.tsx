@@ -68,10 +68,9 @@ import {
 } from './text-diff-expansion'
 import { IMenuItem } from '../../lib/menu-item'
 import { DiffContentsWarning } from './diff-contents-warning'
-import { findDOMNode } from 'react-dom'
 import escapeRegExp from 'lodash/escapeRegExp'
-import ReactDOM from 'react-dom'
 import { AriaLiveContainer } from '../accessibility/aria-live-container'
+import { getVirtualizedElement } from '../lib/list/virtualized-element'
 
 const DefaultRowHeight = 20
 
@@ -290,13 +289,13 @@ export class SideBySideDiff extends React.Component<
   }
 
   private addContextMenuListenerToDiff = () => {
-    const diffNode = findDOMNode(this.virtualListRef.current)
+    const diffNode = getVirtualizedElement(this.virtualListRef.current)
     const diff = diffNode instanceof HTMLElement ? diffNode : null
     diff?.addEventListener('contextmenu', this.onContextMenuText)
   }
 
   private removeContextMenuListenerFromDiff = () => {
-    const diffNode = findDOMNode(this.virtualListRef.current)
+    const diffNode = getVirtualizedElement(this.virtualListRef.current)
     const diff = diffNode instanceof HTMLElement ? diffNode : null
     diff?.removeEventListener('contextmenu', this.onContextMenuText)
   }
@@ -472,7 +471,7 @@ export class SideBySideDiff extends React.Component<
   }
 
   private focusListElement = () => {
-    const diffNode = findDOMNode(this.virtualListRef.current)
+    const diffNode = getVirtualizedElement(this.virtualListRef.current)
     const diff = diffNode instanceof HTMLElement ? diffNode : null
     diff?.focus()
   }
@@ -836,8 +835,8 @@ export class SideBySideDiff extends React.Component<
       hasAfter && hasBefore
         ? DiffRowType.Modified
         : hasAfter
-        ? DiffRowType.Added
-        : DiffRowType.Deleted
+          ? DiffRowType.Added
+          : DiffRowType.Deleted
 
     const data: IRowSelectableGroupStaticData = {
       diffRowStartIndex,
@@ -1257,7 +1256,7 @@ export class SideBySideDiff extends React.Component<
       return
     }
 
-    const listNode = ReactDOM.findDOMNode(list)
+    const listNode = getVirtualizedElement(list)
     if (!(listNode instanceof Element)) {
       return
     }

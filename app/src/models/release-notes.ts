@@ -6,13 +6,7 @@ export type ReleaseMetadata = {
 }
 
 type ItemEntryKind =
-  | 'new'
-  | 'fixed'
-  | 'improved'
-  | 'removed'
-  | 'added'
-  | 'pretext'
-  | 'other'
+  'new' | 'fixed' | 'improved' | 'removed' | 'added' | 'pretext' | 'other'
 
 export type ReleaseNote = {
   readonly kind: ItemEntryKind

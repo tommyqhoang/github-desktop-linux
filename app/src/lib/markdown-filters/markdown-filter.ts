@@ -55,7 +55,9 @@ export function parseMarkdown(
   markdown: string,
   customMarkdownOptions?: ICustomMarkdownFilterOptions
 ): MarkdownEmitter {
-  const parsedMarkdown = marked(markdown, {
+  const parsedMarkdown = marked.parse(markdown, {
+    // Parse synchronously so the result is a string rather than a promise.
+    async: false,
     // https://marked.js.org/using_advanced  If true, use approved GitHub
     // Flavored Markdown (GFM) specification.
     gfm: true,

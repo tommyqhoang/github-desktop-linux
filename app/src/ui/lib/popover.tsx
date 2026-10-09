@@ -58,6 +58,9 @@ const TipCornerPadding = TipSize
 export const PopoverScreenBorderPadding = 10
 
 interface IPopoverProps {
+  /** Content rendered inside the component. */
+  readonly children?: React.ReactNode
+
   readonly onClickOutside?: (event?: MouseEvent) => void
   readonly onMousedownOutside?: (event?: MouseEvent) => void
   /** Element to anchor the popover to */
@@ -102,7 +105,10 @@ export class Popover extends React.Component<IPopoverProps, IPopoverState> {
     this.focusTrapOptions = {
       allowOutsideClick: true,
       escapeDeactivates: true,
-      onDeactivate: this.props.onMousedownOutside ?? this.props.onClickOutside,
+      // focus-trap-react hands lifecycle params to onDeactivate; the outside
+      // handlers take an optional event, so call them without arguments.
+      onDeactivate: () =>
+        (this.props.onMousedownOutside ?? this.props.onClickOutside)?.(),
     }
 
     this.state = { position: null }

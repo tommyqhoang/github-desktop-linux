@@ -186,7 +186,7 @@ function drawToCanvas(
 }
 
 export function convertDDSImage(contents: ArrayBufferLike) {
-  const ddsData = parseDDS(contents)
+  const ddsData = parseDDS(contents as ArrayBuffer)
 
   // Get the first mipmap texture.
   const [image] = ddsData.images

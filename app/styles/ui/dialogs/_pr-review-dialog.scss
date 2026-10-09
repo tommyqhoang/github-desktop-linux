@@ -1,0 +1,41 @@
+// In-app pull request review dialog
+.pr-review-submit-hint {
+  margin: var(--spacing-half) 0 0;
+  color: var(--text-secondary-color);
+  font-size: var(--font-size-sm);
+}
+
+.pr-review-drafts {
+  list-style: none;
+  margin: 0 0 var(--spacing);
+  padding: 0;
+
+  .pr-review-draft {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--spacing);
+    padding: var(--spacing-half) 0;
+    border-bottom: var(--base-border);
+    overflow-wrap: anywhere;
+  }
+}
+
+.pr-review-verdict {
+  border: 0;
+  margin: 0 0 var(--spacing);
+  padding: 0;
+
+  legend {
+    font-weight: var(--font-weight-semibold);
+    padding: 0;
+    margin-bottom: var(--spacing-half);
+  }
+
+  label {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-half);
+    margin-right: var(--spacing);
+  }
+}

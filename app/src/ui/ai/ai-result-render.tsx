@@ -11,7 +11,7 @@ export type AIResult =
   | { readonly kind: 'conflict'; readonly value: IConflictSuggestion }
 
 /** Render an AI result body for display inside the result dialog. */
-export function renderAIResult(result: AIResult): JSX.Element {
+export function renderAIResult(result: AIResult): React.JSX.Element {
   switch (result.kind) {
     case 'pr-description':
       return (
@@ -37,7 +37,9 @@ export function renderAIResult(result: AIResult): JSX.Element {
   }
 }
 
-function renderReview(findings: ReadonlyArray<IReviewFinding>): JSX.Element {
+function renderReview(
+  findings: ReadonlyArray<IReviewFinding>
+): React.JSX.Element {
   if (findings.length === 0) {
     return <div className="ai-review__empty">No issues found. 🎉</div>
   }

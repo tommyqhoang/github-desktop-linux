@@ -62,6 +62,11 @@ export interface IPRReviewSession {
   /** The text of the overall review summary. */
   readonly summary: string
   readonly error: Error | null
+  /**
+   * True when later pages of review comments failed to load (or the page
+   * cap was hit), so `threads` may be incomplete.
+   */
+  readonly truncated?: boolean
 }
 
 /** Group threads by file path for the file-tree pane. */

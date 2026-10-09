@@ -61,13 +61,31 @@ describe('collectRepoHealth', () => {
       probes: failingProbes(),
       now: () => 0,
     })
-    expect(h.error).toBeNull() // individual probe failures don't poison
+    // git status failing means the repo is unreadable: surfaced, not 'clean'
+    expect(h.error).toContain('git status failed')
+    expect(h.failedSignals).toEqual(
+      expect.arrayContaining(['changes', 'aheadBehind', 'ci', 'prs'])
+    )
     expect(h.uncommittedCount).toBe(0)
     expect(h.aheadBy).toBe(0)
     expect(h.behindBy).toBe(0)
     expect(h.defaultBranchStatus).toBe('unknown')
     expect(h.openPullRequestCount).toBe(0)
     expect(h.attentionScore).toBe(0)
+  })
+
+  it('records failed signals without setting error when git status works', async () => {
+    const h = await collectRepoHealth(repo(1), {
+      probes: {
+        ...okProbes(),
+        openPullRequestCount: async () => {
+          throw new Error('api down')
+        },
+      },
+    })
+    expect(h.error).toBeNull()
+    expect(h.failedSignals).toEqual(['prs'])
+    expect(h.uncommittedCount).toBe(2)
   })
 
   it('uses Date.now() when no clock is supplied', async () => {

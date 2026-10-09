@@ -3,6 +3,9 @@ import { GitHubRepository } from '../../models/github-repository'
 import { LinkButton } from '../lib/link-button'
 
 interface IRepoRulesetLinkProps {
+  /** Content rendered inside the component. */
+  readonly children?: React.ReactNode
+
   readonly repository: GitHubRepository
   readonly rulesetId: number
 }

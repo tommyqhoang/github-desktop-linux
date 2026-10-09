@@ -2,6 +2,7 @@ import {
   runReview,
   runSummary,
   runPRDescription,
+  runConflictAssist,
 } from '../../../src/lib/ai/actions'
 import { IAIClient } from '../../../src/lib/ai/client'
 import { setupEmptyRepository } from '../../helpers/repositories'
@@ -72,5 +73,74 @@ describe('ai/actions', () => {
 
     expect(prompts[0]).toContain('add feature')
     expect(result).toEqual({ title: 'Add feature', body: 'Adds f.txt' })
+  })
+
+  it('runPRDescription throws when the branch has no diff against base', async () => {
+    const repo = await setupEmptyRepository()
+    await makeCommit(repo, {
+      entries: [{ path: 'base.txt', contents: 'b\n' }],
+      commitMessage: 'base',
+    })
+    const [base] = await getCommits(repo, 'HEAD', 1)
+    const { client, prompts } = fakeClient('{"title":"x"}')
+    await expect(runPRDescription(repo, base.sha, client)).rejects.toThrow(
+      /no changes/i
+    )
+    expect(prompts).toHaveLength(0)
+  })
+
+  it('runReview includes brand-new untracked files', async () => {
+    const repo = await setupEmptyRepository()
+    await makeCommit(repo, {
+      entries: [{ path: 'a.txt', contents: 'one\n' }],
+      commitMessage: 'init',
+    })
+    await writeFile(Path.join(repo.path, 'brand-new.ts'), 'const fresh = 1\n')
+    const { client, prompts } = fakeClient('[]')
+    await runReview(repo, client)
+    expect(prompts[0]).toContain('brand-new.ts')
+    expect(prompts[0]).toContain('+const fresh = 1')
+  })
+
+  it('runConflictAssist refuses secret and lockfile paths without sending them', async () => {
+    const repo = await setupEmptyRepository()
+    const conflict = '<<<<<<< HEAD\nA=1\n=======\nA=2\n>>>>>>> branch\n'
+    await writeFile(Path.join(repo.path, '.env'), conflict)
+    await writeFile(Path.join(repo.path, 'yarn.lock'), conflict)
+    const { client, prompts } = fakeClient('{}')
+    await expect(runConflictAssist(repo, '.env', client)).rejects.toThrow(
+      /secrets/
+    )
+    await expect(runConflictAssist(repo, 'yarn.lock', client)).rejects.toThrow(
+      /secrets|lockfile/
+    )
+    expect(prompts).toHaveLength(0)
+  })
+
+  it('runConflictAssist refuses paths outside the repository', async () => {
+    const repo = await setupEmptyRepository()
+    const { client } = fakeClient('{}')
+    await expect(
+      runConflictAssist(repo, '../outside.txt', client)
+    ).rejects.toThrow(/outside the repository/)
+  })
+
+  it('passes the abort signal through to the client', async () => {
+    const repo = await setupEmptyRepository()
+    await makeCommit(repo, {
+      entries: [{ path: 'a.txt', contents: 'one\n' }],
+      commitMessage: 'init',
+    })
+    await writeFile(Path.join(repo.path, 'a.txt'), 'two\n')
+    const seen: Array<AbortSignal | undefined> = []
+    const client: IAIClient = {
+      async complete(_m, opts) {
+        seen.push(opts?.signal)
+        return 'ok'
+      },
+    }
+    const controller = new AbortController()
+    await runSummary(repo, { kind: 'changes' }, client, controller.signal)
+    expect(seen[0]).toBe(controller.signal)
   })
 })

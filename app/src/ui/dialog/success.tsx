@@ -13,7 +13,9 @@ import * as octicons from '../octicons/octicons.generated'
  *
  * Provide `children` to display content inside the error dialog.
  */
-export class DialogSuccess extends React.Component {
+export class DialogSuccess extends React.Component<{
+  readonly children?: React.ReactNode
+}> {
   public render() {
     return (
       <div className="dialog-banner dialog-success" role="alert">

@@ -24,6 +24,9 @@ export function getTitleBarHeight() {
 }
 
 interface ITitleBarProps {
+  /** Content rendered inside the component. */
+  readonly children?: React.ReactNode
+
   /**
    * The current state of the Window, ie maximized, minimized full-screen etc.
    */

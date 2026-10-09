@@ -107,4 +107,31 @@ describe('makeAccountHttpClient', () => {
     const r = await client.request('DELETE', '/x')
     expect(r.body).toBeNull()
   })
+
+  it('times out a stalled request instead of hanging', async () => {
+    const stalled = ((_url: string, init: any) =>
+      new Promise((_resolve, reject) => {
+        init.signal.addEventListener('abort', () =>
+          reject(new DOMException('aborted', 'AbortError'))
+        )
+      })) as any
+    const client = makeAccountHttpClient(acct(), stalled, 20)
+    const r = await client.request('POST', '/x', { a: 1 })
+    expect(r).toEqual({ status: 0, ok: false, body: null })
+  })
+
+  it('times out a stalled body read', async () => {
+    const fakeFetch = (async (_url: string, init: any) => ({
+      ok: true,
+      status: 200,
+      text: () =>
+        new Promise((_resolve, reject) => {
+          init.signal.addEventListener('abort', () => reject(new Error('x')))
+        }),
+    })) as any
+    const client = makeAccountHttpClient(acct(), fakeFetch, 20)
+    const r = await client.request('GET', '/x')
+    expect(r.ok).toBe(false)
+    expect(r.status).toBe(0)
+  })
 })

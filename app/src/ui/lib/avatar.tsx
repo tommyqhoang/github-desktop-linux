@@ -159,7 +159,7 @@ interface IAvatarProps {
    * Defaults to the name and email if undefined and is
    * skipped completely if title is null
    */
-  readonly title?: string | JSX.Element | null
+  readonly title?: string | React.JSX.Element | null
 
   /**
    * The what dimensions of avatar the component should

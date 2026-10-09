@@ -2,6 +2,9 @@ import * as React from 'react'
 import classNames from 'classnames'
 
 interface IErrorsProps {
+  /** Content rendered inside the component. */
+  readonly children?: React.ReactNode
+
   /** The class name for the internal element. */
   readonly className?: string
 }

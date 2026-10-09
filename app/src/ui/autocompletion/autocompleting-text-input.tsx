@@ -42,7 +42,7 @@ interface IAutocompletingTextInputProps<ElementType, AutocompleteItemType> {
   /**
    * The label of the text box.
    */
-  readonly label?: string | JSX.Element
+  readonly label?: string | React.JSX.Element
 
   /** The placeholder for the input field. */
   readonly placeholder?: string
@@ -154,7 +154,7 @@ interface IAutocompletingTextInputState<T> {
 /** A text area which provides autocompletions as the user types. */
 export abstract class AutocompletingTextInput<
   ElementType extends HTMLInputElement | HTMLTextAreaElement,
-  AutocompleteItemType extends object
+  AutocompleteItemType extends object,
 > extends React.Component<
   IAutocompletingTextInputProps<ElementType, AutocompleteItemType>,
   IAutocompletingTextInputState<AutocompleteItemType>
@@ -228,7 +228,7 @@ export abstract class AutocompletingTextInput<
     return state.provider.getItemAriaLabel?.(item)
   }
 
-  private renderItem = (row: number): JSX.Element | null => {
+  private renderItem = (row: number): React.JSX.Element | null => {
     const state = this.state.autocompletionState
     if (!state) {
       return null

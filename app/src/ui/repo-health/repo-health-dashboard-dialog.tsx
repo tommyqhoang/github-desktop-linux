@@ -34,13 +34,19 @@ export class RepoHealthDashboardDialog extends React.Component<IProps> {
     this.props.onMounted()
   }
 
+  /**
+   * Pressing Enter in the search box submits the dialog's form; that must not
+   * close the whole dashboard, so submit is a deliberate no-op.
+   */
+  private onSubmit = () => {}
+
   public render() {
     return (
       <Dialog
         id="repo-health-dashboard-dialog"
         title={__DARWIN__ ? 'Repository Health Dashboard' : 'Repository health'}
         onDismissed={this.props.onDismissed}
-        onSubmit={this.props.onDismissed}
+        onSubmit={this.onSubmit}
       >
         <DialogContent>
           <RepoHealthDashboard

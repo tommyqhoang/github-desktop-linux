@@ -1,16 +1,19 @@
 {
   "compilerOptions": {
     "module": "commonjs",
+    "ignoreDeprecations": "6.0",
     "moduleResolution": "node",
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "importHelpers": true,
-    "target": "ES2021",
+    "target": "ES2022",
     "allowUnreachableCode": false,
     "allowUnusedLabels": false,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
     "noUnusedLocals": true,
+    "types": ["*"],
+    "skipLibCheck": true,
     "sourceMap": false,
     "noEmit": true,
     "strict": true

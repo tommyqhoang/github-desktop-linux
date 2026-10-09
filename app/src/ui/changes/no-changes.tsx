@@ -239,7 +239,7 @@ export class NoChanges extends React.Component<
   private renderMenuBackedAction(
     itemId: MenuIDs,
     title: string,
-    description?: string | JSX.Element,
+    description?: string | React.JSX.Element,
     onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void,
     enabled?: boolean
   ) {

@@ -27,8 +27,15 @@ export class RepoHealthRow extends React.PureComponent<IRepoHealthRowProps> {
   public render() {
     const { repository, health, refreshing } = this.props
     const score = health?.attentionScore ?? 0
-    const tier =
-      score >= 50 ? 'high' : score >= 20 ? 'mid' : score > 0 ? 'low' : 'ok'
+    const tier = health?.error
+      ? 'ok'
+      : score >= 50
+        ? 'high'
+        : score >= 20
+          ? 'mid'
+          : score > 0
+            ? 'low'
+            : 'ok'
     return (
       <div
         className={`repo-health-card tier-${tier}${
@@ -44,7 +51,16 @@ export class RepoHealthRow extends React.PureComponent<IRepoHealthRowProps> {
             {repository.name || repository.path}
           </span>
           <span className={`repo-health-card__score score-${tier}`}>
-            {refreshing ? '…' : score}
+            <span aria-hidden={true}>
+              {refreshing ? '…' : health?.error ? '—' : score}
+            </span>
+            <span className="sr-only">
+              {refreshing
+                ? 'Refreshing'
+                : health === null || health.error
+                  ? 'Attention score unknown'
+                  : `Attention score ${score}, ${tierLabel(tier)}`}
+            </span>
           </span>
         </div>
         <TooltippedContent
@@ -64,7 +80,9 @@ export class RepoHealthRow extends React.PureComponent<IRepoHealthRowProps> {
             className="repo-health-card__error"
             tooltip={health.error}
           >
-            ⚠ {health.error}
+            <span aria-hidden={true}>⚠ </span>
+            <span className="sr-only">Warning: </span>
+            {health.error}
           </TooltippedContent>
         ) : (
           this.renderSignals(health)
@@ -74,25 +92,27 @@ export class RepoHealthRow extends React.PureComponent<IRepoHealthRowProps> {
   }
 
   private renderSignals(h: IRepoHealth) {
+    const failed = new Set(h.failedSignals ?? [])
+    const unknown = '—'
     const cells: React.ReactNode[] = []
     cells.push(
       this.signalCell('changes', {
         label: 'Changes',
-        value: h.uncommittedCount,
+        value: failed.has('changes') ? unknown : h.uncommittedCount,
         warn: h.uncommittedCount > 0,
       })
     )
     cells.push(
       this.signalCell('ahead', {
         label: 'Ahead',
-        value: h.aheadBy,
+        value: failed.has('aheadBehind') ? unknown : h.aheadBy,
         warn: h.aheadBy > 0,
       })
     )
     cells.push(
       this.signalCell('behind', {
         label: 'Behind',
-        value: h.behindBy,
+        value: failed.has('aheadBehind') ? unknown : h.behindBy,
         warn: h.behindBy > 0,
         bad: h.behindBy > 5,
       })
@@ -100,14 +120,16 @@ export class RepoHealthRow extends React.PureComponent<IRepoHealthRowProps> {
     cells.push(
       this.signalCell('prs', {
         label: 'Open PRs',
-        value: h.openPullRequestCount,
+        value: failed.has('prs') ? unknown : h.openPullRequestCount,
       })
     )
     cells.push(
       this.signalCell('ci', {
         label: 'CI',
-        value: ciLabel(h.defaultBranchStatus),
-        valueTitle: ciStatusText(h.defaultBranchStatus),
+        value: failed.has('ci') ? unknown : ciLabel(h.defaultBranchStatus),
+        valueTitle: failed.has('ci')
+          ? 'unknown'
+          : ciStatusText(h.defaultBranchStatus),
         bad: h.defaultBranchStatus === 'failure',
         warn: h.defaultBranchStatus === 'pending',
       })
@@ -115,17 +137,28 @@ export class RepoHealthRow extends React.PureComponent<IRepoHealthRowProps> {
     cells.push(
       this.signalCell('stale', {
         label: 'Stale branches',
-        value: h.staleBranchCount,
+        value: failed.has('stale') ? unknown : h.staleBranchCount,
         warn: h.staleBranchCount > 5,
       })
     )
     cells.push(
       this.signalCell('last', {
         label: 'Last commit',
-        value: formatRelativeUnix(h.lastActivityUnix),
+        value: failed.has('last')
+          ? unknown
+          : formatRelativeUnix(h.lastActivityUnix),
       })
     )
-    return <div className="repo-health-card__signals">{cells}</div>
+    return (
+      <>
+        {failed.size > 0 && (
+          <div className="repo-health-card__hint" role="status">
+            Some signals could not be read and are shown as {unknown}.
+          </div>
+        )}
+        <div className="repo-health-card__signals">{cells}</div>
+      </>
+    )
   }
 
   /**
@@ -162,6 +195,11 @@ export class RepoHealthRow extends React.PureComponent<IRepoHealthRowProps> {
   private onClick = () => this.props.onClick(this.props.repository)
 
   private onKeyDown = (e: React.KeyboardEvent) => {
+    // Enter/Space on a nested signal button must activate that button, not
+    // bubble up and select the whole repository.
+    if (e.target !== e.currentTarget) {
+      return
+    }
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
       this.props.onClick(this.props.repository)
@@ -228,6 +266,19 @@ function SignalCell({
   }
 
   return <div className={`repo-health-card__cell${cls}`}>{inner}</div>
+}
+
+function tierLabel(tier: string): string {
+  switch (tier) {
+    case 'high':
+      return 'high'
+    case 'mid':
+      return 'medium'
+    case 'low':
+      return 'low'
+    default:
+      return 'none'
+  }
 }
 
 function ciLabel(state: IRepoHealth['defaultBranchStatus']): string {

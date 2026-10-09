@@ -57,6 +57,9 @@ const DisableClickDismissalDelay = 500
 const titleBarHeight = getTitleBarHeight()
 
 interface IDialogProps {
+  /** Content rendered inside the component. */
+  readonly children?: React.ReactNode
+
   /**
    * An optional dialog title. Most, if not all dialogs should have
    * this. When present the Dialog renders a DialogHeader element
@@ -66,7 +69,7 @@ interface IDialogProps {
    * By omitting this consumers may use their own custom DialogHeader
    * for when the default component doesn't cut it.
    */
-  readonly title?: string | JSX.Element
+  readonly title?: string | React.JSX.Element
 
   /**
    * Typically, a titleId is automatically generated based on the title
@@ -83,7 +86,7 @@ interface IDialogProps {
    * This can be used to render additional controls that don't belong to the
    * heading element itself, but are still part of the header (visually).
    */
-  readonly renderHeaderAccessory?: () => JSX.Element
+  readonly renderHeaderAccessory?: () => React.JSX.Element
 
   /**
    * Whether or not the dialog should be dismissable by clicking on the
@@ -169,6 +172,9 @@ interface IDialogProps {
  * If role is alertdialog, ariaDescribedBy is required.
  */
 interface IAlertDialogProps extends IDialogProps {
+  /** Content rendered inside the component. */
+  readonly children?: React.ReactNode
+
   /** This is used to point to an element containing content pertinent to the
    * users workflow. This should be provided for dialogs that are alerts or
    * confirmations so that that the information that is interrupting the user's
@@ -251,7 +257,7 @@ interface IDialogState {
  */
 export class Dialog extends React.Component<DialogProps, IDialogState> {
   public static contextType = DialogStackContext
-  public declare context: React.ContextType<typeof DialogStackContext>
+  declare public context: React.ContextType<typeof DialogStackContext>
 
   private checkIsTopMostDialog = isTopMostDialog(
     () => {

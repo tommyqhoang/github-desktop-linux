@@ -1,12 +1,11 @@
 import { IAPIOrganization } from '../lib/api'
 
 export type RepositoryPublicationSettings =
-  | IEnterprisePublicationSettings
-  | IDotcomPublicationSettings
+  IEnterprisePublicationSettings | IDotcomPublicationSettings
 
 export enum PublishSettingsType {
-  'enterprise',
-  'dotcom',
+  enterprise,
+  dotcom,
 }
 
 export interface IEnterprisePublicationSettings {

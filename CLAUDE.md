@@ -13,7 +13,7 @@ and Git fixture repositories in `app/test/fixtures`.
 
 ## Build, Test, and Development Commands
 
-Use Yarn 1.x and Node 20.x, as described in `docs/contributing/setup.md`.
+Use Yarn 1.x and Node 22.x, as described in `docs/contributing/setup.md`.
 
 - `yarn` installs root and app dependencies.
 - `yarn build:dev` compiles a development build.
@@ -365,6 +365,18 @@ commit-message provider (OpenRouter, configured in Preferences).
   my changes") and a "Generate description (AI)" button in the open-PR dialog.
   GitHub Desktop's "Create PR" opens the browser, so the PR description result
   is Copy-to-paste rather than an in-app field.
+
+## Toolchain notes (Oct 2026 upgrade)
+
+- Stack: Node 22, Electron 44, React 19 (no `findDOMNode` — use `getVirtualizedElement` in
+  `app/src/ui/lib/list/` and `CSSTransitionContents` in `app/src/ui/lib/` for transitions),
+  TypeScript 6, Jest 30, Prettier 3, ESLint 9 flat config (`eslint.config.mjs`; project rules are
+  `desktop/*`). Components must declare `children` on their props explicitly.
+- Packages deliberately held back (TypeScript 7, `@babel/core` 8, `node-pty` 1.1, ESLint 10,
+  CodeMirror 6, ...) and the reason for each are listed in the project memory note
+  `deps-upgrade-2026-10`; check it before bumping them.
+- Electron's version is pinned in three places: root `package.json`, `app/.npmrc` (`target`, used to
+  rebuild native modules) and `script/validate-electron-version.ts`.
 
 ## Commit & Pull Request Guidelines
 

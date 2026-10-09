@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { Repository } from '../../models/repository'
-import { IRepoHealthSnapshot } from '../../lib/repo-health/types'
+import { IRepoHealth, IRepoHealthSnapshot } from '../../lib/repo-health/types'
 import { RepositorySectionTab } from '../../lib/app-state'
 import { RepoHealthRow } from './repo-health-row'
 
@@ -67,6 +67,8 @@ export class RepoHealthDashboard extends React.Component<
   public render() {
     const visible = this.applySortFilter()
     const summary = this.summarize()
+    const loaded = this.props.snapshot.statuses.size > 0
+    const refreshing = this.props.snapshot.refreshing.size > 0
     return (
       <div className="repo-health-dashboard">
         <div className="repo-health-dashboard__summary">
@@ -76,21 +78,31 @@ export class RepoHealthDashboard extends React.Component<
           />
           <SummaryStat
             label="Need attention"
-            value={summary.needAttention}
+            value={loaded ? summary.needAttention : null}
             tone={summary.needAttention > 0 ? 'warn' : 'ok'}
           />
-          <SummaryStat label="With open PRs" value={summary.withPRs} />
+          <SummaryStat
+            label="With open PRs"
+            value={loaded ? summary.withPRs : null}
+          />
           <SummaryStat
             label="Failing CI"
-            value={summary.failingCI}
+            value={loaded ? summary.failingCI : null}
             tone={summary.failingCI > 0 ? 'bad' : 'ok'}
           />
           <SummaryStat
             label="Behind remote"
-            value={summary.behindCount}
+            value={loaded ? summary.behindCount : null}
             tone={summary.behindCount > 0 ? 'warn' : 'ok'}
           />
           <span style={{ flex: 1 }} />
+          <span className="sr-only" role="status" aria-live="polite">
+            {refreshing
+              ? `Refreshing ${this.props.snapshot.refreshing.size} repositories`
+              : loaded
+                ? `${summary.needAttention} of ${this.props.repositories.length} repositories need attention`
+                : ''}
+          </span>
           {this.props.snapshot.lastRefreshAt !== null && (
             <span className="repo-health-dashboard__last-refresh">
               Last refresh: {formatTime(this.props.snapshot.lastRefreshAt)}
@@ -132,12 +144,10 @@ export class RepoHealthDashboard extends React.Component<
           </select>
           <button
             className="repo-health-dashboard__refresh"
-            onClick={this.props.onRefreshClick}
-            disabled={this.props.snapshot.refreshing.size > 0}
+            onClick={this.onRefreshClick}
+            aria-disabled={refreshing}
           >
-            {this.props.snapshot.refreshing.size > 0
-              ? 'Refreshing…'
-              : 'Refresh'}
+            {refreshing ? 'Refreshing…' : 'Refresh'}
           </button>
         </div>
         {visible.length === 0 ? (
@@ -162,6 +172,13 @@ export class RepoHealthDashboard extends React.Component<
         )}
       </div>
     )
+  }
+
+  private onRefreshClick = () => {
+    // aria-disabled (not disabled) keeps focus on the button while busy.
+    if (this.props.snapshot.refreshing.size === 0) {
+      this.props.onRefreshClick()
+    }
   }
 
   private onQueryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -218,18 +235,13 @@ export class RepoHealthDashboard extends React.Component<
       case 'all':
         return true
       case 'attention':
-        return (h?.attentionScore ?? 0) > 0
+        return (h?.attentionScore ?? 0) > 0 || !!h?.error
       case 'has-prs':
         return (h?.openPullRequestCount ?? 0) > 0
       case 'behind':
         return (h?.behindBy ?? 0) > 0
       case 'clean':
-        return (
-          (h?.uncommittedCount ?? 0) === 0 &&
-          (h?.aheadBy ?? 0) === 0 &&
-          (h?.behindBy ?? 0) === 0 &&
-          h?.defaultBranchStatus !== 'failure'
-        )
+        return isClean(h)
       default:
         return true
     }
@@ -243,7 +255,7 @@ export class RepoHealthDashboard extends React.Component<
     let cleanCount = 0
     for (const r of this.props.repositories) {
       const h = this.props.snapshot.statuses.get(r.id)
-      if ((h?.attentionScore ?? 0) > 0) {
+      if ((h?.attentionScore ?? 0) > 0 || !!h?.error) {
         needAttention++
       }
       if ((h?.openPullRequestCount ?? 0) > 0) {
@@ -255,17 +267,32 @@ export class RepoHealthDashboard extends React.Component<
       if ((h?.behindBy ?? 0) > 0) {
         behindCount++
       }
-      if (
-        (h?.uncommittedCount ?? 0) === 0 &&
-        (h?.aheadBy ?? 0) === 0 &&
-        (h?.behindBy ?? 0) === 0 &&
-        h?.defaultBranchStatus !== 'failure'
-      ) {
+      if (isClean(h)) {
         cleanCount++
       }
     }
     return { needAttention, withPRs, failingCI, behindCount, cleanCount }
   }
+}
+
+/**
+ * A repo is clean only when its snapshot loaded without error, every signal
+ * that decides cleanliness was readable, and nothing needs attention.
+ */
+export function isClean(h: IRepoHealth | undefined): boolean {
+  if (h === undefined || h.error) {
+    return false
+  }
+  const failed = h.failedSignals ?? []
+  if (failed.includes('changes') || failed.includes('aheadBehind')) {
+    return false
+  }
+  return (
+    h.uncommittedCount === 0 &&
+    h.aheadBy === 0 &&
+    h.behindBy === 0 &&
+    h.defaultBranchStatus !== 'failure'
+  )
 }
 
 function SummaryStat({
@@ -274,12 +301,18 @@ function SummaryStat({
   tone,
 }: {
   label: string
-  value: number
+  value: number | null
   tone?: 'ok' | 'warn' | 'bad'
 }) {
   return (
-    <div className={`repo-health-dashboard__stat tone-${tone ?? 'ok'}`}>
-      <span className="repo-health-dashboard__stat-value">{value}</span>
+    <div
+      className={`repo-health-dashboard__stat tone-${
+        value === null ? 'unknown' : (tone ?? 'ok')
+      }`}
+    >
+      <span className="repo-health-dashboard__stat-value">
+        {value === null ? '—' : value}
+      </span>
       <span className="repo-health-dashboard__stat-label">{label}</span>
     </div>
   )

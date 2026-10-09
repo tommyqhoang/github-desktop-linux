@@ -22,4 +22,5 @@ export const TERMINAL_IPC = {
   EXIT: 'terminal/exit',
 } as const
 
-export type TerminalIpcChannel = typeof TERMINAL_IPC[keyof typeof TERMINAL_IPC]
+export type TerminalIpcChannel =
+  (typeof TERMINAL_IPC)[keyof typeof TERMINAL_IPC]

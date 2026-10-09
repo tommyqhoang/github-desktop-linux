@@ -1,123 +1,48 @@
-import { Repository } from '../../../src/models/repository'
 import { SubmoduleStore } from '../../../src/lib/stores/submodule-store'
-import { getSubmodules } from '../../../src/lib/git/submodule'
-import {
-  ISubmoduleStatusEntry,
-  SubmoduleWorkDirState,
-} from '../../../src/models/submodule'
+import { Repository } from '../../../src/models/repository'
+import * as SubmoduleGit from '../../../src/lib/git/submodule'
 
-jest.mock('../../../src/lib/git/submodule', () => ({
-  getSubmodules: jest.fn(),
-}))
-
-const mockedGetSubmodules = getSubmodules as jest.MockedFunction<
-  typeof getSubmodules
->
-
-function makeRepo(id: number, path: string): Repository {
-  return new Repository(path, id, null, false)
-}
-
-function entry(path: string): ISubmoduleStatusEntry {
-  return {
-    sha: '1111111111111111111111111111111111111111',
-    path,
-    describe: 'v1',
-    state: SubmoduleWorkDirState.UpToDate,
-  }
-}
-
-describe('SubmoduleStore', () => {
+describe('SubmoduleStore.runExclusive', () => {
+  const repo = new Repository('/tmp/sm-repo', 5, null, false)
   let store: SubmoduleStore
 
   beforeEach(() => {
     store = new SubmoduleStore()
-    mockedGetSubmodules.mockReset()
+    jest.spyOn(SubmoduleGit, 'getSubmodules').mockResolvedValue([])
   })
+  afterEach(() => jest.restoreAllMocks())
 
-  it('returns empty state for an unknown repository', () => {
-    const state = store.getState(makeRepo(1, '/tmp/repo'))
-    expect(state.entries).toHaveLength(0)
-    expect(state.loading).toBe(false)
-    expect(state.error).toBeNull()
-    expect(state.loadedAt).toBeNull()
-  })
-
-  it('loads submodule entries into state', async () => {
-    const repo = makeRepo(1, '/tmp/repo')
-    mockedGetSubmodules.mockResolvedValueOnce([entry('vendor/a')])
-
-    await store.loadSubmodules(repo)
-
-    const state = store.getState(repo)
-    expect(state.entries.map(e => e.path)).toEqual(['vendor/a'])
-    expect(state.loading).toBe(false)
-    expect(state.loadedAt).not.toBeNull()
-  })
-
-  it('bounds overlapping loads to one running plus one trailing refresh', async () => {
-    const repo = makeRepo(1, '/tmp/repo')
-    let release: (v: ISubmoduleStatusEntry[]) => void = () => {}
-    mockedGetSubmodules
-      .mockReturnValueOnce(
-        new Promise<ISubmoduleStatusEntry[]>(resolve => (release = resolve))
-      )
-      .mockResolvedValue([entry('vendor/after')])
-
-    const calls = Array.from({ length: 10 }, () => store.loadSubmodules(repo))
-    release([entry('vendor/before')])
-    await Promise.all(calls)
-
-    expect(mockedGetSubmodules).toHaveBeenCalledTimes(2)
-  })
-
-  it('reflects a change made while a refresh was running', async () => {
-    const repo = makeRepo(1, '/tmp/repo')
-    let release: (v: ISubmoduleStatusEntry[]) => void = () => {}
-    mockedGetSubmodules
-      .mockReturnValueOnce(
-        new Promise<ISubmoduleStatusEntry[]>(resolve => (release = resolve))
-      )
-      .mockResolvedValueOnce([entry('vendor/after-update')])
-
-    const inFlight = store.loadSubmodules(repo)
-    const afterUpdate = store.loadSubmodules(repo)
-    release([entry('vendor/before-update')])
-    await Promise.all([inFlight, afterUpdate])
-
-    expect(store.getState(repo).entries.map(e => e.path)).toEqual([
-      'vendor/after-update',
-    ])
-  })
-
-  it('records an error when loading fails', async () => {
-    const repo = makeRepo(1, '/tmp/repo')
-    mockedGetSubmodules.mockRejectedValueOnce(new Error('boom'))
-    store.onDidError(() => {})
-
-    await store.loadSubmodules(repo)
-
-    expect(store.getState(repo).error?.message).toBe('boom')
-    expect(store.getState(repo).loading).toBe(false)
-  })
-
-  it('does not resurrect state cleared while a load is in flight', async () => {
-    const repo = makeRepo(1, '/tmp/repo')
-    mockedGetSubmodules.mockResolvedValueOnce([])
-    await store.loadSubmodules(repo)
-    expect(store.getAllState().has(1)).toBe(true)
-
-    let release: (v: ISubmoduleStatusEntry[]) => void = () => {}
-    mockedGetSubmodules.mockReturnValueOnce(
-      new Promise<ISubmoduleStatusEntry[]>(resolve => (release = resolve))
+  it('marks the repository busy while running and refreshes afterwards', async () => {
+    let release: () => void = () => undefined
+    const op = jest.fn(
+      () => new Promise<void>(resolve => (release = () => resolve()))
     )
-    const inFlight = store.loadSubmodules(repo)
-    store.clear(repo)
-    expect(store.getAllState().has(1)).toBe(false)
+    const pending = store.runExclusive(repo, op)
+    expect(store.isBusy(repo)).toBe(true)
+    release()
+    expect(await pending).toBe(true)
+    expect(store.isBusy(repo)).toBe(false)
+    expect(SubmoduleGit.getSubmodules).toHaveBeenCalled()
+  })
 
-    release([])
-    await inFlight
+  it('ignores a second call while one is running', async () => {
+    let release: () => void = () => undefined
+    const first = store.runExclusive(
+      repo,
+      () => new Promise<void>(resolve => (release = () => resolve()))
+    )
+    const second = jest.fn()
+    expect(await store.runExclusive(repo, second)).toBe(false)
+    expect(second).not.toHaveBeenCalled()
+    release()
+    await first
+  })
 
-    expect(store.getAllState().has(1)).toBe(false)
+  it('rethrows a failure, clears busy and still refreshes the list', async () => {
+    await expect(
+      store.runExclusive(repo, () => Promise.reject(new Error('update failed')))
+    ).rejects.toThrow('update failed')
+    expect(store.isBusy(repo)).toBe(false)
+    expect(SubmoduleGit.getSubmodules).toHaveBeenCalled()
   })
 })

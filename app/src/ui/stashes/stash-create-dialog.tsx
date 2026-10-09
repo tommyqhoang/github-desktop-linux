@@ -6,6 +6,7 @@ import { Row } from '../lib/row'
 import { TextBox } from '../lib/text-box'
 import { Checkbox, CheckboxValue } from '../lib/checkbox'
 import { OkCancelButtonGroup } from '../dialog/ok-cancel-button-group'
+import { StashOperationFailedError } from '../../lib/git/stash'
 
 interface IStashCreateDialogProps {
   readonly dispatcher: Dispatcher
@@ -69,8 +70,15 @@ export class StashCreateDialog extends React.Component<
           </Row>
           {this.state.error !== null && (
             <Row>
-              <span className="error">{this.state.error}</span>
+              <span className="error" role="alert">
+                {this.state.error}
+              </span>
             </Row>
+          )}
+          {submitDisabled && (
+            <span className="sr-only" role="status">
+              Enter a description to enable stashing.
+            </span>
           )}
         </DialogContent>
         <DialogFooter>
@@ -115,7 +123,12 @@ export class StashCreateDialog extends React.Component<
     } catch (err) {
       this.setState({
         creating: false,
-        error: err instanceof Error ? err.message : String(err),
+        error:
+          err instanceof StashOperationFailedError
+            ? 'Stashing failed. See the error message for details; your changes were left as they were.'
+            : err instanceof Error
+              ? err.message
+              : String(err),
       })
     }
   }

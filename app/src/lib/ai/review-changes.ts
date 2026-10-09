@@ -56,12 +56,15 @@ export function parseReviewFindings(
   } catch (e) {
     throw new Error('The AI provider returned an invalid review.')
   }
+  if (parsed === null || typeof parsed !== 'object') {
+    throw new Error('The AI provider returned an invalid review.')
+  }
 
   const list: any[] = Array.isArray(parsed)
     ? parsed
     : Array.isArray(parsed?.findings)
-    ? parsed.findings
-    : []
+      ? parsed.findings
+      : []
 
   const findings = new Array<IReviewFinding>()
   for (const entry of list) {

@@ -104,3 +104,35 @@ describe('WorkflowRunsStore', () => {
     expect(state.selectedWorkflowName).toBe('CI')
   })
 })
+
+describe('WorkflowRunsStore failure handling', () => {
+  const repo = new Repository('/tmp/repo', 9, null, false)
+
+  it('keeps previously loaded runs when a refresh fails', () => {
+    const store = new WorkflowRunsStore()
+    store.setRuns(repo.id, [makeRun()])
+    store.setError(repo.id, new Error('rate limited'))
+    const state = store.getState(repo)
+    expect(state.runs).toHaveLength(1)
+    expect(state.error?.message).toBe('rate limited')
+    expect(state.loading).toBe(false)
+  })
+
+  it('a successful load clears the error and unavailable reason', () => {
+    const store = new WorkflowRunsStore()
+    store.setUnavailable(repo.id, 'signed-out')
+    expect(store.getState(repo).unavailable).toBe('signed-out')
+    store.setRuns(repo.id, [makeRun()])
+    expect(store.getState(repo).unavailable).toBeNull()
+  })
+
+  it('clears the in-flight entry when a load rejects so the next call retries', async () => {
+    const store = new WorkflowRunsStore()
+    await expect(
+      store.coalesce(repo.id, () => Promise.reject(new Error('timed out')))
+    ).rejects.toThrow('timed out')
+    const load = jest.fn().mockResolvedValue(undefined)
+    await store.coalesce(repo.id, load)
+    expect(load).toHaveBeenCalledTimes(1)
+  })
+})

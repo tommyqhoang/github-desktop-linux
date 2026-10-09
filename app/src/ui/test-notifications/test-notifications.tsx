@@ -118,9 +118,10 @@ interface ITestNotificationsProps {
 }
 
 class TestNotificationItemRowContent extends React.Component<{
-  readonly leftAccessory?: JSX.Element
+  readonly leftAccessory?: React.JSX.Element
   readonly html_url?: string
   readonly dispatcher: Dispatcher
+  readonly children?: React.ReactNode
 }> {
   public render() {
     const { leftAccessory, html_url, children } = this.props
@@ -265,7 +266,7 @@ export class TestNotifications extends React.Component<
 
   private renderNotificationType = (
     type: TestNotificationType
-  ): JSX.Element => {
+  ): React.JSX.Element => {
     return (
       <Button onClick={this.getOnNotificationTypeClick(type)}>
         {this.getTypeFriendlyName(type)}
@@ -717,7 +718,7 @@ export class TestNotifications extends React.Component<
 
   private renderPullRequestStateIcon = (
     pullRequest: PullRequest
-  ): JSX.Element => {
+  ): React.JSX.Element => {
     return (
       <Octicon
         className={pullRequest.draft ? 'pr-draft-icon' : 'pr-icon'}

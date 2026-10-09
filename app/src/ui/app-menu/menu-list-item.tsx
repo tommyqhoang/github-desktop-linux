@@ -75,7 +75,7 @@ interface IMenuListItemProps {
    */
   readonly focusOnSelection?: boolean
 
-  readonly renderLabel?: (item: MenuItem) => JSX.Element | undefined
+  readonly renderLabel?: (item: MenuItem) => React.JSX.Element | undefined
 }
 
 /**
@@ -93,7 +93,7 @@ export function friendlyAcceleratorText(accelerator: string): string {
 export class MenuListItem extends React.Component<IMenuListItemProps, {}> {
   private wrapperRef = React.createRef<HTMLDivElement>()
 
-  private getIcon(item: MenuItem): JSX.Element | null {
+  private getIcon(item: MenuItem): React.JSX.Element | null {
     if (item.type === 'checkbox' && item.checked) {
       return <Octicon className="icon" symbol={octicons.check} />
     } else if (item.type === 'radio' && item.checked) {
@@ -178,8 +178,8 @@ export class MenuListItem extends React.Component<IMenuListItemProps, {}> {
     const role = this.props.hasNoRole
       ? undefined
       : type === 'checkbox'
-      ? 'menuitemradio'
-      : 'menuitem'
+        ? 'menuitemradio'
+        : 'menuitem'
     const ariaChecked = type === 'checkbox' ? item.checked : undefined
 
     return (

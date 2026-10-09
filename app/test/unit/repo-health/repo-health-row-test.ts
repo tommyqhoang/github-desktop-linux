@@ -165,4 +165,37 @@ describe('RepoHealthRow', () => {
     const tree: any = row.render()
     expect(dump(tree)).toContain('/path/only')
   })
+
+  it('renders failed signals as unknown instead of 0', () => {
+    const { row } = makeRow({
+      health: health({ failedSignals: ['prs'], openPullRequestCount: 0 }),
+    })
+    const text = dump(row.render())
+    expect(text).toContain('Some signals could not be read')
+  })
+
+  it('ignores Enter/Space that bubbles from a nested signal button', () => {
+    const { row, onClick } = makeRow()
+    const preventDefault = jest.fn()
+    ;(row as any).onKeyDown({
+      key: 'Enter',
+      target: {},
+      currentTarget: {},
+      preventDefault,
+    })
+    expect(onClick).not.toHaveBeenCalled()
+    const same = {}
+    ;(row as any).onKeyDown({
+      key: 'Enter',
+      target: same,
+      currentTarget: same,
+      preventDefault,
+    })
+    expect(onClick).toHaveBeenCalledTimes(1)
+  })
+
+  it('exposes the attention score as screen-reader text', () => {
+    const { row } = makeRow({ health: health({ attentionScore: 35 }) })
+    expect(dump(row.render())).toContain('Attention score 35, medium')
+  })
 })

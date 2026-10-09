@@ -272,7 +272,11 @@ textarea {
 
 .toolbar-button,
 .button-component {
-  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease,
+    box-shadow 120ms ease;
 }
 
 .button-component {
@@ -306,7 +310,10 @@ input[type='search'] {
   background: var(--app-surface);
   border-color: var(--app-border);
   color: var(--text-color);
-  transition: border-color 120ms ease, box-shadow 120ms ease, background-color 120ms ease;
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease,
+    background-color 120ms ease;
 }
 
 .text-box-component input::placeholder,
@@ -325,7 +332,9 @@ textarea::placeholder {
 }
 
 .list-item {
-  transition: background-color 100ms ease, color 100ms ease;
+  transition:
+    background-color 100ms ease,
+    color 100ms ease;
 }
 
 .file-list .list-item {

@@ -328,7 +328,7 @@ export class SelectedCommits extends React.Component<
     )
   }
 
-  private renderDragOverlay(): JSX.Element | null {
+  private renderDragOverlay(): React.JSX.Element | null {
     if (!this.props.showDragOverlay) {
       return null
     }
@@ -336,7 +336,7 @@ export class SelectedCommits extends React.Component<
     return <div id="drag-overlay-background"></div>
   }
 
-  private renderMultipleCommitsBlankSlate(): JSX.Element {
+  private renderMultipleCommitsBlankSlate(): React.JSX.Element {
     const BlankSlateImage = encodePathAsUrl(
       __dirname,
       'static/empty-no-commit.svg'

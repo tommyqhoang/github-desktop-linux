@@ -21,6 +21,6 @@ export function findContributionTargetDefaultBranch(
   { defaultBranch, upstreamDefaultBranch }: IBranchesState
 ): Branch | null {
   return isRepositoryWithGitHubRepository(repository)
-    ? upstreamDefaultBranch ?? defaultBranch
+    ? (upstreamDefaultBranch ?? defaultBranch)
     : defaultBranch
 }

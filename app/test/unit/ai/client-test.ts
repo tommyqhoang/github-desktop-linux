@@ -94,6 +94,31 @@ describe('createAIClient', () => {
   })
 })
 
+describe('createAIClient truncation', () => {
+  const run = (finish: string, allowTruncated?: boolean) => {
+    const fetcher = (async () =>
+      jsonResponse({
+        choices: [{ message: { content: '{"title"' }, finish_reason: finish }],
+      })) as unknown as typeof fetch
+    return createAIClient({ ...settings, fetcher }).complete(
+      [{ role: 'user', content: 'hi' }],
+      { allowTruncated }
+    )
+  }
+
+  it('reports a response cut off by max_tokens', async () => {
+    await expect(run('length')).rejects.toThrow(/cut off/)
+  })
+
+  it('accepts a cut-off response when the caller allows it', async () => {
+    await expect(run('length', true)).resolves.toBe('{"title"')
+  })
+
+  it('accepts a normal stop', async () => {
+    await expect(run('stop')).resolves.toBe('{"title"')
+  })
+})
+
 describe('createAIClient timeout and cancellation', () => {
   beforeEach(() => jest.useFakeTimers())
   afterEach(() => jest.useRealTimers())
@@ -136,7 +161,7 @@ describe('createAIClient timeout and cancellation', () => {
         ok: true,
         status: 200,
         json: async () => ({ choices: [{ message: { content: 'done' } }] }),
-      } as unknown as Response)) as unknown as typeof fetch
+      }) as unknown as Response) as unknown as typeof fetch
     const client = createAIClient({ ...settings, fetcher })
 
     const result = await client.complete([{ role: 'user', content: 'hi' }])
@@ -177,7 +202,7 @@ describe('createAIClient timeout and cancellation', () => {
         ok: true,
         status: 200,
         json: async () => ({ choices: [{ message: { content: 'ok' } }] }),
-      } as unknown as Response)) as unknown as typeof fetch
+      }) as unknown as Response) as unknown as typeof fetch
     const client = createAIClient({ ...settings, fetcher })
 
     await client.complete([{ role: 'user', content: 'hi' }])

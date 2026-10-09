@@ -38,14 +38,10 @@ import { ValidNotificationPullRequestReviewState } from '../valid-notification-p
 import { useExternalCredentialHelperKey } from '../trampoline/use-external-credential-helper'
 
 type PullRequestReviewStatFieldInfix =
-  | 'Approved'
-  | 'ChangesRequested'
-  | 'Commented'
+  'Approved' | 'ChangesRequested' | 'Commented'
 
 type PullRequestReviewStatFieldSuffix =
-  | 'NotificationCount'
-  | 'NotificationClicked'
-  | 'DialogSwitchToPullRequestCount'
+  'NotificationCount' | 'NotificationClicked' | 'DialogSwitchToPullRequestCount'
 
 type PullRequestReviewStatField =
   `pullRequestReview${PullRequestReviewStatFieldInfix}${PullRequestReviewStatFieldSuffix}`
@@ -238,9 +234,9 @@ const DefaultDailyMeasures: IDailyMeasures = {
 
 // A subtype of IDailyMeasures filtered to contain only its numeric properties
 type NumericMeasures = {
-  [P in keyof IDailyMeasures as IDailyMeasures[P] extends number
-    ? P
-    : never]: IDailyMeasures[P]
+  [
+    P in keyof IDailyMeasures as IDailyMeasures[P] extends number ? P : never
+  ]: IDailyMeasures[P]
 }
 
 interface IOnboardingStats {
@@ -1128,7 +1124,7 @@ export class StatsStore implements IStatsStore {
 
   public increment = (k: keyof NumericMeasures, n = 1) =>
     this.updateDailyMeasures(
-      m => ({ [k]: m[k] + n } as Pick<IDailyMeasures, keyof NumericMeasures>)
+      m => ({ [k]: m[k] + n }) as Pick<IDailyMeasures, keyof NumericMeasures>
     )
 
   /**

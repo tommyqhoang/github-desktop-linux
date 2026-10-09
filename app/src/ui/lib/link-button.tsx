@@ -5,6 +5,9 @@ import { Tooltip } from './tooltip'
 import { createObservableRef } from './observable-ref'
 
 interface ILinkButtonProps {
+  /** Content rendered inside the component. */
+  readonly children?: React.ReactNode
+
   /** A URI to open on click. */
   readonly uri?: string
 
@@ -52,7 +55,9 @@ export class LinkButton extends React.Component<ILinkButtonProps, {}> {
         ref={this.anchorRef}
         className={className}
         href={href}
+        // eslint-disable-next-line jsx-a11y/mouse-events-have-key-events
         onMouseOver={this.props.onMouseOver}
+        // eslint-disable-next-line jsx-a11y/mouse-events-have-key-events
         onMouseOut={this.props.onMouseOut}
         onClick={this.onClick}
         tabIndex={this.props.tabIndex}

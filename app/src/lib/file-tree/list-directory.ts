@@ -1,8 +1,10 @@
-import { readdir } from 'fs/promises'
+import { readdir, stat } from 'fs/promises'
+import { Dirent } from 'fs'
 import * as Path from 'path'
 import { git } from '../git/core'
 import { Repository } from '../../models/repository'
 import { FileTreeEntry } from '../../models/file-tree'
+import { isInsideRepository } from './read-file'
 
 /**
  * List the immediate children of a directory within the repository's working
@@ -20,16 +22,33 @@ export async function readWorkingDirectory(
   relativePath: string
 ): Promise<ReadonlyArray<FileTreeEntry>> {
   const absoluteDir = Path.join(repository.path, relativePath)
+
+  // A link to a directory outside the working tree must not be browsable.
+  if (
+    relativePath !== '' &&
+    !(await isInsideRepository(repository, absoluteDir))
+  ) {
+    throw new Error('This link points outside the repository')
+  }
+
   const dirents = await readdir(absoluteDir, { withFileTypes: true })
 
-  const candidates: FileTreeEntry[] = dirents
-    // Hide the repository's own git directory (root level only).
-    .filter(d => !(relativePath === '' && d.name === '.git'))
-    .map(d => ({
-      name: d.name,
-      path: relativePath === '' ? d.name : `${relativePath}/${d.name}`,
-      kind: d.isDirectory() ? ('directory' as const) : ('file' as const),
-    }))
+  const candidates: FileTreeEntry[] = await Promise.all(
+    dirents
+      // Hide the repository's own git directory (root level only).
+      .filter(d => !(relativePath === '' && d.name === '.git'))
+      .map(async d => ({
+        name: d.name,
+        path: relativePath === '' ? d.name : `${relativePath}/${d.name}`,
+        kind: (await isDirectoryEntry(
+          repository,
+          d,
+          Path.join(absoluteDir, d.name)
+        ))
+          ? ('directory' as const)
+          : ('file' as const),
+      }))
+  )
 
   const ignored = await getIgnoredPaths(
     repository,
@@ -37,6 +56,30 @@ export async function readWorkingDirectory(
   )
 
   return candidates.filter(c => !ignored.has(c.path)).sort(compareEntries)
+}
+
+/**
+ * Whether a directory entry is a directory. Symlinks are resolved with `stat`
+ * so a link to a directory inside the repository is browsable; broken links
+ * and links leaving the repository count as files.
+ */
+async function isDirectoryEntry(
+  repository: Repository,
+  dirent: Dirent,
+  absolutePath: string
+): Promise<boolean> {
+  if (!dirent.isSymbolicLink()) {
+    return dirent.isDirectory()
+  }
+  try {
+    // Links that leave the repository are listed as plain (unopenable) files
+    return (
+      (await stat(absolutePath)).isDirectory() &&
+      (await isInsideRepository(repository, absolutePath))
+    )
+  } catch {
+    return false
+  }
 }
 
 /** Sort directories before files, then case-insensitive by name. */

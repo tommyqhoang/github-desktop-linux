@@ -2,6 +2,9 @@ import * as React from 'react'
 import { createUniqueId, releaseUniqueId } from './id-pool'
 
 interface ISelectProps {
+  /** Content rendered inside the component. */
+  readonly children?: React.ReactNode
+
   /** The label for the select control. */
   readonly label?: string
 

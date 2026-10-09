@@ -2,6 +2,9 @@ import * as React from 'react'
 import classNames from 'classnames'
 
 interface IFocusContainerProps {
+  /** Content rendered inside the component. */
+  readonly children?: React.ReactNode
+
   readonly className?: string
   readonly role?: React.HTMLAttributes<HTMLElement>['role']
   readonly onClick?: (event: React.MouseEvent<HTMLDivElement>) => void

@@ -2,13 +2,7 @@ import { RepositorySectionTab } from '../app-state'
 
 /** Identifiers for the clickable signals on a repo-health card. */
 export type RepoHealthSignal =
-  | 'changes'
-  | 'ahead'
-  | 'behind'
-  | 'prs'
-  | 'ci'
-  | 'stale'
-  | 'last'
+  'changes' | 'ahead' | 'behind' | 'prs' | 'ci' | 'stale' | 'last'
 
 /**
  * Map a repo-health signal to the repository section a user most likely wants

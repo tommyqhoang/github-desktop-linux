@@ -19,7 +19,7 @@ interface IAuthenticationFormProps {
    * An array of additional buttons to render after the "Sign In" button.
    * (Usually, a 'cancel' button)
    */
-  readonly additionalButtons?: ReadonlyArray<JSX.Element>
+  readonly additionalButtons?: ReadonlyArray<React.JSX.Element>
 }
 
 /** The GitHub authentication component. */

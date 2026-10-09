@@ -4,6 +4,7 @@ import { StashListItem } from './stash-list-item'
 import { Button } from '../lib/button'
 import { Octicon } from '../octicons'
 import * as octicons from '../octicons/octicons.generated'
+import { ListLoadError } from '../lib/list-load-error'
 
 interface IStashListProps {
   readonly entries: ReadonlyArray<IStashEntry>
@@ -15,6 +16,9 @@ interface IStashListProps {
     e: React.MouseEvent<HTMLDivElement>
   ) => void
   readonly onCreateClick: () => void
+  /** The most recent load failure, if any. */
+  readonly error?: Error | null
+  readonly onRetry?: () => void
 }
 
 /**
@@ -32,12 +36,31 @@ export class StashList extends React.PureComponent<IStashListProps> {
           </Button>
         </div>
         {this.renderBody()}
+        {this.props.error != null && this.props.entries.length > 0 && (
+          <ListLoadError
+            className="stash-list__placeholder"
+            title="Couldn't refresh stashes"
+            error={this.props.error}
+            onRetry={this.props.onRetry}
+          />
+        )}
       </div>
     )
   }
 
   private renderBody() {
-    const { entries, loading, selectedSha } = this.props
+    const { entries, loading, selectedSha, error } = this.props
+
+    if (error != null && entries.length === 0) {
+      return (
+        <ListLoadError
+          className="stash-list__placeholder"
+          title="Couldn't load stashes"
+          error={error}
+          onRetry={this.props.onRetry}
+        />
+      )
+    }
 
     if (loading && entries.length === 0) {
       return (
@@ -57,7 +80,7 @@ export class StashList extends React.PureComponent<IStashListProps> {
     }
 
     return (
-      <div className="stash-list__items">
+      <div className="stash-list__items" aria-busy={loading}>
         {entries.map(entry => (
           <StashListItem
             key={entry.stashSha}

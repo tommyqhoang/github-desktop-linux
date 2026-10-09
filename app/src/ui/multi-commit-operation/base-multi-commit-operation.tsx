@@ -59,8 +59,8 @@ export abstract class BaseMultiCommitOperation extends React.Component<IMultiCom
   protected abstract onContinueAfterConflicts: () => Promise<void>
   protected abstract onAbort: () => Promise<void>
   protected abstract onConflictsDialogDismissed: () => void
-  protected abstract renderChooseBranch: () => JSX.Element | null
-  protected abstract renderCreateBranch: () => JSX.Element | null
+  protected abstract renderChooseBranch: () => React.JSX.Element | null
+  protected abstract renderCreateBranch: () => React.JSX.Element | null
 
   protected onFlowEnded = () => {
     this.props.dispatcher.closePopup(PopupType.MultiCommitOperation)

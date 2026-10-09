@@ -1,6 +1,6 @@
 import * as Path from 'path'
 
-import { git } from './core'
+import { git, GitError } from './core'
 import { Repository } from '../../models/repository'
 import {
   ISubmoduleStatusEntry,
@@ -110,6 +110,15 @@ export function parseSubmoduleStatus(
 }
 
 /**
+ * True when `git submodule status` failed only because the directory has no
+ * submodule context at all (not a work tree / no .gitmodules), which is
+ * equivalent to having no submodules.
+ */
+export function isNoSubmoduleContextError(stderr: string): boolean {
+  return /not a git repository|must be run in a work tree/i.test(stderr)
+}
+
+/**
  * Enumerate the repository's submodules with their working-directory state.
  * Unlike `listSubmodules`, this surfaces the init/out-of-date/conflicted flag
  * so the UI can act on it.
@@ -117,15 +126,19 @@ export function parseSubmoduleStatus(
 export async function getSubmodules(
   repository: Repository
 ): Promise<ReadonlyArray<ISubmoduleStatusEntry>> {
-  const { stdout, exitCode } = await git(
-    ['submodule', 'status', '--'],
-    repository.path,
-    'getSubmodules',
-    { successExitCodes: new Set([0, 128]) }
-  )
+  const args = ['submodule', 'status', '--']
+  const result = await git(args, repository.path, 'getSubmodules', {
+    successExitCodes: new Set([0, 128]),
+  })
+  const { stdout, exitCode } = result
 
   if (exitCode === 128) {
-    return []
+    if (isNoSubmoduleContextError(result.stderr)) {
+      return []
+    }
+    // Anything else (e.g. a corrupt or unreadable .gitmodules) is a real
+    // failure; don't present it as "no submodules".
+    throw new GitError(result, args)
   }
 
   return parseSubmoduleStatus(stdout)

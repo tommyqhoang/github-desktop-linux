@@ -21,7 +21,8 @@ import {
 } from '../autocompletion'
 import { ClickSource } from '../lib/list'
 import { WorkingDirectoryFileChange } from '../../models/status'
-import { TransitionGroup, CSSTransition } from 'react-transition-group'
+import { TransitionGroup } from 'react-transition-group'
+import { CSSTransitionContents } from '../lib/css-transition-contents'
 import { openFile } from '../lib/open-file'
 import { Account } from '../../models/account'
 import { PopupType } from '../../models/popup'
@@ -322,7 +323,7 @@ export class ChangesSidebar extends React.Component<IChangesSidebarProps, {}> {
 
   private renderMostRecentLocalCommit() {
     const commit = this.props.mostRecentLocalCommit
-    let child: JSX.Element | null = null
+    let child: React.JSX.Element | null = null
 
     // We don't allow undoing commits that have tags associated to them, since then
     // the commit won't be completely deleted because the tag will still point to it.
@@ -333,7 +334,7 @@ export class ChangesSidebar extends React.Component<IChangesSidebarProps, {}> {
       this.props.commitToAmend === null
     ) {
       child = (
-        <CSSTransition
+        <CSSTransitionContents
           classNames="undo"
           appear={true}
           timeout={UndoCommitAnimationTimeout}
@@ -345,7 +346,7 @@ export class ChangesSidebar extends React.Component<IChangesSidebarProps, {}> {
             emoji={this.props.emoji}
             isCommitting={this.props.isCommitting}
           />
-        </CSSTransition>
+        </CSSTransitionContents>
       )
     }
 
@@ -354,7 +355,7 @@ export class ChangesSidebar extends React.Component<IChangesSidebarProps, {}> {
 
   private renderUndoCommit = (
     rebaseConflictState: RebaseConflictState | null
-  ): JSX.Element | null => {
+  ): React.JSX.Element | null => {
     if (rebaseConflictState !== null) {
       return null
     }

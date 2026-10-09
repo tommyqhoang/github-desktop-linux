@@ -365,7 +365,9 @@ export class ExpandableCommitSummary extends React.Component<
       // eslint-disable-next-line jsx-a11y/mouse-events-have-key-events
       <div
         className="commit-unreachable-info"
+        // eslint-disable-next-line jsx-a11y/mouse-events-have-key-events
         onMouseOver={this.onHighlightShasNotInDiff}
+        // eslint-disable-next-line jsx-a11y/mouse-events-have-key-events
         onMouseOut={this.onRemoveHighlightOfShas}
       >
         <Octicon symbol={octicons.info} />
@@ -377,7 +379,7 @@ export class ExpandableCommitSummary extends React.Component<
     )
   }
 
-  private renderExpandedAuthor(user: IAvatarUser): string | JSX.Element {
+  private renderExpandedAuthor(user: IAvatarUser): string | React.JSX.Element {
     if (!user) {
       return 'Unknown user'
     }

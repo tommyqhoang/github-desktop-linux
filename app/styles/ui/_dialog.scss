@@ -118,7 +118,9 @@ dialog {
     &-exit-active {
       opacity: 0.01;
       transform: scale(0.25);
-      transition: opacity 100ms ease-in, transform 100ms var(--easing-ease-in-back);
+      transition:
+        opacity 100ms ease-in,
+        transform 100ms var(--easing-ease-in-back);
 
       &::backdrop {
         opacity: 0.01;

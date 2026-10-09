@@ -12,6 +12,9 @@ export enum InputDescriptionType {
 }
 
 export interface IBaseInputDescriptionProps {
+  /** Content rendered inside the component. */
+  readonly children?: React.ReactNode
+
   /** The ID for description. This ID needs be linked to the associated input
    * using the `aria-describedby` attribute for screen reader users. */
   readonly id: string
@@ -35,6 +38,9 @@ export interface IBaseInputDescriptionProps {
 }
 
 export interface IInputDescriptionProps extends IBaseInputDescriptionProps {
+  /** Content rendered inside the component. */
+  readonly children?: React.ReactNode
+
   /** Whether the description is a caption, a warning, or an error.
    *
    * Captions are styled with a muted color and are used to provide additional information about the input.

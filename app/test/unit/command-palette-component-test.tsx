@@ -66,3 +66,102 @@ describe('CommandPalette', () => {
     expect(render(palette).toLowerCase()).toContain('no commands')
   })
 })
+
+describe('CommandPalette combobox accessibility', () => {
+  it('exposes combobox semantics wired to the listbox and active option', () => {
+    const html = render(makePalette())
+    expect(html).toContain('role="combobox"')
+    expect(html).toContain('aria-expanded="true"')
+    expect(html).toContain('aria-controls="command-palette-listbox"')
+    expect(html).toContain('aria-activedescendant="command-palette-option-0"')
+    expect(html).toContain('id="command-palette-listbox"')
+    expect(html).toContain('id="command-palette-option-2"')
+  })
+
+  it('announces the result count and the empty state in a live region', () => {
+    expect(render(makePalette())).toContain('3 commands available')
+    const palette = makePalette()
+    ;(palette as any).state = { query: 'zzzznomatch', selectedIndex: 0 }
+    const html = render(palette)
+    expect(html).toContain('aria-live="polite"')
+    expect(html).toContain('No commands found')
+    expect(html).toContain('aria-expanded="false"')
+  })
+
+  it('moves the selection with Home/End/PageDown/PageUp', () => {
+    const palette = makePalette()
+    const press = (key: string, extra: any = {}) =>
+      (palette as any).onKeyDown({ key, preventDefault: jest.fn(), ...extra })
+    ;(palette as any).state = { query: '', selectedIndex: 0, error: null }
+    press('End')
+    expect((palette as any).state.selectedIndex).toBe(2)
+    press('Home')
+    expect((palette as any).state.selectedIndex).toBe(0)
+    press('PageDown')
+    expect((palette as any).state.selectedIndex).toBe(2)
+    press('PageUp')
+    expect((palette as any).state.selectedIndex).toBe(0)
+  })
+
+  it('leaves Home/End to the caret when there is a query', () => {
+    const palette = makePalette()
+    ;(palette as any).state = { query: 'p', selectedIndex: 0, error: null }
+    const preventDefault = jest.fn()
+    ;(palette as any).onKeyDown({ key: 'End', preventDefault })
+    expect(preventDefault).not.toHaveBeenCalled()
+  })
+
+  it('keeps the palette open and shows an alert when an action throws', () => {
+    const its: ICommandPaletteItem[] = [
+      {
+        id: 'boom',
+        title: 'Boom',
+        action: () => {
+          throw new Error('kaput')
+        },
+      },
+    ]
+    const onDismissed = jest.fn()
+    const palette = new CommandPalette({ items: its, onDismissed })
+    ;(palette as any).setState = function (p: any) {
+      this.state = { ...this.state, ...p }
+    }
+    ;(palette as any).activateSelected()
+    expect(onDismissed).not.toHaveBeenCalled()
+    const html = render(palette)
+    expect(html).toContain('role="alert"')
+    expect(html).toContain('Could not run')
+    expect(html).toContain('Boom')
+    expect(html).toContain('kaput')
+  })
+
+  it('handles async rejections instead of leaving them unhandled', async () => {
+    const its: ICommandPaletteItem[] = [
+      {
+        id: 'later',
+        title: 'Later',
+        action: (() => Promise.reject(new Error('nope'))) as any,
+      },
+    ]
+    const onDismissed = jest.fn()
+    const palette = new CommandPalette({ items: its, onDismissed })
+    ;(palette as any).setState = function (p: any) {
+      this.state = { ...this.state, ...p }
+    }
+    ;(palette as any).activateSelected()
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(onDismissed).not.toHaveBeenCalled()
+    expect(render(palette)).toContain('nope')
+  })
+
+  it('dismisses after an async action resolves', async () => {
+    const its: ICommandPaletteItem[] = [
+      { id: 'ok', title: 'Ok', action: (() => Promise.resolve()) as any },
+    ]
+    const onDismissed = jest.fn()
+    const palette = new CommandPalette({ items: its, onDismissed })
+    ;(palette as any).activateSelected()
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(onDismissed).toHaveBeenCalledTimes(1)
+  })
+})

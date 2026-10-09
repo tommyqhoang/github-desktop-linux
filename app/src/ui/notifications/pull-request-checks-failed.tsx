@@ -108,7 +108,9 @@ export class PullRequestChecksFailed extends React.Component<
           </div>
           <span className="pr-title">
             {pullRequest.title}{' '}
-            <span className="pr-number">#{pullRequest.pullRequestNumber}</span>{' '}
+            <span className="pr-number">
+              #{pullRequest.pullRequestNumber}
+            </span>{' '}
           </span>
         </div>
       </div>
@@ -237,7 +239,7 @@ export class PullRequestChecksFailed extends React.Component<
     )
   }
 
-  private renderCheckRunStepsLoading(): JSX.Element {
+  private renderCheckRunStepsLoading(): React.JSX.Element {
     return (
       <div className="loading-check-runs">
         <img src={BlankSlateImage} className="blankslate-image" alt="" />

@@ -100,7 +100,7 @@ interface IBranchListProps {
   readonly renderBranch: (
     item: IBranchListItem,
     matches: IMatches
-  ) => JSX.Element
+  ) => React.JSX.Element
 
   /**
    * Callback to fire when the items in the filter list are updated
@@ -111,10 +111,10 @@ interface IBranchListProps {
   readonly hideFilterRow?: boolean
 
   /** Called to render content before/above the branches filter and list. */
-  readonly renderPreList?: () => JSX.Element | null
+  readonly renderPreList?: () => React.JSX.Element | null
 
   /** Optional: No branches message */
-  readonly noBranchesMessage?: string | JSX.Element
+  readonly noBranchesMessage?: string | React.JSX.Element
 
   /** Optional: Callback for if rename context menu should exist */
   readonly onRenameBranch?: (branchName: string) => void

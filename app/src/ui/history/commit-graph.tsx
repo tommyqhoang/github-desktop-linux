@@ -15,7 +15,11 @@ const DEFAULT_LANE_WIDTH = 14
 const DEFAULT_ROW_HEIGHT = 50
 const NODE_RADIUS = 3.5
 
-/** Stable palette so each lane keeps a consistent colour down the graph. */
+/**
+ * Stable palette so each lane keeps a consistent colour down the graph.
+ * Resolved through theme-aware CSS variables (`--commit-graph-lane-N`, defined
+ * for light and dark themes); the hex fallbacks cover the light theme.
+ */
 const COLORS = [
   '#0969da',
   '#1a7f37',
@@ -27,7 +31,8 @@ const COLORS = [
 ]
 
 function colorFor(index: number): string {
-  return COLORS[((index % COLORS.length) + COLORS.length) % COLORS.length]
+  const i = ((index % COLORS.length) + COLORS.length) % COLORS.length
+  return `var(--commit-graph-lane-${i}, ${COLORS[i]})`
 }
 
 /**
@@ -66,7 +71,7 @@ export class CommitGraph extends React.PureComponent<ICommitGraphProps> {
             y1={y(s.y1)}
             x2={x(s.x2)}
             y2={y(s.y2)}
-            stroke={colorFor(s.color)}
+            style={{ stroke: colorFor(s.color) }}
             strokeWidth={1.5}
             fill="none"
           />
@@ -75,7 +80,7 @@ export class CommitGraph extends React.PureComponent<ICommitGraphProps> {
           cx={x(row.column)}
           cy={y(0.5)}
           r={NODE_RADIUS}
-          fill={colorFor(row.column)}
+          style={{ fill: colorFor(row.column) }}
         />
       </svg>
     )

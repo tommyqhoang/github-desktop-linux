@@ -20,5 +20,4 @@ type CheckoutBranchErrorContext = {
 
 /** A custom shape of data for actions to provide to help with error handling */
 export type GitErrorContext =
-  | MergeOrPullConflictsErrorContext
-  | CheckoutBranchErrorContext
+  MergeOrPullConflictsErrorContext | CheckoutBranchErrorContext

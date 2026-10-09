@@ -94,26 +94,39 @@ export class RepoHealthStore extends BaseStore {
 
     const controller = new AbortController()
     const reposCopy = repos.slice()
+    // Publish each repo's snapshot as soon as it completes so the dashboard
+    // fills in progressively and each row stops showing "refreshing".
+    const onResult = (r: IRepoHealth) => {
+      if (controller.signal.aborted) {
+        return
+      }
+      this.storeResult(r)
+      this.refreshing.delete(r.repositoryId)
+      this.emitUpdate()
+    }
     const promise = (async () => {
       try {
-        const results = await collectMany(
+        await collectMany(
           reposCopy,
           this.options.collectorOptions,
           this.options.concurrency ?? 4,
-          controller.signal
+          controller.signal,
+          onResult
         )
         if (controller.signal.aborted) {
           return
         }
-        for (const r of results) {
-          this.storeResult(r)
-        }
         this.lastRefreshAt = (this.options.now ?? Date.now)()
       } finally {
-        for (const id of requestedIds) {
-          this.refreshing.delete(id)
+        // A cleared (aborted) run must not touch state a newer run now owns.
+        if (!controller.signal.aborted) {
+          for (const id of requestedIds) {
+            this.refreshing.delete(id)
+          }
         }
-        this.inFlight = null
+        if (this.inFlight?.controller === controller) {
+          this.inFlight = null
+        }
         this.emitUpdate()
       }
     })()
@@ -147,7 +160,9 @@ export class RepoHealthStore extends BaseStore {
       // refresh and leave every other repo showing stale data.
     } finally {
       this.singleControllers.delete(controller)
-      this.refreshing.delete(repo.id)
+      if (!controller.signal.aborted) {
+        this.refreshing.delete(repo.id)
+      }
       this.emitUpdate()
     }
   }
@@ -189,6 +204,7 @@ export class RepoHealthStore extends BaseStore {
       } catch {
         // Some Node/Electron versions throw on double-abort; ignore.
       }
+      this.inFlight = null
     }
     for (const ctrl of this.singleControllers) {
       try {

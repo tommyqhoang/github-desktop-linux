@@ -461,6 +461,8 @@ export function getDescriptionForError(
       return 'Unable to merge unrelated histories in this repository.'
     case DugiteError.PushWithPrivateEmail:
       return 'Cannot push these commits as they contain an email address marked as private on GitHub. To push anyway, visit https://github.com/settings/emails, uncheck "Keep my email address private", then switch back to GitHub Desktop to push your commits. You can then enable the setting again.'
+    case DugiteError.PushWithSecretDetected:
+      return 'GitHub push protection blocked this push because one or more commits contain a secret. Remove the secret from the commits (and rotate it, since it has been exposed locally) or follow the link in the push output to review and allow it, then push again.'
     case DugiteError.LFSAttributeDoesNotMatch:
       return 'Git LFS attribute found in global Git configuration does not match expected value.'
     case DugiteError.ProtectedBranchDeleteRejected:

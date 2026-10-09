@@ -3,11 +3,14 @@ import { Octicon, syncClockwise } from '../octicons'
 import * as octicons from '../octicons/octicons.generated'
 
 interface IDialogHeaderProps {
+  /** Content rendered inside the component. */
+  readonly children?: React.ReactNode
+
   /**
    * The dialog title text. Will be rendered top and center in a dialog.
    * You can also pass JSX for custom styling
    */
-  readonly title: string | JSX.Element
+  readonly title: string | React.JSX.Element
 
   /**
    * An optional id for the h1 element that contains the title of this
@@ -24,7 +27,7 @@ interface IDialogHeaderProps {
    * This can be used to render additional controls that don't belong to the
    * heading element itself, but are still part of the header (visually).
    */
-  readonly renderAccessory?: () => JSX.Element
+  readonly renderAccessory?: () => React.JSX.Element
 
   /**
    * Event triggered when the dialog is dismissed by the user.

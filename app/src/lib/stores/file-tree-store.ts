@@ -2,6 +2,7 @@ import { BaseStore } from './base-store'
 import { Repository } from '../../models/repository'
 import { FileTreeEntry } from '../../models/file-tree'
 import { readWorkingDirectory } from '../file-tree/list-directory'
+import { SingleFlight } from '../single-flight'
 
 /** Per-repository cache of expanded folders, their children, and open tabs. */
 export interface IRepoFileTreeState {
@@ -39,8 +40,14 @@ const EMPTY_STATE: IRepoFileTreeState = Object.freeze({
 /** Cache of working-tree structure by repository id. */
 export class FileTreeStore extends BaseStore {
   private state: Map<number, IRepoFileTreeState> = new Map()
-  /** In-flight directory loads keyed by `${repositoryId}:${path}`. */
-  private readonly inFlight = new Set<string>()
+  /**
+   * Directory loads keyed by `${repositoryId}:${path}`. A call arriving while
+   * a load is running queues one trailing reload, so a refresh after a
+   * rename/delete never resolves with a listing that predates the mutation.
+   */
+  private readonly loads = new SingleFlight<string, void>()
+  /** Initial-expand loads, shared between concurrent expand() calls. */
+  private readonly expanding = new Map<string, Promise<void>>()
 
   /** Cached state for a repository, or an empty state if not loaded. */
   public getState(repository: Repository): IRepoFileTreeState {
@@ -74,7 +81,17 @@ export class FileTreeStore extends BaseStore {
     this.update(repository.id, current, { expandedPaths })
 
     if (!current.childrenByPath.has(path)) {
-      await this.loadDirectory(repository, path)
+      // Concurrent expands of the same uncached folder share one load (unlike
+      // refreshes, which deliberately queue a trailing reload).
+      const key = `${repository.id}:${path}`
+      let pending = this.expanding.get(key)
+      if (pending === undefined) {
+        pending = this.loadDirectory(repository, path).finally(() =>
+          this.expanding.delete(key)
+        )
+        this.expanding.set(key, pending)
+      }
+      await pending
     }
   }
 
@@ -254,7 +271,7 @@ export class FileTreeStore extends BaseStore {
       openFilePaths.includes(current.activeFilePath)
     const activeFilePath = stillActive
       ? current.activeFilePath
-      : openFilePaths[0] ?? null
+      : (openFilePaths[0] ?? null)
 
     this.update(repository.id, current, { openFilePaths, activeFilePath })
   }
@@ -290,8 +307,8 @@ export class FileTreeStore extends BaseStore {
       p === oldPath
         ? newPath
         : p.startsWith(prefix)
-        ? newPath + p.slice(oldPath.length)
-        : p
+          ? newPath + p.slice(oldPath.length)
+          : p
 
     const openFilePaths = current.openFilePaths.map(rewrite)
     const activeFilePath =
@@ -334,16 +351,16 @@ export class FileTreeStore extends BaseStore {
     this.emitUpdate()
   }
 
-  private async loadDirectory(
+  private loadDirectory(repository: Repository, path: string): Promise<void> {
+    return this.loads.run(`${repository.id}:${path}`, () =>
+      this.runLoadDirectory(repository, path)
+    )
+  }
+
+  private async runLoadDirectory(
     repository: Repository,
     path: string
   ): Promise<void> {
-    const key = `${repository.id}:${path}`
-    if (this.inFlight.has(key)) {
-      return
-    }
-    this.inFlight.add(key)
-
     const current = this.state.get(repository.id) ?? EMPTY_STATE
     const loadingPaths = new Set(current.loadingPaths)
     loadingPaths.add(path)
@@ -375,14 +392,56 @@ export class FileTreeStore extends BaseStore {
         this.emitError(error)
         return
       }
+      // A non-root directory that no longer exists (deleted, renamed, or the
+      // branch changed) is simply gone: forget it quietly instead of popping
+      // an error dialog on every refresh.
+      if (path !== '' && isMissingDirectoryError(e)) {
+        this.forgetPath(repository, path)
+        return
+      }
       const next = this.state.get(repository.id) ?? EMPTY_STATE
       const nextLoading = new Set(next.loadingPaths)
       nextLoading.delete(path)
       this.update(repository.id, next, { loadingPaths: nextLoading, error })
       this.emitError(error)
-    } finally {
-      this.inFlight.delete(key)
     }
+  }
+
+  /**
+   * Drop `path` and everything beneath it from the expanded/children/loading
+   * bookkeeping and close any tabs for files that lived under it.
+   */
+  private forgetPath(repository: Repository, path: string): void {
+    const current = this.state.get(repository.id) ?? EMPTY_STATE
+    const prefix = `${path}/`
+    const under = (p: string) => p === path || p.startsWith(prefix)
+
+    const expandedPaths = new Set(
+      [...current.expandedPaths].filter(p => !under(p))
+    )
+    const childrenByPath = new Map(
+      [...current.childrenByPath].filter(([p]) => !under(p))
+    )
+    const loadingPaths = new Set(
+      [...current.loadingPaths].filter(p => !under(p))
+    )
+    const openFilePaths = current.openFilePaths.filter(p => !under(p))
+    const activeFilePath =
+      current.activeFilePath !== null && under(current.activeFilePath)
+        ? (openFilePaths[0] ?? null)
+        : current.activeFilePath
+
+    this.update(repository.id, current, {
+      expandedPaths,
+      childrenByPath,
+      loadingPaths,
+      openFilePaths,
+      activeFilePath,
+      renamingPath:
+        current.renamingPath !== null && under(current.renamingPath)
+          ? null
+          : current.renamingPath,
+    })
   }
 
   private update(
@@ -393,4 +452,9 @@ export class FileTreeStore extends BaseStore {
     this.state.set(repositoryId, { ...current, ...partial })
     this.emitUpdate()
   }
+}
+
+function isMissingDirectoryError(e: unknown): boolean {
+  const code = (e as NodeJS.ErrnoException | null)?.code
+  return code === 'ENOENT' || code === 'ENOTDIR'
 }

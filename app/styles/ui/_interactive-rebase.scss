@@ -85,4 +85,26 @@
     font-size: var(--font-size-sm);
     color: var(--color-deleted, #cf222e);
   }
+
+  .interactive-rebase-move {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary-color);
+    cursor: pointer;
+
+    &:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+  }
+
+  .interactive-rebase-drop-marker {
+    flex-shrink: 0;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-secondary-color);
+  }
 }

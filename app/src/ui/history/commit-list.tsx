@@ -65,7 +65,7 @@ interface ICommitListProps {
   readonly localCommitSHAs: ReadonlyArray<string>
 
   /** The message to display inside the list when no results are displayed */
-  readonly emptyListMessage?: JSX.Element | string
+  readonly emptyListMessage?: React.JSX.Element | string
 
   /** Data to be reordered via keyboard */
   readonly keyboardReorderData?: KeyboardInsertionData
@@ -612,7 +612,7 @@ export class CommitList extends React.Component<
 
   private renderKeyboardInsertionElement = (
     data: KeyboardInsertionData
-  ): JSX.Element | null => {
+  ): React.JSX.Element | null => {
     const { emoji, gitHubRepository } = this.props
     const { commits } = data
 

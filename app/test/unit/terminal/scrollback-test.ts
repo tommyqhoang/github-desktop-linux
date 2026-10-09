@@ -137,14 +137,16 @@ describe('terminal/scrollback', () => {
     it('retries with a smaller tail when the quota rejects the write', () => {
       const real = Storage.prototype.setItem
       const limit = MAX_SCROLLBACK_CHARS / 2
-      jest
-        .spyOn(Storage.prototype, 'setItem')
-        .mockImplementation(function (this: Storage, k: string, v: string) {
-          if (v.length > limit) {
-            throw new DOMException('quota', 'QuotaExceededError')
-          }
-          return real.call(this, k, v)
-        })
+      jest.spyOn(Storage.prototype, 'setItem').mockImplementation(function (
+        this: Storage,
+        k: string,
+        v: string
+      ) {
+        if (v.length > limit) {
+          throw new DOMException('quota', 'QuotaExceededError')
+        }
+        return real.call(this, k, v)
+      })
 
       saveTerminalScrollback('quota', 'line\r\n'.repeat(MAX_SCROLLBACK_CHARS))
 

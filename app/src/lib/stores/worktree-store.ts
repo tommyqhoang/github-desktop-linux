@@ -24,6 +24,29 @@ const EMPTY_STATE: IRepoWorktreeState = Object.freeze({
   loadedAt: null,
 })
 
+/** Max `git status` processes run at once when counting worktree changes. */
+export const WorktreeStatusConcurrency = 4
+
+/** Map `items` through `fn` with at most `limit` calls in flight, in order. */
+export async function mapWithConcurrency<T, R>(
+  items: ReadonlyArray<T>,
+  limit: number,
+  fn: (item: T) => Promise<R>
+): Promise<ReadonlyArray<R>> {
+  const results = new Array<R>(items.length)
+  let next = 0
+  const worker = async () => {
+    while (next < items.length) {
+      const index = next++
+      results[index] = await fn(items[index])
+    }
+  }
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, () => worker())
+  )
+  return results
+}
+
 /**
  * Cache of worktree entries by repository id.
  */
@@ -67,11 +90,13 @@ export class WorktreeStore extends BaseStore {
       const linked = worktrees.filter(
         wt => wt?.path != null && Path.resolve(wt.path) !== repositoryPath
       )
-      const entries: ReadonlyArray<IWorktreeEntry> = await Promise.all(
-        linked.map(async wt => ({
+      const entries = await mapWithConcurrency(
+        linked,
+        WorktreeStatusConcurrency,
+        async (wt): Promise<IWorktreeEntry> => ({
           ...wt,
           changesCount: await getWorktreeStatusCount(wt.path),
-        }))
+        })
       )
 
       // The store may have been cleared (e.g., user removed the repo)

@@ -32,6 +32,12 @@ export interface ITerminalState {
    * cannot yank the panel onto the freshly-spawned (background) session.
    */
   readonly selectedRepoId: number | null
+  /**
+   * Repositories with a shell spawn currently in flight. Lets the panel show
+   * "Starting shell…" instead of the empty state, and lets the app-store
+   * refuse duplicate spawns from a double Ctrl+` / double click.
+   */
+  readonly spawningRepoIds?: ReadonlySet<number>
 }
 
 const HEIGHT_KEY = 'terminal-panel-height'
@@ -82,6 +88,30 @@ export class TerminalStore extends BaseStore {
 
   public getState(): ITerminalState {
     return this.state
+  }
+
+  /**
+   * Mark a spawn as in flight for the repo. Returns false (and changes
+   * nothing) if one is already pending, so callers can drop duplicates.
+   */
+  public beginSpawn(repositoryId: number): boolean {
+    const current = this.state.spawningRepoIds ?? new Set<number>()
+    if (current.has(repositoryId)) {
+      return false
+    }
+    this.update({ spawningRepoIds: new Set(current).add(repositoryId) })
+    return true
+  }
+
+  /** Clear the in-flight marker set by `beginSpawn`. */
+  public endSpawn(repositoryId: number): void {
+    const current = this.state.spawningRepoIds
+    if (current === undefined || !current.has(repositoryId)) {
+      return
+    }
+    const next = new Set(current)
+    next.delete(repositoryId)
+    this.update({ spawningRepoIds: next })
   }
 
   /** Toggle the panel's visibility. Persists the new value. */

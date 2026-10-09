@@ -17,7 +17,7 @@ export interface ISegmentedItem<T extends Key> {
    * An optional description which explains the consequences of
    * selecting this item.
    */
-  readonly description?: string | JSX.Element
+  readonly description?: string | React.JSX.Element
 
   /**
    * The key to use for that item. This key will be passed as

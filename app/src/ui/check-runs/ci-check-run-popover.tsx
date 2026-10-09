@@ -222,7 +222,7 @@ export class CICheckRunPopover extends React.PureComponent<
     )
   }
 
-  private renderCheckRunLoadings(): JSX.Element {
+  private renderCheckRunLoadings(): React.JSX.Element {
     return (
       <div className="loading-check-runs">
         <img src={BlankSlateImage} className="blankslate-image" alt="" />
@@ -237,7 +237,7 @@ export class CICheckRunPopover extends React.PureComponent<
     allFailure: boolean,
     loading: boolean,
     checkRuns: ReadonlyArray<IRefCheck>
-  ): JSX.Element {
+  ): React.JSX.Element {
     if (loading) {
       return <Octicon symbol={syncClockwise} className="spin" />
     }
@@ -276,7 +276,7 @@ export class CICheckRunPopover extends React.PureComponent<
     allFailure: boolean,
     somePendingNoFailures: boolean,
     loading: boolean
-  ): JSX.Element {
+  ): React.JSX.Element {
     switch (true) {
       case loading:
         return <>Checks Summary</>
@@ -293,7 +293,7 @@ export class CICheckRunPopover extends React.PureComponent<
     return <span className="failure">Some checks were not successful</span>
   }
 
-  private renderHeader = (): JSX.Element => {
+  private renderHeader = (): React.JSX.Element => {
     const { loadingActionWorkflows, checkRuns, checkRunSummary } = this.state
     // Only show loading header status, if there are no cached check runs to display.
     const loading = loadingActionWorkflows && checkRuns.length === 0
@@ -360,7 +360,7 @@ export class CICheckRunPopover extends React.PureComponent<
     this.rerunChecks(false, [check])
   }
 
-  public renderList = (): JSX.Element => {
+  public renderList = (): React.JSX.Element => {
     const { checkRuns, loadingActionWorkflows } = this.state
     if (loadingActionWorkflows) {
       return this.renderCheckRunLoadings()

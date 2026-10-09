@@ -290,4 +290,59 @@ describe('RepoHealthStore', () => {
     // refreshingDuring is asserted only to silence unused-variable lint.
     expect(Array.isArray(refreshingDuring)).toBe(true)
   })
+
+  it('publishes each repo as it completes and clears its refreshing flag', async () => {
+    let releaseSlow: () => void = () => {}
+    const slow = new Promise<void>(r => (releaseSlow = r))
+    const store = new RepoHealthStore({
+      collectorOptions: {
+        probes: {
+          ...probes(1),
+          uncommittedCount: async r => {
+            if (r.id === 2) {
+              await slow
+            }
+            return 1
+          },
+        },
+      },
+      concurrency: 2,
+    })
+    const run = store.refreshAll([repo(1), repo(2)])
+    await new Promise(r => setTimeout(r, 10))
+    const mid = store.getSnapshot()
+    expect(mid.statuses.has(1)).toBe(true)
+    expect(mid.refreshing.has(1)).toBe(false)
+    expect(mid.refreshing.has(2)).toBe(true)
+    releaseSlow()
+    await run
+    expect(store.getSnapshot().refreshing.size).toBe(0)
+  })
+
+  it('clear() during a run does not let the stale run clobber a newer one', async () => {
+    let release: () => void = () => {}
+    const gate = new Promise<void>(r => (release = r))
+    let first = true
+    const store = new RepoHealthStore({
+      collectorOptions: {
+        probes: {
+          ...probes(1),
+          uncommittedCount: async () => {
+            if (first) {
+              first = false
+              await gate
+            }
+            return 1
+          },
+        },
+      },
+    })
+    const stale = store.refreshAll([repo(1)])
+    store.clear()
+    const fresh = store.refreshAll([repo(1)], true)
+    release()
+    await Promise.all([stale, fresh])
+    expect(store.getSnapshot().statuses.get(1)).toBeDefined()
+    expect(store.getSnapshot().refreshing.size).toBe(0)
+  })
 })

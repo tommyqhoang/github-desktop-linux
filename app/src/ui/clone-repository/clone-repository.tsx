@@ -278,8 +278,8 @@ export class CloneRepository extends React.Component<
     return this.props.selectedTab === CloneRepositoryTab.DotCom
       ? 'dotcom-tab'
       : this.props.selectedTab === CloneRepositoryTab.Enterprise
-      ? 'enterprise-tab'
-      : 'url-tab'
+        ? 'enterprise-tab'
+        : 'url-tab'
   }
 
   private checkIfCloningDisabled = () => {

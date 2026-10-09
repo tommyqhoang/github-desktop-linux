@@ -76,22 +76,22 @@ type BranchKey = [number, string]
 /** The repositories database. */
 export class RepositoriesDatabase extends BaseDatabase {
   /** The local repositories table. */
-  public declare repositories: Dexie.Table<IDatabaseRepository, number>
+  declare public repositories: Dexie.Table<IDatabaseRepository, number>
 
   /** The GitHub repositories table. */
-  public declare gitHubRepositories: Dexie.Table<
+  declare public gitHubRepositories: Dexie.Table<
     IDatabaseGitHubRepository,
     number
   >
 
   /** A table containing the names of protected branches per repository. */
-  public declare protectedBranches: Dexie.Table<
+  declare public protectedBranches: Dexie.Table<
     IDatabaseProtectedBranch,
     BranchKey
   >
 
   /** The GitHub repository owners table. */
-  public declare owners: Dexie.Table<IDatabaseOwner, number>
+  declare public owners: Dexie.Table<IDatabaseOwner, number>
 
   /**
    * Initialize a new repository database.

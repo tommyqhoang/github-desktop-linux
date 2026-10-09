@@ -217,7 +217,7 @@ export class CompareSidebar extends React.Component<
   private renderCommitList() {
     const { formState, commitSHAs } = this.props.compareState
 
-    let emptyListMessage: string | JSX.Element
+    let emptyListMessage: string | React.JSX.Element
     if (formState.kind === HistoryTabMode.History) {
       emptyListMessage = 'No history'
     } else {

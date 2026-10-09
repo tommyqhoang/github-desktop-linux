@@ -1,7 +1,8 @@
 import * as React from 'react'
 import * as Path from 'path'
 
-import { TransitionGroup, CSSTransition } from 'react-transition-group'
+import { TransitionGroup } from 'react-transition-group'
+import { CSSTransitionContents } from './lib/css-transition-contents'
 import {
   IAppState,
   RepositorySectionTab,
@@ -737,8 +738,7 @@ export class App extends React.Component<IAppProps, IAppState> {
    */
   private resizeActiveResizable(
     menuId:
-      | 'increase-active-resizable-width'
-      | 'decrease-active-resizable-width'
+      'increase-active-resizable-width' | 'decrease-active-resizable-width'
   ) {
     document.activeElement?.dispatchEvent(
       new CustomEvent(menuId, {
@@ -1733,7 +1733,7 @@ export class App extends React.Component<IAppProps, IAppState> {
   private onUpdateAvailableDismissed = () =>
     this.props.dispatcher.setUpdateBannerVisibility(false)
 
-  private allPopupContent(): JSX.Element | null {
+  private allPopupContent(): React.JSX.Element | null {
     const { allPopups } = this.state
 
     if (allPopups.length === 0) {
@@ -1754,7 +1754,10 @@ export class App extends React.Component<IAppProps, IAppState> {
     )
   }
 
-  private popupContent(popup: Popup, isTopMost: boolean): JSX.Element | null {
+  private popupContent(
+    popup: Popup,
+    isTopMost: boolean
+  ): React.JSX.Element | null {
     if (popup.id === undefined) {
       // Should not be possible... but if it does we want to know about it.
       sendNonFatalException(
@@ -3025,9 +3028,12 @@ export class App extends React.Component<IAppProps, IAppState> {
     return (
       <TransitionGroup>
         {popupContent && (
-          <CSSTransition classNames="modal" timeout={dialogTransitionTimeout}>
+          <CSSTransitionContents
+            classNames="modal"
+            timeout={dialogTransitionTimeout}
+          >
             {popupContent}
-          </CSSTransition>
+          </CSSTransitionContents>
         )}
       </TransitionGroup>
     )
@@ -3041,7 +3047,7 @@ export class App extends React.Component<IAppProps, IAppState> {
    * Render the current drag element based on it's type. Used in conjunction
    * with the `Draggable` component.
    */
-  private renderCurrentDragElement(): JSX.Element | null {
+  private renderCurrentDragElement(): React.JSX.Element | null {
     const { currentDragElement, emoji } = this.state
     if (currentDragElement === null) {
       return null
@@ -3118,7 +3124,7 @@ export class App extends React.Component<IAppProps, IAppState> {
     )
   }
 
-  private renderRepositoryList = (): JSX.Element => {
+  private renderRepositoryList = (): React.JSX.Element => {
     const selectedRepository = this.state.selectedState
       ? this.state.selectedState.repository
       : null
@@ -3481,7 +3487,7 @@ export class App extends React.Component<IAppProps, IAppState> {
     }
   }
 
-  private renderBranchToolbarButton(): JSX.Element | null {
+  private renderBranchToolbarButton(): React.JSX.Element | null {
     const selection = this.state.selectedState
 
     if (selection == null || selection.type !== SelectionType.Repository) {
@@ -3525,7 +3531,7 @@ export class App extends React.Component<IAppProps, IAppState> {
   }
 
   // we currently only render one banner at a time
-  private renderBanner(): JSX.Element | null {
+  private renderBanner(): React.JSX.Element | null {
     // The inset light title bar style without the toolbar
     // can't support banners at the moment. So for the
     // no-repositories blank slate we'll have to live without
@@ -3551,12 +3557,12 @@ export class App extends React.Component<IAppProps, IAppState> {
       <div role="alert" aria-atomic="false">
         <TransitionGroup>
           {banner && (
-            <CSSTransition
+            <CSSTransitionContents
               classNames="banner"
               timeout={bannerTransitionTimeout}
             >
               {banner}
-            </CSSTransition>
+            </CSSTransitionContents>
           )}
         </TransitionGroup>
       </div>
@@ -3649,7 +3655,7 @@ export class App extends React.Component<IAppProps, IAppState> {
     if (selectedState.type === SelectionType.Repository) {
       const externalEditorLabel = state.useCustomEditor
         ? undefined
-        : state.selectedExternalEditor ?? undefined
+        : (state.selectedExternalEditor ?? undefined)
 
       return (
         <RepositoryView
@@ -3707,6 +3713,10 @@ export class App extends React.Component<IAppProps, IAppState> {
             state.stashesByRepoId.get(selectedState.repository.id)?.loading ??
             false
           }
+          stashesError={
+            state.stashesByRepoId.get(selectedState.repository.id)?.error ??
+            null
+          }
           worktreeEntries={
             state.worktreesByRepoId.get(selectedState.repository.id)?.entries ??
             []
@@ -3715,6 +3725,10 @@ export class App extends React.Component<IAppProps, IAppState> {
             state.worktreesByRepoId.get(selectedState.repository.id)?.loading ??
             false
           }
+          worktreesError={
+            state.worktreesByRepoId.get(selectedState.repository.id)?.error ??
+            null
+          }
           submoduleEntries={
             state.submodulesByRepoId.get(selectedState.repository.id)
               ?.entries ?? []
@@ -3722,6 +3736,14 @@ export class App extends React.Component<IAppProps, IAppState> {
           submodulesLoading={
             state.submodulesByRepoId.get(selectedState.repository.id)
               ?.loading ?? false
+          }
+          submodulesError={
+            state.submodulesByRepoId.get(selectedState.repository.id)?.error ??
+            null
+          }
+          submodulesBusy={
+            state.submodulesByRepoId.get(selectedState.repository.id)?.busy ??
+            false
           }
           fileTreeState={
             state.fileTreeByRepoId.get(selectedState.repository.id) ?? {
@@ -3742,6 +3764,14 @@ export class App extends React.Component<IAppProps, IAppState> {
           workflowRunsLoading={
             state.workflowRunsByRepoId.get(selectedState.repository.id)
               ?.loading ?? false
+          }
+          workflowRunsError={
+            state.workflowRunsByRepoId.get(selectedState.repository.id)
+              ?.error ?? null
+          }
+          workflowRunsUnavailable={
+            state.workflowRunsByRepoId.get(selectedState.repository.id)
+              ?.unavailable ?? null
           }
         />
       )

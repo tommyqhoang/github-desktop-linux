@@ -10,7 +10,9 @@ module.exports = {
   setupFiles: ['<rootDir>/test/globals.ts', '<rootDir>/test/unit-test-env.ts'],
   setupFilesAfterEnv: ['<rootDir>/test/setup-test-framework.ts'],
   reporters: ['default', '<rootDir>../script/jest-actions-reporter.js'],
-  // For now, @github Node modules required to be transformed by jest-esm-transformer
-  transformIgnorePatterns: ['node_modules/(?!(@github))'],
+  // ESM-only Node modules (e.g. @github, uuid, mem) must be transformed to CJS by esm-transformer
+  transformIgnorePatterns: [
+    'node_modules/(?!(@github|dexie|fake-indexeddb|uuid|strip-ansi|ansi-regex|p-limit|yocto-queue|quick-lru|untildify|mem|mimic-function|mimic-fn|marked|chalk|compare-versions))',
+  ],
   testEnvironment: 'jsdom',
 }

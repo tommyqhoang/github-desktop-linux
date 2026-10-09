@@ -96,6 +96,9 @@ export class FileViewer extends React.Component<
   /** Blame guard, paired with loadToken so stale blame results are dropped. */
   private blameToken = 0
 
+  /** The Find toggle, refocused when the find bar is dismissed with Escape. */
+  private findToggleButton: HTMLButtonElement | null = null
+
   /** The code row for the active find match, so it can be scrolled into view. */
   private activeLineElement: HTMLTableRowElement | null = null
 
@@ -175,10 +178,16 @@ export class FileViewer extends React.Component<
     return this.computeMatches(contents.content, findQuery)
   }
 
+  private onFindToggleRef = (button: HTMLButtonElement | null) => {
+    this.findToggleButton = button
+  }
+
   private onFindKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Escape') {
       event.preventDefault()
-      this.setState({ findVisible: false })
+      this.setState({ findVisible: false }, () =>
+        this.findToggleButton?.focus()
+      )
     } else if (event.key === 'Enter') {
       event.preventDefault()
       this.stepMatch(event.shiftKey ? -1 : 1)
@@ -345,13 +354,23 @@ export class FileViewer extends React.Component<
         !isFormattedView(filePath)
       ) {
         const lines = contents.content.split('\n')
-        tokens = await highlight(
-          lines,
-          Path.basename(filePath),
-          Path.extname(filePath),
-          TabSize,
-          lines.map((_, i) => i)
-        )
+        try {
+          tokens = await highlight(
+            lines,
+            Path.basename(filePath),
+            Path.extname(filePath),
+            TabSize,
+            lines.map((_, i) => i)
+          )
+        } catch (highlightError) {
+          // The file read fine; a highlighter failure must not report it as
+          // unopenable. Fall back to plain, unhighlighted text.
+          log.warn(
+            `[FileViewer] syntax highlighting failed for ${filePath}`,
+            highlightError
+          )
+          tokens = {}
+        }
         if (token !== this.loadToken) {
           return
         }
@@ -382,11 +401,11 @@ export class FileViewer extends React.Component<
     }
   }
 
-  private renderNotice(message: string): JSX.Element {
+  private renderNotice(message: string): React.JSX.Element {
     return <div className="file-viewer notice">{message}</div>
   }
 
-  private renderOpenError(filePath: string, error: Error): JSX.Element {
+  private renderOpenError(filePath: string, error: Error): React.JSX.Element {
     return (
       <div className="file-viewer notice" role="alert">
         <p>Could not open this file.</p>
@@ -460,7 +479,7 @@ export class FileViewer extends React.Component<
           <Button onClick={this.toggleBlame}>
             {showBlame ? 'Hide blame' : 'Blame'}
           </Button>
-          <Button onClick={this.toggleFind}>
+          <Button onClick={this.toggleFind} onButtonRef={this.onFindToggleRef}>
             {findVisible ? 'Hide find' : 'Find'}
           </Button>
           {this.renderBlameStatus()}
@@ -498,7 +517,7 @@ export class FileViewer extends React.Component<
   }
 
   /** Say what the blame gutter is doing instead of leaving it blank. */
-  private renderBlameStatus(): JSX.Element | null {
+  private renderBlameStatus(): React.JSX.Element | null {
     const { showBlame, blame, blameError } = this.state
     if (!showBlame) {
       return null
@@ -525,7 +544,7 @@ export class FileViewer extends React.Component<
   }
 
   /** Render the find-in-file bar: query input, match count, and navigation. */
-  private renderFindBar(matchCount: number): JSX.Element {
+  private renderFindBar(matchCount: number): React.JSX.Element {
     const current =
       matchCount === 0
         ? 0
@@ -540,7 +559,7 @@ export class FileViewer extends React.Component<
           onValueChanged={this.onFindQueryChanged}
           onKeyDown={this.onFindKeyDown}
         />
-        <span className="file-viewer-find-count">
+        <span className="file-viewer-find-count" role="status">
           {current} of {matchCount}
         </span>
         <Button onClick={this.onFindPrevious} disabled={matchCount === 0}>
@@ -558,7 +577,10 @@ export class FileViewer extends React.Component<
    * commit of the line above, the attribution is suppressed so contiguous
    * blocks read as a single annotation.
    */
-  private renderBlameCell(blame: Blame | null, index: number): JSX.Element {
+  private renderBlameCell(
+    blame: Blame | null,
+    index: number
+  ): React.JSX.Element {
     const entry = blame?.[index]
     if (entry === undefined) {
       return <td className="file-viewer-blame" />
@@ -579,7 +601,7 @@ export class FileViewer extends React.Component<
   private renderMedia(
     filePath: string,
     media: MediaViewerContents
-  ): JSX.Element {
+  ): React.JSX.Element {
     if (media.tooLarge) {
       return this.renderNotice('File is too large to display.')
     }
@@ -608,7 +630,7 @@ export class FileViewer extends React.Component<
     }
   }
 
-  private renderBrowserViewable(filePath: string): JSX.Element {
+  private renderBrowserViewable(filePath: string): React.JSX.Element {
     const name = Path.basename(filePath)
     const isPdf = Path.extname(filePath).toLowerCase() === '.pdf'
     const kind = isPdf ? 'PDF' : 'HTML'
@@ -626,7 +648,10 @@ export class FileViewer extends React.Component<
     )
   }
 
-  private renderDelimited(content: string, delimiter: string): JSX.Element {
+  private renderDelimited(
+    content: string,
+    delimiter: string
+  ): React.JSX.Element {
     const rows = this.parseRows(content, delimiter)
     if (rows.length === 0) {
       return this.renderNotice('This file is empty.')
@@ -659,7 +684,10 @@ export class FileViewer extends React.Component<
     )
   }
 
-  private renderMarkdown(filePath: string, markdown: string): JSX.Element {
+  private renderMarkdown(
+    filePath: string,
+    markdown: string
+  ): React.JSX.Element {
     return (
       <div className="file-viewer file-viewer-markdown">
         <SandboxedMarkdown

@@ -109,7 +109,7 @@ export class SignIn extends React.Component<ISignInProps, ISignInState> {
     this.setState({ endpoint })
   }
 
-  private renderFooter(): JSX.Element | null {
+  private renderFooter(): React.JSX.Element | null {
     const state = this.props.signInState
 
     if (!state || state.kind === SignInStep.Success) {
@@ -196,7 +196,7 @@ export class SignIn extends React.Component<ISignInProps, ISignInState> {
     )
   }
 
-  private renderStep(): JSX.Element | null {
+  private renderStep(): React.JSX.Element | null {
     const state = this.props.signInState
 
     if (!state) {

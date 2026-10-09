@@ -21,9 +21,7 @@ import { RepoRulesMetadataFailureList } from '../repository-rules/repo-rules-fai
 import { Account } from '../../models/account'
 
 export type CommitMessageAvatarWarningType =
-  | 'none'
-  | 'misattribution'
-  | 'disallowedEmail'
+  'none' | 'misattribution' | 'disallowedEmail'
 
 interface ICommitMessageAvatarState {
   readonly isPopoverOpen: boolean
@@ -54,7 +52,7 @@ interface ICommitMessageAvatarProps {
 
   /**
    * List of validations that failed for repo rules. Only used if
-   * {@link warningType} is 'disallowedEmail'.
+   * `warningType` is 'disallowedEmail'.
    */
   readonly emailRuleFailures?: RepoRulesMetadataFailures
 
@@ -363,7 +361,7 @@ export class CommitMessageAvatar extends React.Component<
     return
   }
 
-  private getCommittingAsTitle(): string | JSX.Element | undefined {
+  private getCommittingAsTitle(): string | React.JSX.Element | undefined {
     const { user } = this.props
 
     if (user === undefined) {
@@ -386,7 +384,7 @@ export class CommitMessageAvatar extends React.Component<
   private renderPopover() {
     const { warningType } = this.props
 
-    let header: string | JSX.Element | undefined = ''
+    let header: string | React.JSX.Element | undefined = ''
     switch (this.props.warningType) {
       case 'misattribution':
         header = 'This commit will be misattributed'

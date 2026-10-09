@@ -35,7 +35,7 @@ export abstract class Rebase extends BaseRebase {
     )
   }
 
-  protected renderChooseBranch = (): JSX.Element | null => {
+  protected renderChooseBranch = (): React.JSX.Element | null => {
     const { repository, dispatcher, state } = this.props
     const { step } = state
 

@@ -67,7 +67,7 @@ interface IRepositorySettingsState {
   readonly initialGitConfigLocation: GitConfigLocation
   readonly initialCommitterName: string | null
   readonly initialCommitterEmail: string | null
-  readonly errors?: ReadonlyArray<JSX.Element | string>
+  readonly errors?: ReadonlyArray<React.JSX.Element | string>
   readonly forkContributionTarget: ForkContributionTarget
   readonly isLoadingGitConfig: boolean
   readonly aiCommitMessagesEnabled: boolean
@@ -163,7 +163,7 @@ export class RepositorySettings extends React.Component<
     })
   }
 
-  private renderErrors(): JSX.Element[] | null {
+  private renderErrors(): React.JSX.Element[] | null {
     const errors = this.state.errors
 
     if (!errors || !errors.length) {
@@ -309,7 +309,7 @@ export class RepositorySettings extends React.Component<
 
   private onSubmit = async () => {
     this.setState({ disabled: true, errors: undefined })
-    const errors = new Array<JSX.Element | string>()
+    const errors = new Array<React.JSX.Element | string>()
 
     if (this.state.remote && this.props.remote) {
       const trimmedUrl = this.state.remote.url.trim()
@@ -448,7 +448,7 @@ export class RepositorySettings extends React.Component<
   }
 
   private onCommitterNameChanged = (committerName: string) => {
-    const errors = new Array<JSX.Element | string>()
+    const errors = new Array<React.JSX.Element | string>()
 
     if (gitAuthorNameIsValid(committerName)) {
       this.setState({ saveDisabled: false })

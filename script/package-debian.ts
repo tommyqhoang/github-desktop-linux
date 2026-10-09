@@ -1,8 +1,6 @@
-import { promisify } from 'util'
 import { join } from 'path'
 
-import glob = require('glob')
-const globPromise = promisify(glob)
+import { glob as globPromise } from 'glob'
 
 import { rename } from 'fs-extra'
 

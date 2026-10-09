@@ -64,8 +64,16 @@ export class WorkflowRunDetail extends React.Component<
   }
 
   public componentDidUpdate(prevProps: IWorkflowRunDetailProps) {
-    if (prevProps.run.id !== this.props.run.id) {
+    const prev = prevProps.run
+    const run = this.props.run
+    if (prev.id !== run.id) {
+      // A different run: drop the previous run's jobs rather than show them.
+      this.setState({ jobs: [] })
       this.loadJobs()
+    } else if (prev.status !== run.status || prev.updatedAt !== run.updatedAt) {
+      // The same run progressed (e.g. via the Actions poll): refresh its jobs
+      // in place, keeping the current list visible while it loads.
+      this.loadJobs(true)
     }
   }
 
@@ -79,7 +87,11 @@ export class WorkflowRunDetail extends React.Component<
     }
   }
 
-  private async loadJobs(): Promise<void> {
+  /**
+   * Load the run's jobs. With `keepExisting`, the current list stays on screen
+   * (no "Loading…" flash) and a failed refresh leaves it in place.
+   */
+  private async loadJobs(keepExisting: boolean = false): Promise<void> {
     const { run, repository, accounts } = this.props
     const account = getAccountForRepository(accounts, repository)
 
@@ -93,7 +105,10 @@ export class WorkflowRunDetail extends React.Component<
     }
 
     const requestedRunId = run.id
-    this.setStateIfMounted({ jobsLoading: true, jobsError: null })
+    this.setStateIfMounted({
+      jobsLoading: !keepExisting || this.state.jobs.length === 0,
+      jobsError: null,
+    })
 
     try {
       const api = API.fromAccount(account)
@@ -112,7 +127,7 @@ export class WorkflowRunDetail extends React.Component<
       // `null` means the request failed (rate limit, auth, network) — that is
       // not the same as a run with no jobs, so don't present it as one.
       this.setStateIfMounted({
-        jobs: response?.jobs ?? [],
+        jobs: response?.jobs ?? (keepExisting ? this.state.jobs : []),
         jobsLoading: false,
         jobsError:
           response === null
@@ -164,7 +179,7 @@ export class WorkflowRunDetail extends React.Component<
     )
   }
 
-  private renderMeta(): JSX.Element {
+  private renderMeta(): React.JSX.Element {
     const { run } = this.props
     return (
       <dl className="workflow-run-detail__meta">
@@ -186,7 +201,10 @@ export class WorkflowRunDetail extends React.Component<
     )
   }
 
-  private renderMetaItem(label: string, value: React.ReactNode): JSX.Element {
+  private renderMetaItem(
+    label: string,
+    value: React.ReactNode
+  ): React.JSX.Element {
     return (
       <div className="workflow-run-detail__meta-item">
         <dt>{label}</dt>
@@ -208,7 +226,7 @@ export class WorkflowRunDetail extends React.Component<
     )
   }
 
-  private renderCommitMessage(): JSX.Element | null {
+  private renderCommitMessage(): React.JSX.Element | null {
     const message = this.props.run.headCommitMessage
     if (message === null || message.trim().length === 0) {
       return null
@@ -218,7 +236,7 @@ export class WorkflowRunDetail extends React.Component<
     return <p className="workflow-run-detail__commit">{summary}</p>
   }
 
-  private renderActions(): JSX.Element {
+  private renderActions(): React.JSX.Element {
     const { run } = this.props
     const { busyAction } = this.state
     const canReRun =
@@ -249,7 +267,7 @@ export class WorkflowRunDetail extends React.Component<
     )
   }
 
-  private renderJobs(): JSX.Element {
+  private renderJobs(): React.JSX.Element {
     const { jobs, jobsLoading, jobsError } = this.state
 
     return (
@@ -260,11 +278,15 @@ export class WorkflowRunDetail extends React.Component<
             Loading jobs…
           </div>
         ) : jobsError !== null ? (
-          <div className="workflow-run-detail__jobs-status workflow-run-detail__jobs-error">
-            {jobsError}
+          <div
+            className="workflow-run-detail__jobs-status workflow-run-detail__jobs-error"
+            role="alert"
+          >
+            <div>{jobsError}</div>
+            <Button onClick={this.onRetryJobs}>Retry</Button>
           </div>
         ) : jobs.length === 0 ? (
-          <div className="workflow-run-detail__jobs-status">
+          <div className="workflow-run-detail__jobs-status" role="status">
             This run has no jobs.
           </div>
         ) : (
@@ -276,7 +298,7 @@ export class WorkflowRunDetail extends React.Component<
     )
   }
 
-  private renderJob(job: IAPIWorkflowJob): JSX.Element {
+  private renderJob(job: IAPIWorkflowJob): React.JSX.Element {
     const statusClass = getWorkflowRunStatusClass(job.status, job.conclusion)
     const statusIcon = getWorkflowRunStatusIcon(job.status, job.conclusion)
     const statusLabel = getWorkflowRunStatusLabel(job.status, job.conclusion)
@@ -298,11 +320,7 @@ export class WorkflowRunDetail extends React.Component<
         {job.steps.length > 0 && (
           <ul className="workflow-run-detail__steps">
             {job.steps.map(step => (
-              <li
-                key={step.number}
-                className="workflow-run-detail__step"
-                title={getWorkflowRunStatusLabel(step.status, step.conclusion)}
-              >
+              <li key={step.number} className="workflow-run-detail__step">
                 <span
                   className={`workflow-run-detail__status-icon ${getWorkflowRunStatusClass(
                     step.status,
@@ -318,6 +336,12 @@ export class WorkflowRunDetail extends React.Component<
                 </span>
                 <span className="workflow-run-detail__step-name">
                   {step.name}
+                </span>
+                <span className="sr-only">
+                  {`, ${getWorkflowRunStatusLabel(
+                    step.status,
+                    step.conclusion
+                  )}`}
                 </span>
               </li>
             ))}
@@ -346,7 +370,7 @@ export class WorkflowRunDetail extends React.Component<
         this.props.repository,
         this.props.run.id
       )
-      await this.loadJobs()
+      await this.loadJobs(true)
     } catch (error) {
       this.props.dispatcher.postError(
         error instanceof Error ? error : new Error(String(error))
@@ -363,7 +387,7 @@ export class WorkflowRunDetail extends React.Component<
         this.props.repository,
         this.props.run.id
       )
-      await this.loadJobs()
+      await this.loadJobs(true)
     } catch (error) {
       this.props.dispatcher.postError(
         error instanceof Error ? error : new Error(String(error))
@@ -371,6 +395,10 @@ export class WorkflowRunDetail extends React.Component<
     } finally {
       this.setStateIfMounted({ busyAction: null })
     }
+  }
+
+  private onRetryJobs = () => {
+    this.loadJobs()
   }
 
   private onOpenOnGitHub = () => {

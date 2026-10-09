@@ -77,7 +77,7 @@ export class CICheckRunListItem extends React.PureComponent<ICICheckRunListItemP
     this.props.onRerunJob?.(this.props.checkRun)
   }
 
-  private renderCheckStatusSymbol = (): JSX.Element => {
+  private renderCheckStatusSymbol = (): React.JSX.Element => {
     const { checkRun } = this.props
 
     return (
@@ -93,7 +93,7 @@ export class CICheckRunListItem extends React.PureComponent<ICICheckRunListItemP
     )
   }
 
-  private renderCheckJobStepToggle = (): JSX.Element | null => {
+  private renderCheckJobStepToggle = (): React.JSX.Element | null => {
     const { isCheckRunExpanded, selectable, notExpandable } = this.props
 
     if (selectable || notExpandable) {
@@ -111,7 +111,7 @@ export class CICheckRunListItem extends React.PureComponent<ICICheckRunListItemP
     )
   }
 
-  private renderCheckRunName = (): JSX.Element => {
+  private renderCheckRunName = (): React.JSX.Element => {
     const { checkRun, isCondensedView, isHeader } = this.props
     const { name, description } = checkRun
     return (
@@ -134,7 +134,7 @@ export class CICheckRunListItem extends React.PureComponent<ICICheckRunListItemP
     )
   }
 
-  private renderCheckRunListItem = (): JSX.Element | null => {
+  private renderCheckRunListItem = (): React.JSX.Element | null => {
     const {
       checkRun,
       selectable,

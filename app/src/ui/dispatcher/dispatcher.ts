@@ -1,3 +1,4 @@
+import * as React from 'react'
 import { Disposable, DisposableLike } from 'event-kit'
 
 import {
@@ -2862,7 +2863,8 @@ export class Dispatcher {
       'dispatch a workflow run'
     )
     await api.dispatchWorkflowRun(owner, name, workflowId, branch, inputs)
-    await this.loadWorkflowRuns(repository)
+    // Refresh in the background so the list stays on screen while it reloads
+    await this.appStore._loadWorkflowRuns(repository, { background: true })
   }
 
   /**
@@ -2878,7 +2880,8 @@ export class Dispatcher {
       're-run a workflow run'
     )
     await api.rerunFailedJobs(owner, name, runId)
-    await this.loadWorkflowRuns(repository)
+    // Refresh in the background so the list stays on screen while it reloads
+    await this.appStore._loadWorkflowRuns(repository, { background: true })
   }
 
   /**
@@ -2894,7 +2897,8 @@ export class Dispatcher {
       'cancel a workflow run'
     )
     await api.cancelWorkflowRun(owner, name, runId)
-    await this.loadWorkflowRuns(repository)
+    // Refresh in the background so the list stays on screen while it reloads
+    await this.appStore._loadWorkflowRuns(repository, { background: true })
   }
 
   /**
@@ -4257,7 +4261,7 @@ export class Dispatcher {
   /** Opens conflicts found banner for part of multi commit operation */
   public onConflictsFoundBanner = (
     repository: Repository,
-    operationDescription: string | JSX.Element,
+    operationDescription: string | React.JSX.Element,
     multiCommitOperationConflictState: MultiCommitOperationConflictState
   ) => {
     this.setBanner({

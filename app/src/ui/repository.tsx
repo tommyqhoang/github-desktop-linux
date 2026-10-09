@@ -14,7 +14,7 @@ import { Octicon } from './octicons'
 import * as octicons from './octicons/octicons.generated'
 import { showContextualMenu, IMenuItem } from '../lib/menu-item'
 import { FileTree } from './file-tree/file-tree'
-import { FileTabs } from './file-tree/file-tabs'
+import { FileTabs, FileTabPanelId } from './file-tree/file-tabs'
 import { FileViewer } from './file-tree/file-viewer'
 import { IRepoFileTreeState } from '../lib/stores/file-tree-store'
 import { FileTreeEntry } from '../models/file-tree'
@@ -55,6 +55,7 @@ import { ISubmoduleStatusEntry } from '../models/submodule'
 import { SubmoduleList } from './submodules/submodule-list'
 import { IWorkflowRun } from '../models/workflow-run'
 import { WorkflowRunList } from './workflow-runs/workflow-run-list'
+import { WorkflowRunsUnavailableReason } from '../lib/stores/workflow-runs-store'
 import { WorkflowRunDetail } from './workflow-runs/workflow-run-detail'
 import { PopupType } from '../models/popup'
 import { TutorialPanel, TutorialWelcome, TutorialDone } from './tutorial'
@@ -92,9 +93,12 @@ interface IRepositoryViewProps {
   readonly accounts: ReadonlyArray<Account>
   readonly worktreeEntries: ReadonlyArray<IWorktreeEntry>
   readonly worktreesLoading: boolean
+  readonly worktreesError?: Error | null
 
   readonly submoduleEntries: ReadonlyArray<ISubmoduleStatusEntry>
   readonly submodulesLoading: boolean
+  readonly submodulesError?: Error | null
+  readonly submodulesBusy?: boolean
 
   /** Cached working-tree file structure for this repository (Files tab). */
   readonly fileTreeState: IRepoFileTreeState
@@ -102,6 +106,8 @@ interface IRepositoryViewProps {
   /** Cached workflow run entries for this repository (Actions tab). */
   readonly workflowRunEntries: ReadonlyArray<IWorkflowRun>
   readonly workflowRunsLoading: boolean
+  readonly workflowRunsError?: Error | null
+  readonly workflowRunsUnavailable?: WorkflowRunsUnavailableReason | null
 
   /**
    * A value indicating whether or not the application is currently presenting
@@ -156,12 +162,17 @@ interface IRepositoryViewProps {
   /** Cached stash entries for this repository (Stashes tab). */
   readonly stashEntries: ReadonlyArray<IStashEntry>
   readonly stashesLoading: boolean
+  readonly stashesError?: Error | null
 }
 
 interface IRepositoryViewState {
   readonly changesListScrollTop: number
   readonly compareListScrollTop: number
   readonly selectedStashSha: string | null
+  /** True while an Apply / Pop / Drop on a stash is running. */
+  readonly stashBusy: boolean
+  /** True while Prune worktrees is running. */
+  readonly worktreePruning: boolean
   readonly selectedWorkflowRunId: number | null
   /** Bumped on Ctrl/Cmd+F to ask the Files viewer to open its find bar. */
   readonly openFindToken: number
@@ -198,6 +209,8 @@ export class RepositoryView extends React.Component<
       changesListScrollTop: 0,
       compareListScrollTop: 0,
       selectedStashSha: null,
+      stashBusy: false,
+      worktreePruning: false,
       selectedWorkflowRunId: null,
       openFindToken: 0,
     }
@@ -227,7 +240,7 @@ export class RepositoryView extends React.Component<
     this.setState({ compareListScrollTop: scrollTop })
   }
 
-  private renderChangesBadge(): JSX.Element | null {
+  private renderChangesBadge(): React.JSX.Element | null {
     const filesChangedCount =
       this.props.state.changesState.workingDirectory.files.length
 
@@ -238,18 +251,18 @@ export class RepositoryView extends React.Component<
     return <FilesChangedBadge filesChangedCount={filesChangedCount} />
   }
 
-  private renderTabs(): JSX.Element {
+  private renderTabs(): React.JSX.Element {
     const section = this.props.state.selectedSection
     const selectedTab =
       section === RepositorySectionTab.Changes
         ? Tab.Changes
         : section === RepositorySectionTab.History
-        ? Tab.History
-        : section === RepositorySectionTab.Files
-        ? Tab.Files
-        : section === RepositorySectionTab.Actions
-        ? Tab.Actions
-        : -1 // Stashes / Worktrees live in the overflow menu.
+          ? Tab.History
+          : section === RepositorySectionTab.Files
+            ? Tab.Files
+            : section === RepositorySectionTab.Actions
+              ? Tab.Actions
+              : -1 // Stashes / Worktrees live in the overflow menu.
 
     const overflowActive =
       section === RepositorySectionTab.Stashes ||
@@ -313,18 +326,11 @@ export class RepositoryView extends React.Component<
       this.props.repository,
       section
     )
-    if (section === RepositorySectionTab.Stashes) {
-      this.props.dispatcher.loadStashes(this.props.repository)
-    }
-    if (section === RepositorySectionTab.Worktrees) {
-      this.props.dispatcher.loadWorktrees(this.props.repository)
-    }
-    if (section === RepositorySectionTab.Submodules) {
-      this.props.dispatcher.loadSubmodules(this.props.repository)
-    }
+    // changeRepositorySection already loads the new section's data; loading
+    // again here would queue a redundant trailing refresh.
   }
 
-  private renderChangesSidebar(): JSX.Element {
+  private renderChangesSidebar(): React.JSX.Element {
     const tip = this.props.state.branchesState.tip
 
     let branchName: string | null = null
@@ -389,7 +395,7 @@ export class RepositoryView extends React.Component<
     )
   }
 
-  private renderCompareSidebar(): JSX.Element {
+  private renderCompareSidebar(): React.JSX.Element {
     const { repository, dispatcher, state, aheadBehindStore, emoji } =
       this.props
     const {
@@ -444,7 +450,7 @@ export class RepositoryView extends React.Component<
     )
   }
 
-  private renderSidebarContents(): JSX.Element {
+  private renderSidebarContents(): React.JSX.Element {
     const selectedSection = this.props.state.selectedSection
 
     if (selectedSection === RepositorySectionTab.Changes) {
@@ -466,7 +472,7 @@ export class RepositoryView extends React.Component<
     }
   }
 
-  private renderFilesSidebar(): JSX.Element {
+  private renderFilesSidebar(): React.JSX.Element {
     return (
       <FileTree
         state={this.props.fileTreeState}
@@ -475,6 +481,8 @@ export class RepositoryView extends React.Component<
         onContextMenu={this.onFileTreeContextMenu}
         onSubmitRename={this.onSubmitFileTreeRename}
         onCancelRename={this.onCancelFileTreeRename}
+        onBeginRename={this.onBeginFileTreeRename}
+        onRetry={this.onRetryFileTree}
       />
     )
   }
@@ -544,6 +552,14 @@ export class RepositoryView extends React.Component<
       return
     }
     dispatcher.renameFileTreeEntry(repository, entry.path, newName)
+  }
+
+  private onBeginFileTreeRename = (entry: FileTreeEntry) => {
+    this.props.dispatcher.beginFileTreeRename(this.props.repository, entry.path)
+  }
+
+  private onRetryFileTree = () => {
+    this.props.dispatcher.refreshFileTree(this.props.repository)
   }
 
   private onCancelFileTreeRename = () => {
@@ -626,7 +642,7 @@ export class RepositoryView extends React.Component<
     showContextualMenu(items)
   }
 
-  private renderActionsSidebar(): JSX.Element {
+  private renderActionsSidebar(): React.JSX.Element {
     const { state } = this.props
     const { tip } = state.branchesState
     const currentBranch = tip.kind === TipState.Valid ? tip.branch.name : ''
@@ -639,17 +655,24 @@ export class RepositoryView extends React.Component<
         dispatcher={this.props.dispatcher}
         accounts={this.props.accounts}
         branch={currentBranch}
+        error={this.props.workflowRunsError}
+        unavailable={this.props.workflowRunsUnavailable}
+        onRetry={this.onRetryWorkflowRuns}
         onSelectRun={this.onSelectWorkflowRun}
         selectedRunId={this.state.selectedWorkflowRunId}
       />
     )
   }
 
+  private onRetryWorkflowRuns = () => {
+    this.props.dispatcher.loadWorkflowRuns(this.props.repository)
+  }
+
   private onSelectWorkflowRun = (entry: IWorkflowRun) => {
     this.setState({ selectedWorkflowRunId: entry.id })
   }
 
-  private renderStashesSidebar(): JSX.Element {
+  private renderStashesSidebar(): React.JSX.Element {
     return (
       <StashList
         entries={this.props.stashEntries}
@@ -657,15 +680,17 @@ export class RepositoryView extends React.Component<
         selectedSha={this.state.selectedStashSha}
         onSelect={this.onSelectStash}
         onCreateClick={this.onCreateStashClick}
+        error={this.props.stashesError}
+        onRetry={this.onRetryStashes}
       />
     )
   }
 
-  private renderWorktreesSidebar(): JSX.Element {
+  private renderWorktreesSidebar(): React.JSX.Element {
     return this.renderWorktreeList()
   }
 
-  private renderSubmodulesSidebar(): JSX.Element {
+  private renderSubmodulesSidebar(): React.JSX.Element {
     return this.renderSubmoduleList()
   }
 
@@ -673,7 +698,7 @@ export class RepositoryView extends React.Component<
    * Shared `SubmoduleList` render used by both the sidebar and the detail
    * pane. SubmoduleList owns the toolbar, loading, and empty states.
    */
-  private renderSubmoduleList(): JSX.Element {
+  private renderSubmoduleList(): React.JSX.Element {
     return (
       <SubmoduleList
         entries={this.props.submoduleEntries}
@@ -681,20 +706,31 @@ export class RepositoryView extends React.Component<
         onUpdateAll={this.onUpdateAllSubmodules}
         onSyncAll={this.onSyncSubmodules}
         onUpdateSubmodule={this.onUpdateSubmodule}
+        error={this.props.submodulesError}
+        busy={this.props.submodulesBusy}
+        onRetry={this.onRetrySubmodules}
       />
     )
   }
 
-  private onUpdateAllSubmodules = () => {
-    this.props.dispatcher.updateSubmodules(this.props.repository)
+  private onRetrySubmodules = () => {
+    this.props.dispatcher.loadSubmodules(this.props.repository)
   }
 
-  private onSyncSubmodules = () => {
-    this.props.dispatcher.syncSubmodules(this.props.repository)
+  // Failures are surfaced by the store (error dialog); busy state disables
+  // the buttons so a slow run can't be double-fired.
+  private onUpdateAllSubmodules = async () => {
+    await this.props.dispatcher.updateSubmodules(this.props.repository)
   }
 
-  private onUpdateSubmodule = (entry: ISubmoduleStatusEntry) => {
-    this.props.dispatcher.updateSubmodules(this.props.repository, [entry.path])
+  private onSyncSubmodules = async () => {
+    await this.props.dispatcher.syncSubmodules(this.props.repository)
+  }
+
+  private onUpdateSubmodule = async (entry: ISubmoduleStatusEntry) => {
+    await this.props.dispatcher.updateSubmodules(this.props.repository, [
+      entry.path,
+    ])
   }
 
   /**
@@ -702,7 +738,7 @@ export class RepositoryView extends React.Component<
    * pane so the two never drift apart. WorktreeList owns the toolbar,
    * loading, and empty states.
    */
-  private renderWorktreeList(): JSX.Element {
+  private renderWorktreeList(): React.JSX.Element {
     return (
       <WorktreeList
         entries={this.props.worktreeEntries}
@@ -710,6 +746,9 @@ export class RepositoryView extends React.Component<
         onCreateWorktree={this.onCreateWorktree}
         onPruneWorktrees={this.onPruneWorktrees}
         onRemoveWorktree={this.onRemoveWorktree}
+        error={this.props.worktreesError}
+        busy={this.state.worktreePruning}
+        onRetry={this.onRetryWorktrees}
       />
     )
   }
@@ -721,8 +760,20 @@ export class RepositoryView extends React.Component<
     })
   }
 
-  private onPruneWorktrees = () => {
-    this.props.dispatcher.pruneWorktrees(this.props.repository)
+  private onRetryWorktrees = () => {
+    this.props.dispatcher.loadWorktrees(this.props.repository)
+  }
+
+  private onPruneWorktrees = async () => {
+    if (this.state.worktreePruning) {
+      return
+    }
+    this.setState({ worktreePruning: true })
+    try {
+      await this.props.dispatcher.pruneWorktrees(this.props.repository)
+    } finally {
+      this.setState({ worktreePruning: false })
+    }
   }
 
   private onRemoveWorktree = (entry: IWorktreeEntry) => {
@@ -732,6 +783,10 @@ export class RepositoryView extends React.Component<
       worktreePath: entry.path,
       branch: entry.branch,
     })
+  }
+
+  private onRetryStashes = () => {
+    this.props.dispatcher.loadStashes(this.props.repository)
   }
 
   private onSelectStash = (entry: IStashEntry) => {
@@ -753,7 +808,7 @@ export class RepositoryView extends React.Component<
     this.props.dispatcher.setSidebarWidth(width)
   }
 
-  private renderSidebar(): JSX.Element {
+  private renderSidebar(): React.JSX.Element {
     return (
       <FocusContainer onFocusWithinChanged={this.onSidebarFocusWithinChanged}>
         <Resizable
@@ -782,7 +837,7 @@ export class RepositoryView extends React.Component<
     }
   }
 
-  private renderStashedChangesContent(): JSX.Element | null {
+  private renderStashedChangesContent(): React.JSX.Element | null {
     const { changesState } = this.props.state
     const { selection, stashEntry } = changesState
 
@@ -823,7 +878,7 @@ export class RepositoryView extends React.Component<
     )
   }
 
-  private renderContentForHistory(): JSX.Element {
+  private renderContentForHistory(): React.JSX.Element {
     const { commitSelection, commitLookup, localCommitSHAs } = this.props.state
     const { changesetData, file, diff, shas, shasInDiff, isContiguous } =
       commitSelection
@@ -879,7 +934,7 @@ export class RepositoryView extends React.Component<
     )
   }
 
-  private renderTutorialPane(): JSX.Element {
+  private renderTutorialPane(): React.JSX.Element {
     if (
       [TutorialStep.AllDone, TutorialStep.Announced].includes(
         this.props.currentTutorialStep
@@ -900,7 +955,7 @@ export class RepositoryView extends React.Component<
     }
   }
 
-  private renderContentForChanges(): JSX.Element | null {
+  private renderContentForChanges(): React.JSX.Element | null {
     const { changesState } = this.props.state
     const { workingDirectory, selection } = changesState
 
@@ -979,7 +1034,7 @@ export class RepositoryView extends React.Component<
     this.props.dispatcher.changeImageDiffType(imageDiffType)
   }
 
-  private renderContent(): JSX.Element | null {
+  private renderContent(): React.JSX.Element | null {
     const selectedSection = this.props.state.selectedSection
     if (selectedSection === RepositorySectionTab.Changes) {
       return this.renderContentForChanges()
@@ -1000,7 +1055,7 @@ export class RepositoryView extends React.Component<
     }
   }
 
-  private renderContentForFiles(): JSX.Element {
+  private renderContentForFiles(): React.JSX.Element {
     const { openFilePaths, activeFilePath } = this.props.fileTreeState
     return (
       <div className="files-content">
@@ -1013,23 +1068,34 @@ export class RepositoryView extends React.Component<
           onTabContextMenu={this.onFileTreeTabContextMenu}
           onReorderTab={this.onReorderFileTreeTab}
         />
-        <FileViewer
-          repository={this.props.repository}
-          filePath={activeFilePath}
-          emoji={this.props.emoji}
-          reloadToken={this.props.fileTreeState.refreshToken}
-          openFindToken={this.state.openFindToken}
-        />
+        <div
+          id={FileTabPanelId}
+          className="file-tab-panel"
+          role="tabpanel"
+          aria-label={
+            activeFilePath === null
+              ? 'File contents'
+              : `Contents of ${activeFilePath.split('/').at(-1)}`
+          }
+        >
+          <FileViewer
+            repository={this.props.repository}
+            filePath={activeFilePath}
+            emoji={this.props.emoji}
+            reloadToken={this.props.fileTreeState.refreshToken}
+            openFindToken={this.state.openFindToken}
+          />
+        </div>
       </div>
     )
   }
 
-  private renderContentForActions(): JSX.Element {
+  private renderContentForActions(): React.JSX.Element {
     const runId = this.state.selectedWorkflowRunId
     const run =
       runId === null
         ? null
-        : this.props.workflowRunEntries.find(r => r.id === runId) ?? null
+        : (this.props.workflowRunEntries.find(r => r.id === runId) ?? null)
 
     if (run === null) {
       return (
@@ -1060,7 +1126,7 @@ export class RepositoryView extends React.Component<
     return this.props.stashEntries.find(e => e.stashSha === sha) ?? null
   }
 
-  private renderContentForStashes(): JSX.Element {
+  private renderContentForStashes(): React.JSX.Element {
     const entry = this.getSelectedStashEntry()
     if (entry === null) {
       return (
@@ -1079,17 +1145,35 @@ export class RepositoryView extends React.Component<
           <span>SHA: {entry.stashSha.slice(0, 8)}</span>
         </div>
         <div className="stash-detail-pane__actions">
-          <button onClick={this.applySelectedStash}>Apply (keep)</button>
-          <button onClick={this.popSelectedStash}>
+          <button
+            onClick={this.applySelectedStash}
+            disabled={this.state.stashBusy}
+          >
+            Apply (keep)
+          </button>
+          <button
+            onClick={this.popSelectedStash}
+            disabled={this.state.stashBusy}
+          >
             Pop (apply &amp; drop)
           </button>
-          <button onClick={this.dropSelectedStash}>Drop&hellip;</button>
+          <button
+            onClick={this.dropSelectedStash}
+            disabled={this.state.stashBusy}
+          >
+            Drop&hellip;
+          </button>
+          {this.state.stashBusy && (
+            <span className="sr-only" role="status">
+              Working on the stash…
+            </span>
+          )}
         </div>
       </div>
     )
   }
 
-  private renderContentForWorktrees(): JSX.Element {
+  private renderContentForWorktrees(): React.JSX.Element {
     // Reuse the same WorktreeList component the sidebar renders so the
     // detail pane and sidebar never drift apart. WorktreeList owns the
     // loading and empty states.
@@ -1101,7 +1185,7 @@ export class RepositoryView extends React.Component<
     )
   }
 
-  private renderContentForSubmodules(): JSX.Element {
+  private renderContentForSubmodules(): React.JSX.Element {
     // Reuse the same SubmoduleList the sidebar renders so the detail pane and
     // sidebar never drift apart.
     return (
@@ -1112,31 +1196,41 @@ export class RepositoryView extends React.Component<
     )
   }
 
-  private applySelectedStash = () => {
+  /**
+   * Run a stash action with the buttons disabled until it settles. The
+   * selection is left alone: once the stash is really gone from the list the
+   * selected entry simply no longer resolves, whereas a failed pop/drop keeps
+   * it selected so the user can retry.
+   */
+  private async runStashAction(
+    action: (entry: IStashEntry) => Promise<void>
+  ): Promise<void> {
     const entry = this.getSelectedStashEntry()
-    if (entry === null) {
+    if (entry === null || this.state.stashBusy) {
       return
     }
-    this.props.dispatcher.applyStash(this.props.repository, entry.stashSha)
+    this.setState({ stashBusy: true })
+    try {
+      await action(entry)
+    } finally {
+      this.setState({ stashBusy: false })
+    }
   }
 
-  private popSelectedStash = () => {
-    const entry = this.getSelectedStashEntry()
-    if (entry === null) {
-      return
-    }
-    this.props.dispatcher.popStash(this.props.repository, entry)
-    this.setState({ selectedStashSha: null })
-  }
+  private applySelectedStash = () =>
+    this.runStashAction(entry =>
+      this.props.dispatcher.applyStash(this.props.repository, entry.stashSha)
+    )
 
-  private dropSelectedStash = () => {
-    const entry = this.getSelectedStashEntry()
-    if (entry === null) {
-      return
-    }
-    this.props.dispatcher.dropStash(this.props.repository, entry)
-    this.setState({ selectedStashSha: null })
-  }
+  private popSelectedStash = () =>
+    this.runStashAction(entry =>
+      this.props.dispatcher.popStash(this.props.repository, entry)
+    )
+
+  private dropSelectedStash = () =>
+    this.runStashAction(entry =>
+      this.props.dispatcher.dropStash(this.props.repository, entry)
+    )
 
   public render() {
     return (
@@ -1270,15 +1364,6 @@ export class RepositoryView extends React.Component<
     if (next === RepositorySectionTab.Files) {
       this.props.dispatcher.refreshFileTree(this.props.repository)
     }
-    if (next === RepositorySectionTab.Stashes) {
-      this.props.dispatcher.loadStashes(this.props.repository)
-    }
-    if (next === RepositorySectionTab.Worktrees) {
-      this.props.dispatcher.loadWorktrees(this.props.repository)
-    }
-    if (next === RepositorySectionTab.Actions) {
-      this.props.dispatcher.loadWorkflowRuns(this.props.repository)
-    }
   }
 
   private onTabClicked = (tab: Tab) => {
@@ -1286,10 +1371,10 @@ export class RepositoryView extends React.Component<
       tab === Tab.History
         ? RepositorySectionTab.History
         : tab === Tab.Files
-        ? RepositorySectionTab.Files
-        : tab === Tab.Actions
-        ? RepositorySectionTab.Actions
-        : RepositorySectionTab.Changes
+          ? RepositorySectionTab.Files
+          : tab === Tab.Actions
+            ? RepositorySectionTab.Actions
+            : RepositorySectionTab.Changes
 
     this.props.dispatcher.changeRepositorySection(
       this.props.repository,
@@ -1298,9 +1383,6 @@ export class RepositoryView extends React.Component<
     if (section === RepositorySectionTab.Files) {
       this.props.dispatcher.refreshFileTree(this.props.repository)
     }
-    if (section === RepositorySectionTab.Actions) {
-      this.props.dispatcher.loadWorkflowRuns(this.props.repository)
-    }
     if (section === RepositorySectionTab.History) {
       this.props.dispatcher.updateCompareForm(this.props.repository, {
         showBranchList: false,
@@ -1308,7 +1390,7 @@ export class RepositoryView extends React.Component<
     }
   }
 
-  private maybeRenderTutorialPanel(): JSX.Element | null {
+  private maybeRenderTutorialPanel(): React.JSX.Element | null {
     if (isValidTutorialStep(this.props.currentTutorialStep)) {
       return (
         <TutorialPanel

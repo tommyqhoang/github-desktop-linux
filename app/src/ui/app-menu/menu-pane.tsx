@@ -97,7 +97,7 @@ interface IMenuPaneProps {
    * the typed character if such an menu item exists. */
   readonly allowFirstCharacterNavigation?: boolean
 
-  readonly renderLabel?: (item: MenuItem) => JSX.Element | undefined
+  readonly renderLabel?: (item: MenuItem) => React.JSX.Element | undefined
 }
 
 export class MenuPane extends React.Component<IMenuPaneProps> {
@@ -248,7 +248,7 @@ export class MenuPane extends React.Component<IMenuPaneProps> {
     }
   }
 
-  public render(): JSX.Element {
+  public render(): React.JSX.Element {
     const className = classNames('menu-pane', this.props.className)
 
     return (
@@ -289,7 +289,7 @@ const supportedKeys = [
   'Enter',
   ' ',
 ] as const
-const isSupportedKey = (key: string): key is typeof supportedKeys[number] =>
+const isSupportedKey = (key: string): key is (typeof supportedKeys)[number] =>
   (supportedKeys as readonly string[]).includes(key)
 
 const isPrintableCharacterKey = (key: string) =>

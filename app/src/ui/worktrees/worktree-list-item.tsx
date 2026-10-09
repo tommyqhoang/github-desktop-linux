@@ -49,7 +49,7 @@ export class WorktreeListItem extends React.Component<IWorktreeListItemProps> {
   }
 
   /** The checked-out ref: branch name, bare marker, or detached sha. */
-  private renderRef(): JSX.Element {
+  private renderRef(): React.JSX.Element {
     const { entry } = this.props
     if (entry.isBare) {
       return <span className="worktree-list__ref">bare repository</span>
@@ -73,7 +73,7 @@ export class WorktreeListItem extends React.Component<IWorktreeListItemProps> {
     kind: 'locked' | 'prunable',
     label: string,
     reason: string | null
-  ): JSX.Element | null {
+  ): React.JSX.Element | null {
     if (reason === null) {
       return null
     }

@@ -113,7 +113,7 @@ export class CreateTag extends React.Component<
     )
   }
 
-  private getCurrentError(): JSX.Element | null {
+  private getCurrentError(): React.JSX.Element | null {
     if (this.state.tagName.length > MaxTagNameLength) {
       return (
         <>The tag name cannot be longer than {MaxTagNameLength} characters</>

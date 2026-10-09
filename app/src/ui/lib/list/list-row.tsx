@@ -3,6 +3,9 @@ import classNames from 'classnames'
 import { RowIndexPath } from './list-row-index-path'
 
 interface IListRowProps {
+  /** Content rendered inside the component. */
+  readonly children?: React.ReactNode
+
   /** whether or not the section to which this row belongs has a header */
   readonly sectionHasHeader: boolean
 
@@ -226,7 +229,7 @@ export class ListRow extends React.Component<IListRowProps, {}> {
         role={
           sectionHasHeader && rowIndex.row === 0
             ? 'presentation'
-            : role ?? 'option'
+            : (role ?? 'option')
         }
         aria-setsize={ariaSetSize}
         aria-posinset={ariaPosInSet}

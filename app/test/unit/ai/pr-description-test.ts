@@ -54,4 +54,9 @@ describe('parsePRDescription', () => {
   it('throws when the title is empty', () => {
     expect(() => parsePRDescription('{"title": "  ", "body": "b"}')).toThrow()
   })
+
+  it('throws a friendly error (not a TypeError) for JSON null / non-objects', () => {
+    expect(() => parsePRDescription('null')).toThrow(/invalid/)
+    expect(() => parsePRDescription('42')).toThrow(/invalid/)
+  })
 })

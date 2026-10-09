@@ -49,8 +49,7 @@ interface IFlattenedItem<T extends IFilterListItem> {
  * flattened.
  */
 type IFilterListRow<T extends IFilterListItem> =
-  | IFlattenedGroup
-  | IFlattenedItem<T>
+  IFlattenedGroup | IFlattenedItem<T>
 
 interface IFilterListProps<T extends IFilterListItem> {
   /** A class name for the wrapping element. */
@@ -67,13 +66,13 @@ interface IFilterListProps<T extends IFilterListItem> {
   readonly selectedItem: T | null
 
   /** Called to render each visible item. */
-  readonly renderItem: (item: T, matches: IMatches) => JSX.Element | null
+  readonly renderItem: (item: T, matches: IMatches) => React.JSX.Element | null
 
   /** Called to render header for the group with the given identifier. */
-  readonly renderGroupHeader?: (identifier: string) => JSX.Element | null
+  readonly renderGroupHeader?: (identifier: string) => React.JSX.Element | null
 
   /** Called to render content before/above the filter and list. */
-  readonly renderPreList?: () => JSX.Element | null
+  readonly renderPreList?: () => React.JSX.Element | null
 
   /**
    * This function will be called when a pointer device is pressed and then
@@ -133,10 +132,10 @@ interface IFilterListProps<T extends IFilterListItem> {
   readonly invalidationProps: any
 
   /** Called to render content after the filter. */
-  readonly renderPostFilter?: () => JSX.Element | null
+  readonly renderPostFilter?: () => React.JSX.Element | null
 
   /** Called when there are no items to render.  */
-  readonly renderNoItems?: () => JSX.Element | null
+  readonly renderNoItems?: () => React.JSX.Element | null
 
   /**
    * A reference to a TextBox that will be used to control this component.

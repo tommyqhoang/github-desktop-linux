@@ -5,7 +5,7 @@ import * as Fs from 'fs'
 import * as Path from 'path'
 import { spawnSync, SpawnSyncOptions } from 'child_process'
 
-import glob from 'glob'
+import { glob } from 'glob'
 import { forceUnwrap } from '../app/src/lib/fatal-error'
 
 const root = Path.dirname(__dirname)
@@ -71,11 +71,7 @@ function getYarnArgs(baseArgs: Array<string>): Array<string> {
 }
 
 function findYarnVersion(callback: (path: string) => void) {
-  glob('vendor/yarn-*.js', (error, files) => {
-    if (error != null) {
-      throw error
-    }
-
+  glob('vendor/yarn-*.js').then(files => {
     // this ensures the paths returned by glob are sorted alphabetically
     files.sort()
 

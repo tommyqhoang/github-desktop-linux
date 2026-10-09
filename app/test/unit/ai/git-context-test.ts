@@ -4,6 +4,7 @@ import {
   getCommitDiffText,
   getWorkingDiffText,
   AI_DIFF_EXCLUDED_PATHS,
+  isAIExcludedPath,
 } from '../../../src/lib/ai/git-context'
 import { setupEmptyRepository } from '../../helpers/repositories'
 import { makeCommit } from '../../helpers/repository-scaffolding'
@@ -225,5 +226,28 @@ describe('ai/git-context', () => {
         expect.arrayContaining(['**/.env', '**/*.pem', '**/yarn.lock'])
       )
     })
+  })
+
+  it('getWorkingDiffText includes untracked files but still excludes secrets', async () => {
+    const repo = await setupEmptyRepository()
+    await makeCommit(repo, {
+      entries: [{ path: 'a.txt', contents: 'a\n' }],
+      commitMessage: 'init',
+    })
+    await writeFile(Path.join(repo.path, 'new.txt'), 'fresh\n')
+    await writeFile(Path.join(repo.path, '.env'), 'SECRET=1\n')
+    const diff = await getWorkingDiffText(repo)
+    expect(diff).toContain('new.txt')
+    expect(diff).toContain('+fresh')
+    expect(diff).not.toContain('SECRET')
+  })
+
+  it('isAIExcludedPath matches the same secrets and lockfiles as the pathspecs', () => {
+    expect(isAIExcludedPath('.env')).toBe(true)
+    expect(isAIExcludedPath('config/.env.local')).toBe(true)
+    expect(isAIExcludedPath('deploy/server.pem')).toBe(true)
+    expect(isAIExcludedPath('web/yarn.lock')).toBe(true)
+    expect(isAIExcludedPath('src/index.ts')).toBe(false)
+    expect(isAIExcludedPath('src/environment.ts')).toBe(false)
   })
 })

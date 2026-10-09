@@ -2,12 +2,18 @@ import { BaseStore } from './base-store'
 import { Repository } from '../../models/repository'
 import { IWorkflowRun, WorkflowRunStatus } from '../../models/workflow-run'
 
+/** Why a repository has no Actions data to show (distinct from "no runs"). */
+export type WorkflowRunsUnavailableReason =
+  'signed-out' | 'not-github' | 'no-actions' | 'no-branch'
+
 export interface IRepoWorkflowRunsState {
   readonly runs: ReadonlyArray<IWorkflowRun>
   readonly loading: boolean
   readonly error: Error | null
   readonly loadedAt: number | null
   readonly selectedWorkflowName: string | null
+  /** Set when Actions data can't be shown for a known, non-error reason. */
+  readonly unavailable: WorkflowRunsUnavailableReason | null
 }
 
 const EMPTY_STATE: IRepoWorkflowRunsState = Object.freeze({
@@ -16,6 +22,7 @@ const EMPTY_STATE: IRepoWorkflowRunsState = Object.freeze({
   error: null,
   loadedAt: null,
   selectedWorkflowName: null,
+  unavailable: null,
 })
 
 /** True while GitHub may still change the run's status or conclusion. */
@@ -120,10 +127,34 @@ export class WorkflowRunsStore extends BaseStore {
       loading: false,
       error: null,
       loadedAt: Date.now(),
+      unavailable: null,
     })
     this.emitUpdate()
   }
 
+  /**
+   * Record that Actions data can't be shown (signed out, not a GitHub repo,
+   * Actions not available). Clears runs and any stale error.
+   */
+  public setUnavailable(
+    repositoryId: number,
+    unavailable: WorkflowRunsUnavailableReason
+  ): void {
+    const current = this.state.get(repositoryId) ?? EMPTY_STATE
+    this.state.set(repositoryId, {
+      ...current,
+      runs: [],
+      loading: false,
+      error: null,
+      unavailable,
+    })
+    this.emitUpdate()
+  }
+
+  /**
+   * Record a failed load. Previously loaded runs are kept so a transient
+   * failure never wipes a populated list.
+   */
   public setError(repositoryId: number, error: Error): void {
     const current = this.state.get(repositoryId) ?? EMPTY_STATE
     this.state.set(repositoryId, {

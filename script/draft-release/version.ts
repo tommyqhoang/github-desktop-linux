@@ -3,16 +3,16 @@ import { inc, parse, SemVer } from 'semver'
 import { Channel } from './channel'
 
 function isBetaTag(version: SemVer) {
-  return version.prerelease.some(p => p.startsWith('beta'))
+  return version.prerelease.some(p => String(p).startsWith('beta'))
 }
 
 function isTestTag(version: SemVer) {
-  return version.prerelease.some(p => p.startsWith('test'))
+  return version.prerelease.some(p => String(p).startsWith('test'))
 }
 
 function tryGetBetaNumber(version: SemVer): number | null {
   if (isBetaTag(version)) {
-    const tag = version.prerelease[0]
+    const tag = String(version.prerelease[0])
     const text = tag.substring(4)
     const betaNumber = parseInt(text, 10)
     return isNaN(betaNumber) ? null : betaNumber
@@ -81,7 +81,7 @@ export function getNextVersionNumber(
       }
 
       if (isTestTag(semanticVersion)) {
-        const tag = semanticVersion.prerelease[0]
+        const tag = String(semanticVersion.prerelease[0])
         const text = tag.substring(4)
         const testNumber = parseInt(text, 10)
         return semanticVersion.version.replace(

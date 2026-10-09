@@ -98,6 +98,13 @@
   overflow: hidden;
 }
 
+.file-tab-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
 .file-tabs {
   display: flex;
   align-items: stretch;
@@ -286,10 +293,15 @@
       max-height: 100%;
       object-fit: contain;
       // Checkerboard backing so transparent images read clearly.
-      background-image: linear-gradient(45deg, #80808033 25%, transparent 25%), linear-gradient(-45deg, #80808033 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #80808033 75%),
+      background-image:
+        linear-gradient(45deg, #80808033 25%, transparent 25%), linear-gradient(-45deg, #80808033 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #80808033 75%),
         linear-gradient(-45deg, transparent 75%, #80808033 75%);
       background-size: 16px 16px;
-      background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+      background-position:
+        0 0,
+        0 8px,
+        8px -8px,
+        -8px 0px;
     }
   }
 
@@ -401,5 +413,16 @@
 
   .file-viewer-code .file-viewer-line.is-find-active {
     background: var(--color-modified-subtle, rgba(219, 171, 9, 0.25));
+  }
+}
+
+.file-tree {
+  .file-tree-error {
+    padding: var(--spacing-half) var(--spacing);
+    color: var(--error-color);
+  }
+
+  .file-tree-retry {
+    margin-left: var(--spacing-half);
   }
 }

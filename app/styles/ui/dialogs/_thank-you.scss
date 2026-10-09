@@ -15,7 +15,8 @@
     position: relative;
     text-align: center;
 
-    background: url('../static/common/release-note-header-left.svg') no-repeat left var(--spacing-double) top var(--spacing-half) / auto 78px,
+    background:
+      url('../static/common/release-note-header-left.svg') no-repeat left var(--spacing-double) top var(--spacing-half) / auto 78px,
       url('../static/common/release-note-header-right.svg') no-repeat right var(--spacing-double) top var(--spacing-half) / auto 78px;
   }
 

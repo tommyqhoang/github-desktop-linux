@@ -7,14 +7,26 @@
   }
 
   // 'replace' animation styles
-  .replace-leave {
+  &.replace-container {
+    position: relative;
+  }
+
+  // The outgoing element is taken out of flow so it doesn't push the
+  // incoming one down while both are briefly mounted.
+  .replace-exit {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
     opacity: 1;
     transform: translate3d(0, 0, 0);
   }
-  .replace-leave.replace-leave-active {
+  .replace-exit.replace-exit-active {
     opacity: 0;
     transform: translate3d(100%, 0, 0);
-    transition: opacity 200ms ease-in, transform 250ms var(--easing-ease-in-back);
+    transition:
+      opacity 200ms ease-in,
+      transform 250ms var(--easing-ease-in-back);
   }
 
   .replace-enter {
@@ -25,10 +37,8 @@
   .replace-enter.replace-enter-active {
     opacity: 1;
     transform: translate3d(0, 0, 0);
-    transition: opacity 200ms ease-in 500ms, transform 250ms var(--easing-ease-out-back) 500ms;
-  }
-
-  &.replace-height {
-    transition: height 250ms ease-out 250ms;
+    transition:
+      opacity 200ms ease-in 500ms,
+      transform 250ms var(--easing-ease-out-back) 500ms;
   }
 }

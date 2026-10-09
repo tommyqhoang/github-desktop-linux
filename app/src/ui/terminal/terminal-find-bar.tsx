@@ -3,12 +3,15 @@ import * as React from 'react'
 interface IProps {
   readonly visible: boolean
   readonly onClose: () => void
-  readonly onFindNext: (text: string) => void
-  readonly onFindPrevious: (text: string) => void
+  /** Returns false when nothing matched; void/true are treated as found. */
+  readonly onFindNext: (text: string) => boolean | void
+  readonly onFindPrevious: (text: string) => boolean | void
 }
 
 interface IState {
   readonly text: string
+  /** Result of the last search, announced via a polite live region. */
+  readonly status: 'idle' | 'found' | 'none'
 }
 
 /**
@@ -19,7 +22,7 @@ interface IState {
  */
 export class TerminalFindBar extends React.Component<IProps, IState> {
   private inputRef = React.createRef<HTMLInputElement>()
-  public state: IState = { text: '' }
+  public state: IState = { text: '', status: 'idle' }
 
   public componentDidUpdate(prevProps: IProps) {
     if (!prevProps.visible && this.props.visible) {
@@ -38,6 +41,7 @@ export class TerminalFindBar extends React.Component<IProps, IState> {
           ref={this.inputRef}
           type="search"
           className="terminal-find-bar__input"
+          aria-label="Find in terminal"
           placeholder="Find in terminal"
           value={this.state.text}
           onChange={this.onChange}
@@ -67,20 +71,39 @@ export class TerminalFindBar extends React.Component<IProps, IState> {
         >
           ×
         </button>
+        <span className="sr-only" role="status" aria-live="polite">
+          {this.state.status === 'none'
+            ? 'No results'
+            : this.state.status === 'found'
+              ? 'Match found'
+              : ''}
+        </span>
       </div>
     )
   }
 
   private onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    this.setState({ text: e.target.value })
+    this.setState({ text: e.target.value, status: 'idle' })
+  }
+
+  private search(forward: boolean) {
+    const { text } = this.state
+    if (text.length === 0) {
+      this.setState({ status: 'idle' })
+      return
+    }
+    const found = forward
+      ? this.props.onFindNext(text)
+      : this.props.onFindPrevious(text)
+    this.setState({ status: found === false ? 'none' : 'found' })
   }
 
   private onPrevClick = () => {
-    this.props.onFindPrevious(this.state.text)
+    this.search(false)
   }
 
   private onNextClick = () => {
-    this.props.onFindNext(this.state.text)
+    this.search(true)
   }
 
   private onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -91,11 +114,7 @@ export class TerminalFindBar extends React.Component<IProps, IState> {
     }
     if (e.key === 'Enter') {
       e.preventDefault()
-      if (e.shiftKey) {
-        this.props.onFindPrevious(this.state.text)
-      } else {
-        this.props.onFindNext(this.state.text)
-      }
+      this.search(!e.shiftKey)
     }
   }
 }

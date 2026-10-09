@@ -1,11 +1,7 @@
 import * as ipcWebContents from '../main-process/ipc-webcontents'
 
 export type WindowState =
-  | 'minimized'
-  | 'normal'
-  | 'maximized'
-  | 'full-screen'
-  | 'hidden'
+  'minimized' | 'normal' | 'maximized' | 'full-screen' | 'hidden'
 
 export function getWindowState(window: Electron.BrowserWindow): WindowState {
   if (window.isFullScreen()) {
