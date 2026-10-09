@@ -28,7 +28,7 @@ jobs:
           node -e "const fs = require('fs'); const path = 'app/package.json'; const pkg = require('./' + path); pkg.version = pkg.version.replace(/-.*/, '') + '-' + process.env.BUILD_VERSION_SUFFIX; fs.writeFileSync(path, JSON.stringify(pkg, null, 2) + '\n');"
           node -p "require('./app/package.json').version"
       - name: Package and test application in container
-        uses: tommyqhoang/desktop-ubuntu-amd64-packaging@c09f519b3bafe8f335772edfb102386eefceb38e
+        uses: tommyqhoang/desktop-ubuntu-amd64-packaging@9a61b43887b08fb38a95e7d0ceb68667270bd4e5
         env:
           DESKTOP_OAUTH_CLIENT_ID: ${{ secrets.DESKTOP_OAUTH_CLIENT_ID }}
           DESKTOP_OAUTH_CLIENT_SECRET:
