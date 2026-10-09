@@ -451,7 +451,7 @@ export function buildDefaultMenu({
       click: emit('rebase-branch'),
     },
     {
-      label: __DARWIN__ ? 'Interactive Rebase…' : 'Interactive &rebase…',
+      label: __DARWIN__ ? 'Interactive Rebase…' : 'Inter&active rebase…',
       id: 'interactive-rebase',
       click: emit('interactive-rebase'),
     },

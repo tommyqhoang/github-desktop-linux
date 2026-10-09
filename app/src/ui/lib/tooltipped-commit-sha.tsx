@@ -1,4 +1,4 @@
-import { clipboard } from 'electron'
+import { clipboard } from './clipboard'
 import React from 'react'
 import { Commit, shortenSHA } from '../../models/commit'
 import { Ref } from './ref'

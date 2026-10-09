@@ -1,7 +1,7 @@
 import { Repository } from '../../models/repository'
 import { IMenuItem } from '../../lib/menu-item'
 import { Repositoryish } from './group-repositories'
-import { clipboard } from 'electron'
+import { clipboard } from '../lib/clipboard'
 import {
   RevealInFileManagerLabel,
   DefaultEditorLabel,

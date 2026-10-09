@@ -1,4 +1,4 @@
-import { clipboard } from 'electron'
+import { clipboard } from './lib/clipboard'
 import React from 'react'
 import * as octicons from './octicons/octicons.generated'
 import { Octicon } from './octicons'

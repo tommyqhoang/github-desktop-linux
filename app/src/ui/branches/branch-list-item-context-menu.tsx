@@ -1,5 +1,5 @@
 import { IMenuItem } from '../../lib/menu-item'
-import { clipboard } from 'electron'
+import { clipboard } from '../lib/clipboard'
 
 interface IBranchContextMenuConfig {
   name: string

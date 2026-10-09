@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { clipboard } from 'electron'
+import { clipboard } from '../lib/clipboard'
 import * as Path from 'path'
 
 import { Repository } from '../../models/repository'

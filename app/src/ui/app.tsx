@@ -3881,6 +3881,12 @@ export class App extends React.Component<IAppProps, IAppState> {
     }
     const repo = this.getRepository()
     const repositoryId = repo instanceof Repository ? repo.id : null
+    if (repositoryId === null) {
+      // Sessions are scoped to a repository; with none selected (blank slate,
+      // cloning) the panel would only show an empty state over the welcome
+      // screen.
+      return null
+    }
     return (
       <TerminalPanel
         state={this.state.terminal}

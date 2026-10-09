@@ -14,7 +14,7 @@ import {
   enableResetToCommit,
 } from '../../lib/feature-flag'
 import { getDotComAPIEndpoint } from '../../lib/api'
-import { clipboard } from 'electron'
+import { clipboard } from '../lib/clipboard'
 import { RowIndexPath } from '../lib/list/list-row-index-path'
 import { assertNever } from '../../lib/fatal-error'
 import { CommitDragElement } from '../drag-elements/commit-drag-element'

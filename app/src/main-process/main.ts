@@ -2,6 +2,7 @@ import '../lib/logging/main/install'
 
 import {
   app,
+  clipboard,
   Menu,
   BrowserWindow,
   shell,
@@ -661,6 +662,13 @@ app.on('ready', () => {
   ipcMain.handle('show-item-in-folder', async (_, path) =>
     shell.showItemInFolder(path)
   )
+
+  // Electron 40+ no longer exposes `clipboard` to the renderer, so every
+  // renderer copy/paste goes through the main process.
+  ipcMain.handle('clipboard-write-text', async (_, text: string) =>
+    clipboard.writeText(text)
+  )
+  ipcMain.handle('clipboard-read-text', async () => clipboard.readText())
 
   ipcMain.on('unsafe-open-directory', async (_, path) =>
     UNSAFE_openDirectory(path)

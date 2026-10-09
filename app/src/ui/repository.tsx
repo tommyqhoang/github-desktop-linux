@@ -31,7 +31,7 @@ import {
   RevealInFileManagerLabel,
   TrashNameLabel,
 } from './lib/context-menu'
-import { clipboard } from 'electron'
+import { clipboard } from './lib/clipboard'
 import * as Path from 'path'
 import {
   IRepositoryState,

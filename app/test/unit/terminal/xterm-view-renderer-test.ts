@@ -387,4 +387,24 @@ describe('XtermView renderer fallback', () => {
     const view = new XtermView({ port: null, theme: _palettes.DARK_THEME })
     expect(() => view.focus()).not.toThrow()
   })
+
+  it('loads the renderer addon only after the terminal is opened', () => {
+    // xterm defers WebGL activation to open() when loaded early, so a machine
+    // without WebGL2 would throw from open() and crash the app.
+    const events: string[] = []
+    mount({
+      __loaded: [],
+      __terminalExtras: {
+        open: () => events.push('open'),
+        loadAddon: (a: any) => events.push(`load:${a.name ?? 'unknown'}`),
+      },
+      webglAddonFactory: () => ({
+        name: 'webgl',
+        dispose: () => undefined,
+        onContextLoss: () => ({ dispose: () => undefined }),
+      }),
+    })
+    expect(events.indexOf('open')).toBeGreaterThanOrEqual(0)
+    expect(events.indexOf('load:webgl')).toBeGreaterThan(events.indexOf('open'))
+  })
 })

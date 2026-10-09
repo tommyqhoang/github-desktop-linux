@@ -1,3 +1,4 @@
+import { clipboard as sharedClipboard } from '../lib/clipboard'
 import { macTerminalKeySequence } from '../../lib/terminal/mac-key-bindings'
 import * as React from 'react'
 import { ITerminalThemeColors } from '../../lib/terminal/terminal-theme'
@@ -150,43 +151,17 @@ export interface IRuntimeFitAddon {
 }
 
 /**
- * Clipboard adapter. Electron 40+ made its `clipboard` module Promise-based
- * (`readText()` resolves to the text), so both methods are async here.
- * Treating the result as a string silently turned every paste into a no-op.
+ * Clipboard adapter. Electron 40+ no longer exposes `clipboard` to the
+ * renderer at all, so access is async and goes through the main process.
+ * Treating the result as a synchronous string silently turned every paste
+ * into a no-op.
  */
 export interface IClipboard {
   readText(): Promise<string>
   writeText(text: string): Promise<void>
 }
 
-const defaultClipboard: IClipboard = {
-  readText: async () => {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const { clipboard } = require('electron')
-      return (await clipboard.readText()) ?? ''
-    } catch {
-      try {
-        return await navigator.clipboard.readText()
-      } catch {
-        return ''
-      }
-    }
-  },
-  writeText: async (text: string) => {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const { clipboard } = require('electron')
-      await clipboard.writeText(text)
-    } catch {
-      try {
-        await navigator.clipboard.writeText(text)
-      } catch {
-        // nothing more we can do
-      }
-    }
-  },
-}
+const defaultClipboard: IClipboard = sharedClipboard
 
 interface IXtermViewState {
   /** False when the viewport is scrolled above the bottom of the buffer. */
@@ -259,11 +234,16 @@ export class XtermView extends React.Component<
     if (this.fitAddon !== null) {
       this.term.loadAddon(this.fitAddon)
     }
-    this.installRenderer(this.props.rendererPreference ?? 'webgl')
     this.installPassiveAddons()
     this.installFileLinkMatcher()
     this.term.attachCustomKeyEventHandler(this.handleKeyEvent)
     this.term.open(this.container.current)
+    // The WebGL addon must be loaded after open(): before it, xterm defers
+    // activation to an open-time event, so a machine without WebGL2 (VMs,
+    // blocklisted GPUs, remote desktops) throws from open() outside our
+    // try/catch and takes down the whole app instead of falling back to
+    // the DOM renderer.
+    this.installRenderer(this.props.rendererPreference ?? 'webgl')
     this.applyTheme(this.props.theme)
     this.dataDispose = this.term.onData(input => this.sendInput(input))
     this.resizeDispose = this.term.onResize(size => this.sendResize(size))

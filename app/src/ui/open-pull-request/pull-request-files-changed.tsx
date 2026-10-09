@@ -19,7 +19,7 @@ import {
   RevealInFileManagerLabel,
 } from '../lib/context-menu'
 import { revealInFileManager } from '../../lib/app-shell'
-import { clipboard } from 'electron'
+import { clipboard } from '../lib/clipboard'
 import { IConstrainedValue } from '../../lib/app-state'
 import { clamp } from '../../lib/clamp'
 import { getDotComAPIEndpoint } from '../../lib/api'

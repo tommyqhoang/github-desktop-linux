@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { clipboard } from 'electron'
+import { clipboard } from '../lib/clipboard'
 import { Repository } from '../../models/repository'
 import { AIResultDialog } from './ai-result-dialog'
 import { AIResult, aiResultCopyText, renderAIResult } from './ai-result-render'

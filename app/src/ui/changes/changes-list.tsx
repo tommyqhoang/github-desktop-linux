@@ -38,7 +38,7 @@ import { IAutocompletionProvider } from '../autocompletion'
 import { generateAICommitMessage } from '../../lib/ai/generate-commit-message'
 import { showContextualMenu } from '../../lib/menu-item'
 import { arrayEquals } from '../../lib/equality'
-import { clipboard } from 'electron'
+import { clipboard } from '../lib/clipboard'
 import { basename } from 'path'
 import { Commit, ICommitContext } from '../../models/commit'
 import {
