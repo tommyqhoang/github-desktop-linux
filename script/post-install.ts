@@ -24,6 +24,13 @@ const options: SpawnSyncOptions = {
  * subsequent gyp rebuild succeeds.
  */
 function patchNodePtyBindingGyp() {
+  // Electron's V8 headers need real C++20, so only downgrade the flag on
+  // compilers too old to know `-std=gnu++20` (g++ < 10).
+  const gcc = spawnSync('g++', ['-dumpversion'], { encoding: 'utf8' })
+  const major = parseInt(String(gcc.stdout ?? '').trim(), 10)
+  if (!Number.isFinite(major) || major >= 10) {
+    return
+  }
   const gyp = Path.join(root, 'app', 'node_modules', 'node-pty', 'binding.gyp')
   if (!Fs.existsSync(gyp)) {
     return
