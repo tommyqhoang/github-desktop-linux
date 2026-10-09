@@ -55,6 +55,15 @@ export function normalizeAICommitMessageSettings(
   }
 }
 
+function isLoopbackHost(hostname: string): boolean {
+  return (
+    hostname === 'localhost' ||
+    hostname.endsWith('.localhost') ||
+    hostname === '127.0.0.1' ||
+    hostname === '[::1]'
+  )
+}
+
 export function getAICommitMessageSettingsValidationErrors(
   settings: IAICommitMessageSettings
 ): IAICommitMessageSettingsValidationErrors {
@@ -82,6 +91,12 @@ export function getAICommitMessageSettingsValidationErrors(
 
     if (url.protocol !== 'https:' && url.protocol !== 'http:') {
       errors.baseUrl = 'Enter an HTTP or HTTPS URL.'
+    } else if (url.protocol === 'http:' && !isLoopbackHost(url.hostname)) {
+      // The API key is sent as a bearer token on every request; over plain
+      // HTTP it would cross the network in the clear. Local servers
+      // (Ollama, LM Studio, ...) are fine.
+      errors.baseUrl =
+        'Use an HTTPS URL. Plain HTTP is only allowed for localhost.'
     }
   } catch (e) {
     errors.baseUrl = 'Enter a valid OpenRouter base URL.'

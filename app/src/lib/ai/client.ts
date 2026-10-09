@@ -10,6 +10,10 @@ export interface IAIMessage {
 export interface IAICompleteOptions {
   readonly maxTokens?: number
   readonly temperature?: number
+  /** Abort the request (e.g. the dialog that asked for it was closed). */
+  readonly signal?: AbortSignal
+  /** Give up after this many ms. Defaults to {@link DEFAULT_TIMEOUT_MS}. */
+  readonly timeoutMs?: number
 }
 
 /** A minimal chat-completion client shared by every AI feature. */
@@ -25,6 +29,12 @@ export type IAIClientOptions = IAISettings & { readonly fetcher?: typeof fetch }
 
 const DEFAULT_MAX_TOKENS = 512
 const DEFAULT_TEMPERATURE = 0.2
+
+/**
+ * Without a ceiling, a provider that accepts the connection but never answers
+ * leaves the dialog on "Loading" forever.
+ */
+export const DEFAULT_TIMEOUT_MS = 60_000
 
 function normalizeBaseUrl(baseUrl: string): string {
   return baseUrl.replace(/\/+$/, '')
@@ -50,44 +60,77 @@ export function createAIClient(options: IAIClientOptions): IAIClient {
       messages: ReadonlyArray<IAIMessage>,
       completeOptions?: IAICompleteOptions
     ): Promise<string> {
-      const response = await fetcher(
-        `${normalizeBaseUrl(options.baseUrl)}/chat/completions`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${options.apiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: options.model,
-            temperature: completeOptions?.temperature ?? DEFAULT_TEMPERATURE,
-            max_tokens: completeOptions?.maxTokens ?? DEFAULT_MAX_TOKENS,
-            messages,
-          }),
-        }
-      )
+      // Nothing to do (and no request or timer to start) for a caller that
+      // has already given up.
+      if (completeOptions?.signal?.aborted) {
+        throw new DOMException('The request was aborted.', 'AbortError')
+      }
 
-      if (!response.ok) {
-        let providerMessage: string | null = null
-        try {
-          providerMessage = getProviderErrorMessage(await response.json())
-        } catch (e) {
-          providerMessage = null
-        }
-        const statusMessage = `AI request failed with ${response.status}.`
-        throw new Error(
-          providerMessage === null
-            ? statusMessage
-            : `${statusMessage} ${providerMessage}`
+      const timeoutMs = completeOptions?.timeoutMs ?? DEFAULT_TIMEOUT_MS
+      const controller = new AbortController()
+      let timedOut = false
+      const timer = setTimeout(() => {
+        timedOut = true
+        controller.abort()
+      }, timeoutMs)
+
+      const callerSignal = completeOptions?.signal
+      const onCallerAbort = () => controller.abort()
+      callerSignal?.addEventListener('abort', onCallerAbort, { once: true })
+
+      try {
+        const response = await fetcher(
+          `${normalizeBaseUrl(options.baseUrl)}/chat/completions`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${options.apiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: options.model,
+              temperature: completeOptions?.temperature ?? DEFAULT_TEMPERATURE,
+              max_tokens: completeOptions?.maxTokens ?? DEFAULT_MAX_TOKENS,
+              messages,
+            }),
+            signal: controller.signal,
+          }
         )
-      }
 
-      const json = await response.json()
-      const content = json?.choices?.[0]?.message?.content
-      if (typeof content !== 'string' || content.length === 0) {
-        throw new Error('The AI provider returned no content.')
+        if (!response.ok) {
+          let providerMessage: string | null = null
+          try {
+            providerMessage = getProviderErrorMessage(await response.json())
+          } catch (e) {
+            providerMessage = null
+          }
+          const statusMessage = `AI request failed with ${response.status}.`
+          throw new Error(
+            providerMessage === null
+              ? statusMessage
+              : `${statusMessage} ${providerMessage}`
+          )
+        }
+
+        const json = await response.json()
+        const content = json?.choices?.[0]?.message?.content
+        if (typeof content !== 'string' || content.length === 0) {
+          throw new Error('The AI provider returned no content.')
+        }
+        return content
+      } catch (e) {
+        if (timedOut) {
+          throw new Error(
+            `The AI provider did not respond within ${Math.round(
+              timeoutMs / 1000
+            )} seconds.`
+          )
+        }
+        throw e
+      } finally {
+        clearTimeout(timer)
+        callerSignal?.removeEventListener('abort', onCallerAbort)
       }
-      return content
     },
   }
 }

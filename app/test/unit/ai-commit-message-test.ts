@@ -281,6 +281,43 @@ describe('AI commit message generation', () => {
     })
   })
 
+  describe('base URL validation', () => {
+    const errorsFor = (baseUrl: string) =>
+      getAICommitMessageSettingsValidationErrors({
+        enabled: true,
+        apiKey: 'sk-or-test',
+        model: 'openrouter/auto',
+        baseUrl,
+      }).baseUrl
+
+    it('accepts HTTPS URLs', () => {
+      expect(errorsFor('https://openrouter.ai/api/v1')).toBeUndefined()
+    })
+
+    it.each([
+      ['http://localhost:11434/v1'],
+      ['http://127.0.0.1:1234/v1'],
+      ['http://[::1]:8080/v1'],
+      ['http://llm.localhost/v1'],
+    ])('allows plain HTTP to a local server (%s)', url => {
+      expect(errorsFor(url)).toBeUndefined()
+    })
+
+    it.each([
+      ['http://openrouter.ai/api/v1'],
+      ['http://192.168.1.20:8080/v1'],
+      ['http://example.com/v1'],
+      ['http://localhost.evil.com/v1'],
+    ])('rejects plain HTTP to a remote host (%s)', url => {
+      expect(errorsFor(url)).toMatch(/HTTPS/)
+    })
+
+    it('still rejects non-HTTP schemes and malformed URLs', () => {
+      expect(errorsFor('ftp://example.com')).toMatch(/HTTP or HTTPS/)
+      expect(errorsFor('not a url')).toMatch(/valid/)
+    })
+  })
+
   it('keeps a fallback copy of OpenRouter API keys', async () => {
     jest.spyOn(TokenStore, 'setItem').mockResolvedValue()
     jest.spyOn(TokenStore, 'getItem').mockResolvedValue(null)
