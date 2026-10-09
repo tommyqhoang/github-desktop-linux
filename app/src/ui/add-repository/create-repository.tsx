@@ -560,7 +560,7 @@ export class CreateRepository extends React.Component<
           trackedUserInput={this.state.path + this.state.name}
           ariaLiveMessage={`The directory ${fullPath} appears to be a Git repository. Would you like to add this repository instead?`}
         >
-          The directory <Ref>{fullPath}</Ref>appears to be a Git repository.
+          The directory <Ref>{fullPath}</Ref> appears to be a Git repository.
           Would you like to{' '}
           <LinkButton onClick={this.onAddRepositoryClicked}>
             add this repository
@@ -587,8 +587,8 @@ export class CreateRepository extends React.Component<
           trackedUserInput={this.state.path + this.state.name}
           ariaLiveMessage={`The directory ${fullPath} appears to be a subfolder Git repository. Did you know about submodules?`}
         >
-          The directory <Ref>{fullPath}</Ref>appears to be a subfolder of Git
-          repository.
+          The directory <Ref>{fullPath}</Ref> appears to be a subfolder of Git
+          repository.{' '}
           <LinkButton uri={submoduleDocsUrl}>
             Learn about submodules.
           </LinkButton>
