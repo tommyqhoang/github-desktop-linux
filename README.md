@@ -1,6 +1,6 @@
 # GitHub Desktop for Linux
 
-[![Linux Packages](https://github.com/tommyqhoang/github-desktop-linux/actions/workflows/ci-linux.yml/badge.svg)](https://github.com/tommyqhoang/github-desktop-linux/actions/workflows/ci-linux.yml)
+[![Build and Release](https://github.com/tommyqhoang/github-desktop-linux/actions/workflows/ci-linux.yml/badge.svg)](https://github.com/tommyqhoang/github-desktop-linux/actions/workflows/ci-linux.yml)
 
 This repository maintains a Linux-focused fork of
 [GitHub Desktop](https://desktop.github.com/), the open-source
@@ -99,56 +99,32 @@ Desktop codebase:
   GitHub.com or GitHub Enterprise account in Preferences, with guidance for
   common missing-organization causes such as OAuth app restrictions, SAML SSO,
   private membership, and repository permissions.
-- **Manual Linux release builds**: maintainers can run the `CI / Linux`
-  workflow manually for a branch, tag, or SHA and produce `.AppImage`, `.deb`,
-  `.rpm`, and `.sha256` artifacts, with optional draft GitHub Release creation.
+- **Manual release builds**: maintainers can run the `Build and Release`
+  workflow manually for a branch, tag, or SHA to produce a Linux `.deb` and a
+  macOS arm64 `.zip` (with `.sha256` checksums) in one GitHub Release.
 
 ## Download and Install
 
-Packages are distributed through GitHub Actions artifacts and GitHub Releases.
-Package-manager feeds from older Linux forks are no longer the primary
-distribution path for this project.
+Builds are published on the
+[GitHub Releases](https://github.com/tommyqhoang/github-desktop-linux/releases)
+page. Each release contains one file per platform plus a `.sha256` checksum:
 
-1. Open the
-   [CI / Linux workflow](https://github.com/tommyqhoang/github-desktop-linux/actions/workflows/ci-linux.yml).
-2. Choose the latest successful run, or a tagged draft release when available.
-3. Download the artifact for your architecture:
-   - `ubuntu-amd64-artifacts`
-   - `ubuntu-arm64-artifacts`
-   - `ubuntu-arm-artifacts`
-4. Extract the artifact and install one package:
-   - Debian/Ubuntu: `sudo apt install ./GitHubDesktop-linux-*.deb`
-   - Fedora/RHEL/openSUSE: install the `.rpm` with your package manager.
-   - Any supported Linux distribution: mark the `.AppImage` executable and run
-     it.
+| Platform | File | Install |
+| --- | --- | --- |
+| Linux (Debian/Ubuntu, x64) | `GitHubDesktop-linux-*.deb` | `sudo apt install ./GitHubDesktop-linux-*.deb` |
+| macOS (Apple Silicon only) | `GitHubDesktop-macos-arm64-*.zip` | Unzip, then drag **GitHub Desktop.app** to Applications |
 
-Example AppImage install:
-
-```sh
-chmod +x GitHubDesktop-linux-*.AppImage
-./GitHubDesktop-linux-*.AppImage
-```
-
-Example Debian package install:
-
-```sh
-sudo apt install ./GitHubDesktop-linux-*.deb
-```
+macOS builds are ad-hoc signed and not notarized. On first launch, right-click
+the app and choose **Open**, or run
+`xattr -cr "/Applications/GitHub Desktop.app"`. Intel Macs are not supported.
 
 ## Manual Release Builds
 
-Maintainers build Linux packages with the `CI / Linux` GitHub Actions workflow.
-Use **Run workflow**, choose the branch/tag/SHA to build, and leave
-`publish_release` disabled for artifact-only validation builds.
-
-To create a draft GitHub Release, run the same workflow with:
-
-- `publish_release`: enabled
-- `release_tag`: a tag such as `release-3.4.9-linux1`
-
-The workflow builds `.AppImage`, `.deb`, `.rpm`, and `.sha256` files for the
-supported Linux architectures. Users can download these files directly from the
-workflow artifacts or from the draft release after it is reviewed and published.
+Maintainers publish a release with the **Build and Release (Linux + macOS)**
+GitHub Actions workflow (`ci-linux.yml`). Use **Run workflow** and choose the
+branch, tag, or SHA to build. It builds the Linux `.deb` and the macOS arm64
+`.zip` in parallel and, if both succeed, publishes them together as a
+pre-release tagged `release-<version>-linux.<run number>`.
 
 ## Development
 

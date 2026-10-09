@@ -1,4 +1,4 @@
-name: Build Linux Debian Release
+name: Build and Release (Linux + macOS)
 
 on:
   workflow_dispatch:
@@ -16,7 +16,7 @@ env:
 
 jobs:
   amd64:
-    name: Debian amd64
+    name: Linux x64 (.deb)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -33,10 +33,10 @@ jobs:
           DESKTOP_OAUTH_CLIENT_ID: ${{ secrets.DESKTOP_OAUTH_CLIENT_ID }}
           DESKTOP_OAUTH_CLIENT_SECRET:
             ${{ secrets.DESKTOP_OAUTH_CLIENT_SECRET }}
-      - name: Upload Debian package
+      - name: Upload Linux package
         uses: actions/upload-artifact@v4
         with:
-          name: debian-amd64
+          name: linux-x64-deb
           path: |
             dist/*.deb
             dist/*.deb.sha256
@@ -44,7 +44,7 @@ jobs:
           if-no-files-found: error
 
   macos-arm64:
-    name: macOS arm64 (Apple Silicon)
+    name: macOS arm64 (Apple Silicon, .zip)
     runs-on: macos-14
     env:
       # Without an Apple Developer ID, a 'production' channel build would try to
@@ -101,7 +101,7 @@ jobs:
           RELEASE_VERSION="${BASE_VERSION}-${BUILD_VERSION_SUFFIX}"
           echo "RELEASE_VERSION=${RELEASE_VERSION}" >> "$GITHUB_ENV"
           echo "RELEASE_TAG=release-${RELEASE_VERSION}" >> "$GITHUB_ENV"
-      - name: Download Debian packages
+      - name: Download packages
         uses: actions/download-artifact@v4
         with:
           path: artifacts
@@ -110,11 +110,23 @@ jobs:
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          name: GitHub Desktop for Linux ${{ env.RELEASE_VERSION }}
+          name: GitHub Desktop ${{ env.RELEASE_VERSION }} (Linux + macOS)
           tag_name: ${{ env.RELEASE_TAG }}
           target_commitish: ${{ github.sha }}
           body: |
-            Automated Debian package release for `${{ github.sha }}` from the `linux` branch.
+            Automated build of `${{ github.sha }}` from the `linux` branch.
+
+            | Platform | Download | Install |
+            | --- | --- | --- |
+            | **Linux** (Debian/Ubuntu, x64) | `GitHubDesktop-linux-*.deb` | `sudo apt install ./GitHubDesktop-linux-*.deb` |
+            | **macOS** (Apple Silicon / M1 and newer only) | `GitHubDesktop-macos-arm64-*.zip` | Unzip, drag **GitHub Desktop.app** to Applications |
+
+            Each file has a matching `.sha256` checksum.
+
+            **macOS note:** the app is ad-hoc signed, not notarized. On first
+            launch right-click the app and choose **Open**, or run
+            `xattr -cr "/Applications/GitHub Desktop.app"`. Intel Macs are not
+            supported.
           files: |
             artifacts/**/*.deb
             artifacts/**/*.deb.sha256
