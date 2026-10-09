@@ -273,6 +273,7 @@ import { RepoHealthStore } from './repo-health-store'
 import { IRepoHealthProbes } from '../repo-health/collect-health'
 import { getStatus } from '../git/status'
 import { getWorkingDirectoryStats } from '../git/working-directory-stats'
+import { resolveNewTabCwd } from '../terminal/new-tab-cwd'
 import { getAheadBehind, revSymmetricDifference } from '../git/rev-list'
 import { git } from '../git/core'
 import {
@@ -7518,7 +7519,16 @@ export class AppStore extends TypedBaseStore<IAppState> {
     if (!(repo instanceof Repository)) {
       return
     }
-    await this.spawnTerminalForRepo(repo)
+    // A "+" tab opens where the user currently is, not back at the repo root.
+    const termState = this.terminalStore.getState()
+    const activeSid =
+      termState.activeByRepoId.get(repo.id) ?? termState.activeSessionId
+    const liveCwd =
+      activeSid !== null ? termState.sessions.get(activeSid)?.liveCwd : null
+    await this.spawnTerminalForRepo(
+      repo,
+      await resolveNewTabCwd(liveCwd, repo.path)
+    )
     if (!this.terminalStore.getState().visible) {
       this.terminalStore.show()
     }
@@ -7588,13 +7598,16 @@ export class AppStore extends TypedBaseStore<IAppState> {
     )
   }
 
-  private async spawnTerminalForRepo(repo: Repository): Promise<void> {
+  private async spawnTerminalForRepo(
+    repo: Repository,
+    cwd: string = repo.path
+  ): Promise<void> {
     try {
       const detected = this.detectTerminalShell()
       await this._spawnTerminal(repo.id, {
         shell: detected.path,
         args: detected.args,
-        cwd: repo.path,
+        cwd,
         env: makeTerminalEnv(),
         cols: 80,
         rows: 24,
