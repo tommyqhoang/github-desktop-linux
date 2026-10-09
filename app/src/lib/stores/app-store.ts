@@ -274,6 +274,8 @@ import { IRepoHealthProbes } from '../repo-health/collect-health'
 import { getStatus } from '../git/status'
 import { getWorkingDirectoryStats } from '../git/working-directory-stats'
 import { resolveNewTabCwd } from '../terminal/new-tab-cwd'
+import { SingleFlight } from '../single-flight'
+import { MinIntervalGate } from '../min-interval-gate'
 import { getAheadBehind, revSymmetricDifference } from '../git/rev-list'
 import { git } from '../git/core'
 import {
@@ -399,6 +401,12 @@ import {
 
 const LastSelectedRepositoryIDKey = 'last-selected-repository-id'
 
+/**
+ * Window-focus events can arrive in bursts (alt-tabbing, notifications). A
+ * repository refresh already ran within this window is fresh enough.
+ */
+const FocusRefreshMinIntervalMs = 3_000
+
 /** How often to re-fetch workflow runs while one is still in progress. */
 const WorkflowRunsPollIntervalMs = 15_000
 
@@ -518,6 +526,21 @@ export class AppStore extends TypedBaseStore<IAppState> {
   private readonly submoduleStore: SubmoduleStore = new SubmoduleStore()
   private readonly fileTreeStore: FileTreeStore = new FileTreeStore()
   private readonly workflowRunsStore = new WorkflowRunsStore()
+  /**
+   * Serializes status loads per repository. Without it, overlapping loads
+   * (focus, fetch, commit, section switch) each write their result when their
+   * own git call finishes, so a slow older `git status` can overwrite a newer
+   * one and briefly show stale changes.
+   */
+  private readonly statusFlight = new SingleFlight<
+    number,
+    IStatusResult | null
+  >()
+  private readonly latestStatusRepository = new Map<number, Repository>()
+  private readonly clearPartialStateRequested = new Set<number>()
+  private readonly focusRefreshGate = new MinIntervalGate<number>(
+    FocusRefreshMinIntervalMs
+  )
   private readonly terminalStore: TerminalStore =
     typeof window !== 'undefined'
       ? new TerminalStore(window.localStorage)
@@ -2102,7 +2125,9 @@ export class AppStore extends TypedBaseStore<IAppState> {
     repository: Repository,
     previouslySelectedRepository: Repository | CloningRepository | null
   ): Promise<Repository | null> {
-    this._refreshRepository(repository)
+    this._refreshRepository(repository).catch(e =>
+      log.error('Error refreshing repository after selection', e)
+    )
 
     if (isRepositoryWithGitHubRepository(repository)) {
       // Load issues from the upstream or fork depending
@@ -2742,9 +2767,30 @@ export class AppStore extends TypedBaseStore<IAppState> {
   }
 
   /** This shouldn't be called directly. See `Dispatcher`. */
-  public async _loadStatus(
+  public _loadStatus(
     repository: Repository,
     clearPartialState: boolean = false
+  ): Promise<IStatusResult | null> {
+    // A request to clear partial state must survive being folded into a
+    // queued run that another caller created, so it is tracked separately and
+    // consumed when the run that will honour it actually starts.
+    if (clearPartialState) {
+      this.clearPartialStateRequested.add(repository.id)
+    }
+    this.latestStatusRepository.set(repository.id, repository)
+
+    return this.statusFlight.run(repository.id, () => {
+      const clear = this.clearPartialStateRequested.delete(repository.id)
+      return this.loadStatusCore(
+        this.latestStatusRepository.get(repository.id) ?? repository,
+        clear
+      )
+    })
+  }
+
+  private async loadStatusCore(
+    repository: Repository,
+    clearPartialState: boolean
   ): Promise<IStatusResult | null> {
     const gitStore = this.gitStoreCache.get(repository)
     const status = await gitStore.loadStatus()
@@ -3652,7 +3698,11 @@ export class AppStore extends TypedBaseStore<IAppState> {
   public async _refreshAndMaybeFetchRepository(
     repository: Repository
   ): Promise<void> {
-    await this._refreshOrRecoverRepository(repository)
+    // Bursts of focus events share one refresh instead of each spawning a
+    // full set of git subprocesses.
+    if (this.focusRefreshGate.tryPass(repository.id)) {
+      await this._refreshOrRecoverRepository(repository)
+    }
 
     if (!repository.gitHubRepository) {
       return
@@ -3702,7 +3752,6 @@ export class AppStore extends TypedBaseStore<IAppState> {
       return
     }
 
-    const state = this.repositoryStateCache.get(repository)
     const gitStore = this.gitStoreCache.get(repository)
 
     // if we cannot get a valid status it's a good indicator that the repository
@@ -3720,7 +3769,9 @@ export class AppStore extends TypedBaseStore<IAppState> {
     await gitStore.loadRemotes()
     await gitStore.loadBranches()
 
-    const section = state.selectedSection
+    // Read the section now, not from the snapshot taken before the awaits
+    // above: the user may have switched tabs while status/branches loaded.
+    const section = this.repositoryStateCache.get(repository).selectedSection
     let refreshSectionPromise: Promise<void>
 
     if (section === RepositorySectionTab.History) {
@@ -3763,16 +3814,15 @@ export class AppStore extends TypedBaseStore<IAppState> {
       this._refreshAuthor(repository),
       refreshSectionPromise,
       fileTreePromise,
+      gitStore.refreshTags(),
     ])
-
-    await gitStore.refreshTags()
 
     // this promise is fire-and-forget, so no need to await it
     this.updateStashEntryCountMetric(
       repository,
       gitStore.desktopStashEntryCount,
       gitStore.stashEntryCount
-    )
+    ).catch(e => log.error('Error updating stash entry count metric', e))
     this.updateCurrentPullRequest(repository)
 
     const latestState = this.repositoryStateCache.get(repository)
@@ -6478,6 +6528,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
         this._removeCloningRepository(repository)
       } else {
         await this.repositoriesStore.removeRepository(repository)
+        this.forgetRepositoryCaches(repository)
       }
     } catch (err) {
       this.emitError(err)
@@ -6490,6 +6541,26 @@ export class AppStore extends TypedBaseStore<IAppState> {
     } else {
       this._showFoldout({ type: FoldoutType.Repository })
     }
+  }
+
+  /**
+   * Drop everything cached per repository once it has been removed, so the
+   * maps don't grow for the life of the process and a removed repo no longer
+   * shows up in the stash / worktree / submodule / health snapshots.
+   */
+  private forgetRepositoryCaches(repository: Repository) {
+    this.stashStore.clear(repository)
+    this.worktreeStore.clear(repository)
+    this.submoduleStore.clear(repository)
+    this.fileTreeStore.clear(repository)
+    this.workflowRunsStore.clear(repository.id)
+    this.repoHealthStore.forget(repository.id)
+    this.gitStoreCache.remove(repository)
+
+    this.statusFlight.cancel(repository.id, null)
+    this.latestStatusRepository.delete(repository.id)
+    this.clearPartialStateRequested.delete(repository.id)
+    this.focusRefreshGate.reset(repository.id)
   }
 
   public async _cloneAgain(url: string, path: string): Promise<void> {

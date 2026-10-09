@@ -157,4 +157,46 @@ describe('WorkflowRunsStore', () => {
       expect(two).toHaveBeenCalledTimes(1)
     })
   })
+
+  describe('clear', () => {
+    beforeEach(() => jest.useFakeTimers())
+    afterEach(() => jest.useRealTimers())
+
+    it('drops cached runs and cancels a pending poll', () => {
+      const store = new WorkflowRunsStore()
+      const poll = jest.fn()
+      store.setRuns(1, [makeRun(1, WorkflowRunStatus.InProgress)])
+      store.schedulePoll(1, 15_000, poll)
+
+      store.clear(1)
+      jest.advanceTimersByTime(60_000)
+
+      expect(store.getAllState().has(1)).toBe(false)
+      expect(poll).not.toHaveBeenCalled()
+    })
+
+    it('only emits an update when something was cached', () => {
+      const store = new WorkflowRunsStore()
+      const onUpdate = jest.fn()
+      store.onDidUpdate(onUpdate)
+
+      store.clear(1)
+      expect(onUpdate).not.toHaveBeenCalled()
+
+      store.setRuns(1, [])
+      onUpdate.mockClear()
+      store.clear(1)
+      expect(onUpdate).toHaveBeenCalledTimes(1)
+    })
+
+    it('leaves other repositories alone', () => {
+      const store = new WorkflowRunsStore()
+      store.setRuns(1, [])
+      store.setRuns(2, [])
+
+      store.clear(1)
+
+      expect(store.getAllState().has(2)).toBe(true)
+    })
+  })
 })

@@ -79,6 +79,14 @@ export class WorkflowRunsStore extends BaseStore {
     )
   }
 
+  /** Drop everything cached for a repository that has been removed. */
+  public clear(repositoryId: number): void {
+    this.cancelPoll(repositoryId)
+    if (this.state.delete(repositoryId)) {
+      this.emitUpdate()
+    }
+  }
+
   public cancelPoll(repositoryId: number): void {
     const timer = this.pollTimers.get(repositoryId)
     if (timer !== undefined) {
