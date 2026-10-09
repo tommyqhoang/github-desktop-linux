@@ -80,5 +80,11 @@
     "electron-devtools-installer": "4.0.0",
     "temp": "0.9.4",
     "webpack-hot-middleware": "2.26.1"
+  },
+  "resolutions": {
+    "tar-fs": "^2.1.4",
+    "@babel/runtime": "^7.26.10",
+    "desktop-notifications/uuid": "^11.1.1",
+    "**/wide-align/string-width/strip-ansi/ansi-regex": "^3.0.1"
   }
 }
