@@ -47,6 +47,9 @@ jobs:
     name: macOS arm64 (Apple Silicon)
     runs-on: macos-14
     env:
+      # Without an Apple Developer ID, a 'production' channel build would try to
+      # set up a keychain and notarize. 'development' ad-hoc signs instead.
+      RELEASE_CHANNEL: development
       DESKTOP_OAUTH_CLIENT_ID: ${{ secrets.DESKTOP_OAUTH_CLIENT_ID }}
       DESKTOP_OAUTH_CLIENT_SECRET: ${{ secrets.DESKTOP_OAUTH_CLIENT_SECRET }}
     steps:
