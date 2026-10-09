@@ -14,7 +14,7 @@ import { Octicon } from './octicons'
 import * as octicons from './octicons/octicons.generated'
 import { showContextualMenu, IMenuItem } from '../lib/menu-item'
 import { FileTree } from './file-tree/file-tree'
-import { FileTabs } from './file-tree/file-tabs'
+import { FileTabs, FileTabPanelId } from './file-tree/file-tabs'
 import { FileViewer } from './file-tree/file-viewer'
 import { IRepoFileTreeState } from '../lib/stores/file-tree-store'
 import { FileTreeEntry } from '../models/file-tree'
@@ -1068,13 +1068,24 @@ export class RepositoryView extends React.Component<
           onTabContextMenu={this.onFileTreeTabContextMenu}
           onReorderTab={this.onReorderFileTreeTab}
         />
-        <FileViewer
-          repository={this.props.repository}
-          filePath={activeFilePath}
-          emoji={this.props.emoji}
-          reloadToken={this.props.fileTreeState.refreshToken}
-          openFindToken={this.state.openFindToken}
-        />
+        <div
+          id={FileTabPanelId}
+          className="file-tab-panel"
+          role="tabpanel"
+          aria-label={
+            activeFilePath === null
+              ? 'File contents'
+              : `Contents of ${activeFilePath.split('/').at(-1)}`
+          }
+        >
+          <FileViewer
+            repository={this.props.repository}
+            filePath={activeFilePath}
+            emoji={this.props.emoji}
+            reloadToken={this.props.fileTreeState.refreshToken}
+            openFindToken={this.state.openFindToken}
+          />
+        </div>
       </div>
     )
   }

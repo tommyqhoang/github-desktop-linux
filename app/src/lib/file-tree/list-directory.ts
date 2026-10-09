@@ -4,6 +4,7 @@ import * as Path from 'path'
 import { git } from '../git/core'
 import { Repository } from '../../models/repository'
 import { FileTreeEntry } from '../../models/file-tree'
+import { isInsideRepository } from './read-file'
 
 /**
  * List the immediate children of a directory within the repository's working
@@ -21,6 +22,15 @@ export async function readWorkingDirectory(
   relativePath: string
 ): Promise<ReadonlyArray<FileTreeEntry>> {
   const absoluteDir = Path.join(repository.path, relativePath)
+
+  // A link to a directory outside the working tree must not be browsable.
+  if (
+    relativePath !== '' &&
+    !(await isInsideRepository(repository, absoluteDir))
+  ) {
+    throw new Error('This link points outside the repository')
+  }
+
   const dirents = await readdir(absoluteDir, { withFileTypes: true })
 
   const candidates: FileTreeEntry[] = await Promise.all(
@@ -30,7 +40,11 @@ export async function readWorkingDirectory(
       .map(async d => ({
         name: d.name,
         path: relativePath === '' ? d.name : `${relativePath}/${d.name}`,
-        kind: (await isDirectoryEntry(d, Path.join(absoluteDir, d.name)))
+        kind: (await isDirectoryEntry(
+          repository,
+          d,
+          Path.join(absoluteDir, d.name)
+        ))
           ? ('directory' as const)
           : ('file' as const),
       }))
@@ -46,9 +60,11 @@ export async function readWorkingDirectory(
 
 /**
  * Whether a directory entry is a directory. Symlinks are resolved with `stat`
- * so a link to a directory is browsable; broken links count as files.
+ * so a link to a directory inside the repository is browsable; broken links
+ * and links leaving the repository count as files.
  */
 async function isDirectoryEntry(
+  repository: Repository,
   dirent: Dirent,
   absolutePath: string
 ): Promise<boolean> {
@@ -56,7 +72,11 @@ async function isDirectoryEntry(
     return dirent.isDirectory()
   }
   try {
-    return (await stat(absolutePath)).isDirectory()
+    // Links that leave the repository are listed as plain (unopenable) files
+    return (
+      (await stat(absolutePath)).isDirectory() &&
+      (await isInsideRepository(repository, absolutePath))
+    )
   } catch {
     return false
   }

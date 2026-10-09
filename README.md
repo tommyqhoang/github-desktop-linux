@@ -152,7 +152,7 @@ workflow artifacts or from the draft release after it is reviewed and published.
 
 ## Development
 
-This repository uses Yarn 1.x and Node `20.17.0`.
+This repository uses Yarn 1.x and Node 22 (see `.nvmrc`).
 
 ```sh
 yarn

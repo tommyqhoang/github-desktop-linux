@@ -34,6 +34,9 @@ let nextInstanceId = 0
  * tab is open. Tabs can be reordered by dragging, overflow horizontally when
  * they exceed the strip width, and the active tab is kept scrolled into view.
  */
+/** id of the panel (in RepositoryView) that shows the active tab's file */
+export const FileTabPanelId = 'file-tree-tab-panel'
+
 export class FileTabs extends React.Component<IFileTabsProps, IFileTabsState> {
   private readonly stripRef = React.createRef<HTMLDivElement>()
   private activeTabRef: HTMLDivElement | null = null
@@ -127,6 +130,7 @@ export class FileTabs extends React.Component<IFileTabsProps, IFileTabsState> {
           className="file-tab-select"
           role="tab"
           aria-selected={isActive}
+          aria-controls={isActive ? FileTabPanelId : undefined}
           tabIndex={isTabStop ? 0 : -1}
           // The visible base name is the accessible name; the full
           // repo-relative path is exposed as the description.

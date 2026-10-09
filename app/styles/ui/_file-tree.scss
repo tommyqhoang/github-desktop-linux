@@ -98,6 +98,13 @@
   overflow: hidden;
 }
 
+.file-tab-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
 .file-tabs {
   display: flex;
   align-items: stretch;

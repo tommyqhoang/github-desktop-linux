@@ -29,6 +29,30 @@ export const OutsideRepositoryMessage =
   'This link points outside the repository'
 
 /**
+ * Whether `absolutePath` resolves (through symlinks) to somewhere inside the
+ * repository root. Paths that cannot be resolved count as outside.
+ */
+export async function isInsideRepository(
+  repository: Repository,
+  absolutePath: string
+): Promise<boolean> {
+  try {
+    const [root, target] = await Promise.all([
+      realpath(repository.path),
+      realpath(absolutePath),
+    ])
+    const rel = Path.relative(root, target)
+    return !(
+      rel === '..' ||
+      rel.startsWith(`..${Path.sep}`) ||
+      Path.isAbsolute(rel)
+    )
+  } catch {
+    return false
+  }
+}
+
+/**
  * Throw when `absolutePath` resolves (through symlinks) to somewhere outside
  * the repository root, so the viewer never reads arbitrary files via a link.
  */

@@ -43,6 +43,18 @@ function, and use `app/test/fixtures` for repository state needed by Git tests.
 Run `yarn test:unit` before submitting application changes; run `yarn test` when
 touching shared behavior or scripts.
 
+## Toolchain notes (Oct 2026 upgrade)
+
+- Stack: Node 22, Electron 44, React 19 (no `findDOMNode` — use `getVirtualizedElement` in
+  `app/src/ui/lib/list/` and `CSSTransitionContents` in `app/src/ui/lib/` for transitions),
+  TypeScript 6, Jest 30, Prettier 3, ESLint 9 flat config (`eslint.config.mjs`; project rules are
+  `desktop/*`). Components must declare `children` on their props explicitly.
+- Packages deliberately held back (TypeScript 7, `@babel/core` 8, `node-pty` 1.1, ESLint 10,
+  CodeMirror 6, ...) and the reason for each are listed in the project memory note
+  `deps-upgrade-2026-10`; check it before bumping them.
+- Electron's version is pinned in three places: root `package.json`, `app/.npmrc` (`target`, used to
+  rebuild native modules) and `script/validate-electron-version.ts`.
+
 ## Commit & Pull Request Guidelines
 
 Recent history uses short imperative subjects, often with scoped prefixes for

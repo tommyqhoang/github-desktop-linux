@@ -14,7 +14,7 @@
  * @typedef {import('@typescript-eslint/typescript-estree').TSESTree.Node} Node
  * @typedef {import('@typescript-eslint/typescript-estree').TSESTree.Parameter} Parameter
  * @typedef {import("@typescript-eslint/typescript-estree").TSESTree.MethodDefinition} MethodDefinition
- * @typedef {import('@typescript-eslint/utils').TSESLint.RuleModule} RuleModule
+ * @typedef {import('@typescript-eslint/utils').TSESLint.RuleModule<string, readonly unknown[]>} RuleModule
  */
 
 /**
@@ -311,8 +311,8 @@ module.exports = {
           return
         }
 
-        propsTypeName = getPropsType(node)
-        stateTypeName = getStateType(node, getText)
+        propsTypeName = getPropsType(node) ?? propsTypeName
+        stateTypeName = getStateType(node, getText) ?? stateTypeName
       },
       MethodDefinition(node) {
         if (!isValidComponent) {

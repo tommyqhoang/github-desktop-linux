@@ -271,7 +271,7 @@ export class PRReviewDialog extends React.Component<
         <fieldset className="pr-review-verdict">
           <legend>Verdict</legend>
           {(['comment', 'approve', 'request_changes'] as const).map(kind => (
-            <label key={kind} style={{ marginRight: 12 }}>
+            <label key={kind}>
               <input
                 type="radio"
                 name="verdict"

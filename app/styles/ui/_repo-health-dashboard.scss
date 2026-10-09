@@ -48,6 +48,10 @@
     &.tone-bad {
       border-color: var(--error-color);
     }
+    // No data yet: neutral, dimmed
+    &.tone-unknown {
+      opacity: 0.7;
+    }
   }
 
   &__stat-value {
