@@ -10,4 +10,15 @@ const environmentVariables = {
   USERPROFILE: '',
 }
 
-process.env = { ...process.env, ...environmentVariables }
+// HOME is blanked above, so a global safe.directory entry is never read. CI
+// containers run as a different user than owns the test fixtures, which makes
+// git refuse submodule operations ("dubious ownership") without this.
+const ciGitConfig = process.env.CI
+  ? {
+      GIT_CONFIG_COUNT: '1',
+      GIT_CONFIG_KEY_0: 'safe.directory',
+      GIT_CONFIG_VALUE_0: '*',
+    }
+  : {}
+
+process.env = { ...process.env, ...environmentVariables, ...ciGitConfig }

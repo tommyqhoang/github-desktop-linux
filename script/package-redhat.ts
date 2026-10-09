@@ -87,7 +87,9 @@ export async function packageRedhat(): Promise<string> {
     return Promise.reject('Windows is not supported')
   }
 
-  const installer = require('electron-installer-redhat')
+  // v4+ is ESM-only; under ts-node's require interop the function is `default`
+  const installerModule = require('electron-installer-redhat')
+  const installer = installerModule.default ?? installerModule
 
   await installer(options)
   const installersPath = `${distRoot}/github-desktop*.rpm`
