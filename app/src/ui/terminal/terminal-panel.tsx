@@ -193,6 +193,9 @@ export class TerminalPanel extends React.Component<
       }
       for (const id of stale) {
         next.delete(id)
+        // The session is gone and its view has unmounted; don't keep its
+        // ref object around for the life of the panel.
+        this.xtermRefs.delete(id)
       }
       this.setState({ mountedSessionIds: next })
     }

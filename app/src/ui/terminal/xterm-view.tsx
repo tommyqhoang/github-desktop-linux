@@ -129,6 +129,7 @@ export interface IRuntimeTerminal {
   getSelection(): string
   clearSelection(): void
   scrollToBottom?(): void
+  clear?(): void
   onData(cb: (data: string) => void): { dispose(): void }
   onResize(cb: (size: { cols: number; rows: number }) => void): {
     dispose(): void
@@ -1053,7 +1054,26 @@ export class XtermView extends React.Component<
       }
       return false
     }
+    if (e.key === 'K' || e.key === 'k') {
+      e.preventDefault()
+      e.stopPropagation()
+      this.clearBuffer()
+      return false
+    }
     return true
+  }
+
+  /**
+   * Drop the scrollback (keeping the current prompt line) and the gutter's
+   * command-block markers, which index rows that no longer exist. Plain
+   * Ctrl+L is left to the shell, which only clears the visible screen.
+   */
+  public clearBuffer(): void {
+    this.term?.clear?.()
+    this.blockTracker.reset()
+    this.commandBlocks = []
+    this.forceUpdate()
+    this.updateScrollPosition()
   }
 
   /**
