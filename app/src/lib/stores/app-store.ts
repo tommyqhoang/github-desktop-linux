@@ -2743,7 +2743,12 @@ export class AppStore extends TypedBaseStore<IAppState> {
       return null
     }
 
-    const diffStats = await getWorkingDirectoryStats(repository)
+    // Stats are three git subprocesses; a clean working directory has
+    // nothing to count, so skip them (the common case on every focus/poll).
+    const diffStats =
+      status.workingDirectory.files.length === 0
+        ? null
+        : await getWorkingDirectoryStats(repository)
 
     this.repositoryStateCache.updateChangesState(repository, state =>
       updateChangedFiles(state, status, diffStats, clearPartialState)

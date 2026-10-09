@@ -134,5 +134,53 @@ describe('git/working-directory-stats', () => {
       expect(stats!.additions).toBe(0)
       expect(stats!.deletions).toBe(0)
     })
+
+    describe('concurrent calls', () => {
+      it('shares one trailing run between callers that arrive mid-flight', async () => {
+        const repo = await setupEmptyRepository()
+        await makeInitialCommit(repo)
+
+        const first = getWorkingDirectoryStats(repo)
+        const second = getWorkingDirectoryStats(repo)
+        const third = getWorkingDirectoryStats(repo)
+
+        expect(second).toBe(third)
+        expect(second).not.toBe(first)
+        await Promise.all([first, second, third])
+      })
+
+      it('returns a result that reflects changes made while a run was in flight', async () => {
+        const repo = await setupEmptyRepository()
+        await makeInitialCommit(repo)
+
+        const first = getWorkingDirectoryStats(repo)
+        await FSE.writeFile(
+          path.join(repo.path, 'README.md'),
+          '# Hello\nNew line 1\nNew line 2\nNew line 3\n'
+        )
+        // Arrives while `first` is running, so it must be a fresh trailing
+        // run that starts after the write above, never `first`'s result.
+        const second = getWorkingDirectoryStats(repo)
+
+        await first
+        const stats = await second
+        expect(stats).not.toBeNull()
+        expect(stats!.additions).toBe(3)
+      })
+
+      it('starts a fresh run once the previous one has settled', async () => {
+        const repo = await setupEmptyRepository()
+        await makeInitialCommit(repo)
+
+        await getWorkingDirectoryStats(repo)
+        await FSE.writeFile(
+          path.join(repo.path, 'README.md'),
+          '# Hello\nOne more\n'
+        )
+
+        const stats = await getWorkingDirectoryStats(repo)
+        expect(stats!.additions).toBe(1)
+      })
+    })
   })
 })
