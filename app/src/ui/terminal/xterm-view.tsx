@@ -1,3 +1,4 @@
+import { macTerminalKeySequence } from '../../lib/terminal/mac-key-bindings'
 import * as React from 'react'
 import { ITerminalThemeColors } from '../../lib/terminal/terminal-theme'
 import {
@@ -1047,6 +1048,15 @@ export class XtermView extends React.Component<
   private handleKeyEvent = (e: KeyboardEvent): boolean => {
     if (e.type !== 'keydown') {
       return true
+    }
+    if (__DARWIN__) {
+      const seq = macTerminalKeySequence(e)
+      if (seq !== null) {
+        e.preventDefault()
+        e.stopPropagation()
+        this.sendInput(seq)
+        return false
+      }
     }
     const ctrl = e.ctrlKey || e.metaKey
     // Classic terminal clipboard keys: Ctrl+Insert copies, Shift+Insert pastes.

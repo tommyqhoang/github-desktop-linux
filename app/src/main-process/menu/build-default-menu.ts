@@ -340,7 +340,7 @@ export function buildDefaultMenu({
           ? 'Toggle Integrated Terminal'
           : 'Toggle integrated &terminal',
         id: 'toggle-terminal',
-        accelerator: 'CmdOrCtrl+J',
+        accelerator: 'Ctrl+`',
         click: emit('toggle-terminal'),
       },
       {

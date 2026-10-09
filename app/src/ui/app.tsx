@@ -21,6 +21,8 @@ import { shouldRenderApplicationMenu } from './lib/features'
 import { matchExistingRepository } from '../lib/repository-matching'
 import { getDotComAPIEndpoint } from '../lib/api'
 import { getVersion, getName } from './lib/app-proxy'
+import { checkForForkUpdate } from '../lib/fork-release-check'
+import { DismissedReleaseTagKey } from './banners/new-release-available-banner'
 import {
   getOS,
   isOSNoLongerSupportedByElectron,
@@ -187,7 +189,7 @@ import { PullRequestComment } from './notifications/pull-request-comment'
 import { UnknownAuthors } from './unknown-authors/unknown-authors-dialog'
 import { UnsupportedOSBannerDismissedAtKey } from './banners/os-version-no-longer-supported-banner'
 import { offsetFromNow } from '../lib/offset-from'
-import { getBoolean, getNumber } from '../lib/local-storage'
+import { getBoolean, getNumber, getStringArray } from '../lib/local-storage'
 import { IconPreviewDialog } from './octicons/icon-preview-dialog'
 import { WorkflowRunDispatchDialog } from './workflow-runs/workflow-run-dispatch-dialog'
 import { InteractiveRebaseDialog } from './interactive-rebase/interactive-rebase-dialog'
@@ -374,6 +376,13 @@ export class App extends React.Component<IAppProps, IAppState> {
       // env. Prod and beta environment will trigger this during automatic check
       // for updates.
       this.props.dispatcher.setUpdateShowCaseVisibility(true)
+    }
+
+    // Squirrel updates aren't available on Linux and the macOS fork build is
+    // ad-hoc signed, so point those users at the newest fork release instead.
+    if (__LINUX__ || __DARWIN__) {
+      setInterval(() => this.checkForForkRelease(), UpdateCheckInterval)
+      this.checkForForkRelease()
     }
 
     log.info(`launching: ${getVersion()} (${getOS()})`)
@@ -800,6 +809,21 @@ export class App extends React.Component<IAppProps, IAppState> {
   private async goToCommitMessage() {
     await this.showChanges(false)
     this.props.dispatcher.setCommitMessageFocus(true)
+  }
+
+  private async checkForForkRelease() {
+    const release = await checkForForkUpdate(getVersion())
+    if (
+      release === null ||
+      getStringArray(DismissedReleaseTagKey).includes(release.tag)
+    ) {
+      return
+    }
+    this.setBanner({
+      type: BannerType.NewReleaseAvailable,
+      tag: release.tag,
+      url: release.url,
+    })
   }
 
   private checkForUpdates(

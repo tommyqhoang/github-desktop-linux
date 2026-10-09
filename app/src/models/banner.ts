@@ -19,6 +19,7 @@ export enum BannerType {
   ConflictsFound = 'ConflictsFound',
   OSVersionNoLongerSupported = 'OSVersionNoLongerSupported',
   AccessibilitySettingsBanner = 'AccessibilitySettingsBanner',
+  NewReleaseAvailable = 'NewReleaseAvailable',
 }
 
 export type Banner =
@@ -127,4 +128,11 @@ export type Banner =
   | {
       readonly type: BannerType.AccessibilitySettingsBanner
       readonly onOpenAccessibilitySettings: () => void
+    }
+  | {
+      readonly type: BannerType.NewReleaseAvailable
+      /** tag of the newer release, used to remember a dismissal */
+      readonly tag: string
+      /** page to download the release from */
+      readonly url: string
     }

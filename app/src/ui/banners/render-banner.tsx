@@ -20,6 +20,7 @@ import { SuccessBanner } from './success-banner'
 import { ConflictsFoundBanner } from './conflicts-found-banner'
 import { OSVersionNoLongerSupportedBanner } from './os-version-no-longer-supported-banner'
 import { AccessibilitySettingsBanner } from './accessibilty-settings-banner'
+import { NewReleaseAvailableBanner } from './new-release-available-banner'
 
 export function renderBanner(
   banner: Banner,
@@ -172,6 +173,14 @@ export function renderBanner(
       )
     case BannerType.OSVersionNoLongerSupported:
       return <OSVersionNoLongerSupportedBanner onDismissed={onDismissed} />
+    case BannerType.NewReleaseAvailable:
+      return (
+        <NewReleaseAvailableBanner
+          tag={banner.tag}
+          url={banner.url}
+          onDismissed={onDismissed}
+        />
+      )
     case BannerType.AccessibilitySettingsBanner:
       return (
         <AccessibilitySettingsBanner
