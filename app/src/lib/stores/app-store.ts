@@ -399,6 +399,15 @@ import {
 
 const LastSelectedRepositoryIDKey = 'last-selected-repository-id'
 
+/** How often to re-fetch workflow runs while one is still in progress. */
+const WorkflowRunsPollIntervalMs = 15_000
+
+/**
+ * Switching back to the Actions tab within this window reuses the runs that
+ * are already loaded instead of issuing another API request.
+ */
+const WorkflowRunsFreshnessMs = 10_000
+
 const RecentRepositoriesKey = 'recently-selected-repositories'
 /**
  *  maximum number of repositories shown in the "Recent" repositories group
@@ -3091,7 +3100,14 @@ export class AppStore extends TypedBaseStore<IAppState> {
     } else if (selectedSection === RepositorySectionTab.Submodules) {
       await this.submoduleStore.loadSubmodules(repository)
     } else if (selectedSection === RepositorySectionTab.Actions) {
-      await this._loadWorkflowRuns(repository)
+      if (
+        this.workflowRunsStore.isFresh(repository.id, WorkflowRunsFreshnessMs)
+      ) {
+        // Nothing to fetch, but resume polling if a run is still active.
+        this.scheduleWorkflowRunsPoll(repository)
+      } else {
+        await this._loadWorkflowRuns(repository)
+      }
     }
 
     if (forceButtonFocus) {
@@ -7320,7 +7336,47 @@ export class AppStore extends TypedBaseStore<IAppState> {
   }
 
   /** Refresh the cached workflow runs for the given repository. */
-  public async _loadWorkflowRuns(repository: Repository): Promise<void> {
+  public _loadWorkflowRuns(
+    repository: Repository,
+    options: { readonly background?: boolean } = {}
+  ): Promise<void> {
+    // Overlapping callers (tab switches, refreshes, the poll) share one
+    // request instead of each firing their own.
+    return this.workflowRunsStore.coalesce(repository.id, () =>
+      this.loadWorkflowRunsCore(repository, options.background === true)
+    )
+  }
+
+  /**
+   * While the user is looking at the Actions tab and a run is still queued
+   * or in progress, re-fetch periodically so its status doesn't go stale.
+   * Self-terminating: each load re-evaluates and schedules at most one
+   * more, so leaving the tab or the runs finishing stops the polling.
+   */
+  private scheduleWorkflowRunsPoll(repository: Repository) {
+    const selected = this.selectedRepository
+    const isWatching =
+      selected instanceof Repository &&
+      selected.id === repository.id &&
+      this.repositoryStateCache.get(repository).selectedSection ===
+        RepositorySectionTab.Actions
+
+    if (!isWatching || !this.workflowRunsStore.hasActiveRuns(repository.id)) {
+      this.workflowRunsStore.cancelPoll(repository.id)
+      return
+    }
+
+    this.workflowRunsStore.schedulePoll(
+      repository.id,
+      WorkflowRunsPollIntervalMs,
+      () => void this._loadWorkflowRuns(repository, { background: true })
+    )
+  }
+
+  private async loadWorkflowRunsCore(
+    repository: Repository,
+    background: boolean
+  ): Promise<void> {
     if (repository.gitHubRepository === null) {
       return
     }
@@ -7339,7 +7395,11 @@ export class AppStore extends TypedBaseStore<IAppState> {
 
     const { owner, name } = repository.gitHubRepository
 
-    this.workflowRunsStore.setLoading(repository.id)
+    // Background polls refresh in place; flipping `loading` would flash the
+    // list's spinner every few seconds.
+    if (!background) {
+      this.workflowRunsStore.setLoading(repository.id)
+    }
 
     try {
       const api = API.fromAccount(account)
@@ -7384,7 +7444,11 @@ export class AppStore extends TypedBaseStore<IAppState> {
       )
 
       this.workflowRunsStore.setRuns(repository.id, runs)
+      this.scheduleWorkflowRunsPoll(repository)
     } catch (error) {
+      // Don't keep hammering an API that is failing; the next manual
+      // refresh or tab switch retries.
+      this.workflowRunsStore.cancelPoll(repository.id)
       this.workflowRunsStore.setError(
         repository.id,
         error instanceof Error ? error : new Error(String(error))
