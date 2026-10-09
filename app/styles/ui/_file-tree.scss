@@ -295,10 +295,24 @@
 
   &.notice {
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: var(--spacing-half);
     color: var(--text-secondary-color);
     font-size: var(--font-size-sm);
+
+    p {
+      margin: 0;
+    }
+
+    // The reason a file could not be opened (e.g. "EACCES: permission denied").
+    .file-viewer-error-detail {
+      max-width: 90%;
+      font-family: var(--font-family-monospace);
+      text-align: center;
+      overflow-wrap: anywhere;
+    }
   }
 
   .file-viewer-code {
@@ -353,6 +367,15 @@
     gap: var(--spacing-half);
     padding: var(--spacing-half);
     border-bottom: 1px solid var(--box-border-color);
+  }
+
+  // "Loading blame…" / "Blame unavailable" sits at the left of the toolbar,
+  // opposite the buttons.
+  .file-viewer-blame-status {
+    margin-right: auto;
+    align-self: center;
+    color: var(--text-secondary-color);
+    font-size: var(--font-size-sm);
   }
 
   .file-viewer-find {

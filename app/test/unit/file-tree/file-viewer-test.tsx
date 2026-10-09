@@ -5,6 +5,7 @@ import { Repository } from '../../../src/models/repository'
 import { FileViewerContents } from '../../../src/models/file-tree'
 import * as readFile from '../../../src/lib/file-tree/read-file'
 import * as worker from '../../../src/lib/highlighter/worker'
+import * as blameLib from '../../../src/lib/git/blame'
 
 const repo = new Repository('/tmp/repo-1', 1, null, false)
 
@@ -457,5 +458,365 @@ describe('FileViewer load', () => {
 
     // The fresh load wins; the stale one is dropped by the token guard.
     expect(viewer.state.contents?.content).toBe('newer')
+  })
+})
+
+/** Pull state the viewer needs for find / blame tests into a baseline. */
+function openFind(viewer: FileViewer, patch: Record<string, unknown> = {}) {
+  ;(viewer as any).state = {
+    ...(viewer as any).state,
+    findVisible: true,
+    findQuery: 'foo',
+    activeMatchIndex: 0,
+    ...patch,
+  }
+}
+
+describe('FileViewer find', () => {
+  const content = 'foo one\nbar\nfoo two\nfoo three'
+
+  it('clamps a stale active index instead of showing "4 of 3"', () => {
+    const viewer = makeViewer('a.ts')
+    setContents(viewer, { content, isBinary: false, tooLarge: false })
+    openFind(viewer, { activeMatchIndex: 9 })
+
+    const html = renderViewer(viewer)
+
+    expect(html).toContain('3 of 3')
+    // The last match's row is the active one.
+    expect(html.match(/is-find-active/g)).toHaveLength(1)
+  })
+
+  it('wraps around from a stale index when stepping', () => {
+    const viewer = makeViewer('a.ts')
+    setContents(viewer, { content, isBinary: false, tooLarge: false })
+    openFind(viewer, { activeMatchIndex: 9 })
+    // stepMatch uses an updater function, which the default stub ignores.
+    ;(viewer as any).setState = function (
+      update: ((prev: unknown) => object) | object
+    ) {
+      const patch = typeof update === 'function' ? update(this.state) : update
+      this.state = { ...this.state, ...patch }
+    }
+    ;(viewer as any).stepMatch(1)
+
+    // Clamped to the last match (2), then +1 wraps to the first.
+    expect(viewer.state.activeMatchIndex).toBe(0)
+  })
+
+  it('scrolls the active match into view when it moves', () => {
+    const viewer = makeViewer('a.ts')
+    setContents(viewer, { content, isBinary: false, tooLarge: false })
+    openFind(viewer)
+    const scrollIntoView = jest.fn()
+    ;(viewer as any).activeLineElement = { scrollIntoView }
+    const prevState = { ...(viewer as any).state, activeMatchIndex: 0 }
+
+    ;(viewer as any).state = { ...(viewer as any).state, activeMatchIndex: 1 }
+    viewer.componentDidUpdate((viewer as any).props, prevState)
+
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'center' })
+  })
+
+  it('also scrolls when the query changes', () => {
+    const viewer = makeViewer('a.ts')
+    setContents(viewer, { content, isBinary: false, tooLarge: false })
+    openFind(viewer, { findQuery: 'two' })
+    const scrollIntoView = jest.fn()
+    ;(viewer as any).activeLineElement = { scrollIntoView }
+    const prevState = { ...(viewer as any).state, findQuery: 'foo' }
+
+    viewer.componentDidUpdate((viewer as any).props, prevState)
+
+    expect(scrollIntoView).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not scroll when nothing about the match changed', () => {
+    const viewer = makeViewer('a.ts')
+    setContents(viewer, { content, isBinary: false, tooLarge: false })
+    openFind(viewer)
+    const scrollIntoView = jest.fn()
+    ;(viewer as any).activeLineElement = { scrollIntoView }
+
+    viewer.componentDidUpdate((viewer as any).props, (viewer as any).state)
+
+    expect(scrollIntoView).not.toHaveBeenCalled()
+  })
+
+  it('does not scroll while the find bar is closed', () => {
+    const viewer = makeViewer('a.ts')
+    setContents(viewer, { content, isBinary: false, tooLarge: false })
+    openFind(viewer, { findVisible: false })
+    const scrollIntoView = jest.fn()
+    ;(viewer as any).activeLineElement = { scrollIntoView }
+    const prevState = { ...(viewer as any).state, activeMatchIndex: 3 }
+
+    viewer.componentDidUpdate((viewer as any).props, prevState)
+
+    expect(scrollIntoView).not.toHaveBeenCalled()
+  })
+
+  it('tolerates a DOM without scrollIntoView', () => {
+    const viewer = makeViewer('a.ts')
+    setContents(viewer, { content, isBinary: false, tooLarge: false })
+    openFind(viewer)
+    ;(viewer as any).activeLineElement = {}
+    const prevState = { ...(viewer as any).state, activeMatchIndex: 2 }
+
+    expect(() =>
+      viewer.componentDidUpdate((viewer as any).props, prevState)
+    ).not.toThrow()
+  })
+
+  it('computes matches once per content and query, not once per call', () => {
+    const viewer = makeViewer('a.ts')
+    setContents(viewer, { content, isBinary: false, tooLarge: false })
+    openFind(viewer)
+
+    const first = (viewer as any).findMatches
+    const second = (viewer as any).findMatches
+
+    expect(second).toBe(first)
+  })
+
+  it('starts from the first match when a different file is opened', () => {
+    jest.spyOn(readFile, 'statMtimeMs').mockResolvedValue(1)
+    jest.spyOn(readFile, 'readFileForViewer').mockResolvedValue({
+      content: 'x',
+      isBinary: false,
+      tooLarge: false,
+    })
+    jest.spyOn(worker, 'highlight').mockResolvedValue({})
+    const viewer = makeViewer('a.ts')
+    openFind(viewer, { activeMatchIndex: 5 })
+
+    viewer.componentDidUpdate(
+      { ...(viewer as any).props, filePath: 'previous.ts' },
+      (viewer as any).state
+    )
+
+    expect(viewer.state.activeMatchIndex).toBe(0)
+    jest.restoreAllMocks()
+  })
+})
+
+describe('FileViewer refresh on disk change', () => {
+  afterEach(() => jest.restoreAllMocks())
+
+  it('keeps showing the file while a changed file is re-read', async () => {
+    jest.spyOn(readFile, 'statMtimeMs').mockResolvedValue(200)
+    let release: (v: FileViewerContents) => void = () => undefined
+    jest
+      .spyOn(readFile, 'readFileForViewer')
+      .mockReturnValue(new Promise<FileViewerContents>(r => (release = r)))
+    jest.spyOn(worker, 'highlight').mockResolvedValue({})
+
+    const viewer = makeViewer('a.ts')
+    setContents(viewer, {
+      content: 'old text',
+      isBinary: false,
+      tooLarge: false,
+    })
+    ;(viewer as any).loadedMtimeMs = 100
+
+    const reload = (viewer as any).reloadIfChanged('a.ts')
+    await new Promise(r => setImmediate(r))
+
+    // Mid-reload: no "Loading…" swap, so scroll position and find survive.
+    expect(viewer.state.loading).toBe(false)
+    expect(renderViewer(viewer)).toContain('old text')
+
+    release({ content: 'new text', isBinary: false, tooLarge: false })
+    await reload
+    expect(renderViewer(viewer)).toContain('new text')
+  })
+
+  it('still shows Loading… when switching to a different file', async () => {
+    let release: (v: FileViewerContents) => void = () => undefined
+    jest.spyOn(readFile, 'statMtimeMs').mockResolvedValue(1)
+    jest
+      .spyOn(readFile, 'readFileForViewer')
+      .mockReturnValue(new Promise<FileViewerContents>(r => (release = r)))
+    jest.spyOn(worker, 'highlight').mockResolvedValue({})
+
+    const viewer = makeViewer('b.ts')
+    const load = (viewer as any).load('b.ts')
+
+    expect(viewer.state.loading).toBe(true)
+    expect(renderViewer(viewer)).toContain('Loading')
+
+    release({ content: 'b', isBinary: false, tooLarge: false })
+    await load
+  })
+
+  it('keeps blame visible during a refresh but clears it for a new file', async () => {
+    jest.spyOn(readFile, 'statMtimeMs').mockResolvedValue(1)
+    jest.spyOn(readFile, 'readFileForViewer').mockResolvedValue({
+      content: 'x',
+      isBinary: false,
+      tooLarge: false,
+    })
+    jest.spyOn(worker, 'highlight').mockResolvedValue({})
+    const blame: any = { lines: [] }
+
+    const viewer = makeViewer('a.ts')
+    ;(viewer as any).state = { ...(viewer as any).state, blame }
+    await (viewer as any).load('a.ts', true)
+    expect(viewer.state.blame).toBe(blame)
+
+    await (viewer as any).load('b.ts')
+    expect(viewer.state.blame).toBeNull()
+  })
+})
+
+describe('FileViewer errors', () => {
+  afterEach(() => jest.restoreAllMocks())
+
+  it('says why the file could not be opened and offers a retry', () => {
+    const viewer = makeViewer('locked.txt')
+    ;(viewer as any).state = {
+      loading: false,
+      contents: null,
+      media: null,
+      tokens: {},
+      error: new Error('EACCES: permission denied'),
+    }
+
+    const html = renderViewer(viewer)
+
+    expect(html).toContain('Could not open this file')
+    expect(html).toContain('EACCES: permission denied')
+    expect(html).toContain('Retry')
+    expect(html).toContain('role="alert"')
+  })
+
+  it('retries by reloading the file', async () => {
+    const readSpy = jest
+      .spyOn(readFile, 'readFileForViewer')
+      .mockResolvedValue({ content: 'ok', isBinary: false, tooLarge: false })
+    jest.spyOn(readFile, 'statMtimeMs').mockResolvedValue(1)
+    jest.spyOn(worker, 'highlight').mockResolvedValue({})
+    const viewer = makeViewer('a.ts')
+    ;(viewer as any).state = {
+      ...(viewer as any).state,
+      error: new Error('boom'),
+    }
+    ;(viewer as any).onRetry()
+    await new Promise(r => setImmediate(r))
+
+    expect(readSpy).toHaveBeenCalledTimes(1)
+    expect(viewer.state.error).toBeNull()
+    expect(viewer.state.contents?.content).toBe('ok')
+  })
+
+  it('does not retry when no file is selected', () => {
+    const readSpy = jest.spyOn(readFile, 'readFileForViewer')
+    const viewer = makeViewer(null)
+
+    ;(viewer as any).onRetry()
+
+    expect(readSpy).not.toHaveBeenCalled()
+  })
+})
+
+describe('FileViewer blame status', () => {
+  const withCode = (patch: Record<string, unknown>) => {
+    const viewer = makeViewer('a.ts')
+    setContents(viewer, {
+      content: 'one\ntwo',
+      isBinary: false,
+      tooLarge: false,
+    })
+    ;(viewer as any).state = { ...(viewer as any).state, ...patch }
+    return renderViewer(viewer)
+  }
+
+  it('says blame is loading instead of showing a blank gutter', () => {
+    expect(withCode({ showBlame: true, blame: null })).toContain(
+      'Loading blame'
+    )
+  })
+
+  it('says when blame is unavailable', () => {
+    const html = withCode({ showBlame: true, blame: null, blameError: true })
+    expect(html).toContain('Blame unavailable')
+    expect(html).not.toContain('Loading blame')
+  })
+
+  it('shows no status when blame is off', () => {
+    const html = withCode({ showBlame: false })
+    expect(html).not.toContain('Loading blame')
+    expect(html).not.toContain('Blame unavailable')
+  })
+
+  it('records the failure when loading blame throws', async () => {
+    jest.spyOn(blameLib, 'getBlame').mockRejectedValue(new Error('not tracked'))
+    const viewer = makeViewer('a.ts')
+
+    await (viewer as any).loadBlame('a.ts')
+
+    expect(viewer.state.blameError).toBe(true)
+    expect(viewer.state.blame).toBeNull()
+    jest.restoreAllMocks()
+  })
+
+  it('clears a previous failure when blame loads', async () => {
+    jest.spyOn(blameLib, 'getBlame').mockResolvedValue({ lines: [] } as any)
+    const viewer = makeViewer('a.ts')
+    ;(viewer as any).state = { ...(viewer as any).state, blameError: true }
+
+    await (viewer as any).loadBlame('a.ts')
+
+    expect(viewer.state.blameError).toBe(false)
+    jest.restoreAllMocks()
+  })
+
+  it('ignores a blame result for a file that is no longer open', async () => {
+    jest.spyOn(blameLib, 'getBlame').mockRejectedValue(new Error('late'))
+    const viewer = makeViewer('current.ts')
+
+    await (viewer as any).loadBlame('other.ts')
+
+    expect(viewer.state.blameError).toBe(false)
+    jest.restoreAllMocks()
+  })
+})
+
+describe('FileViewer unmount', () => {
+  afterEach(() => jest.restoreAllMocks())
+
+  it('drops a load that finishes after the viewer is gone', async () => {
+    let release: (v: FileViewerContents) => void = () => undefined
+    jest.spyOn(readFile, 'statMtimeMs').mockResolvedValue(1)
+    jest
+      .spyOn(readFile, 'readFileForViewer')
+      .mockReturnValue(new Promise<FileViewerContents>(r => (release = r)))
+    jest.spyOn(worker, 'highlight').mockResolvedValue({})
+    const viewer = makeViewer('a.ts')
+    const setState = jest.spyOn(viewer as any, 'setState')
+
+    const load = (viewer as any).load('a.ts')
+    viewer.componentWillUnmount()
+    setState.mockClear()
+    release({ content: 'late', isBinary: false, tooLarge: false })
+    await load
+
+    expect(setState).not.toHaveBeenCalled()
+    expect(viewer.state.contents).toBeNull()
+  })
+
+  it('drops a blame result that arrives after the viewer is gone', async () => {
+    let release: (v: any) => void = () => undefined
+    jest
+      .spyOn(blameLib, 'getBlame')
+      .mockReturnValue(new Promise(r => (release = r)))
+    const viewer = makeViewer('a.ts')
+
+    const pending = (viewer as any).loadBlame('a.ts')
+    viewer.componentWillUnmount()
+    release({ lines: [] })
+    await pending
+
+    expect(viewer.state.blame).toBeNull()
   })
 })

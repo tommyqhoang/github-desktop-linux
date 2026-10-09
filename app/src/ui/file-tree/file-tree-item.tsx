@@ -19,8 +19,15 @@ interface IFileTreeItemProps {
   readonly innerRef?: (element: HTMLElement | null) => void
 }
 
-/** A single row in the Files tree: a folder (with chevron) or a file. */
-export class FileTreeItem extends React.Component<IFileTreeItemProps> {
+/**
+ * A single row in the Files tree: a folder (with chevron) or a file.
+ *
+ * A `PureComponent`: every prop is a primitive, a store-held entry, or a
+ * handler that is stable for the life of the parent, so opening a tab or
+ * toggling one folder re-renders only the rows that actually changed instead
+ * of the whole tree.
+ */
+export class FileTreeItem extends React.PureComponent<IFileTreeItemProps> {
   /** Guards against the blur handler firing after an explicit submit/cancel. */
   private renameSettled = false
 

@@ -1,5 +1,6 @@
 import * as React from 'react'
 import * as Path from 'path'
+import memoizeOne from 'memoize-one'
 import { Repository } from '../../models/repository'
 import { FileViewerContents, MediaViewerContents } from '../../models/file-tree'
 import {
@@ -69,6 +70,8 @@ interface IFileViewerState {
   readonly showBlame: boolean
   /** Loaded blame for the open file, or null when not yet/loaded. */
   readonly blame: Blame | null
+  /** True when loading blame failed (e.g. an untracked file). */
+  readonly blameError: boolean
   /** Whether the find-in-file bar is shown. */
   readonly findVisible: boolean
   /** Current find query. */
@@ -93,6 +96,23 @@ export class FileViewer extends React.Component<
   /** Blame guard, paired with loadToken so stale blame results are dropped. */
   private blameToken = 0
 
+  /** The code row for the active find match, so it can be scrolled into view. */
+  private activeLineElement: HTMLTableRowElement | null = null
+
+  // Splitting and scanning a large file is O(size); the render, the find bar
+  // and match stepping all need the result, so compute each at most once per
+  // (content, query) instead of on every call.
+  private readonly splitLines = memoizeOne((content: string) =>
+    content.split('\n')
+  )
+  private readonly computeMatches = memoizeOne(
+    (content: string, query: string) =>
+      findMatches(this.splitLines(content), query)
+  )
+  private readonly parseRows = memoizeOne(
+    (content: string, delimiter: string) => parseDelimited(content, delimiter)
+  )
+
   public constructor(props: IFileViewerProps) {
     super(props)
     this.state = {
@@ -104,10 +124,15 @@ export class FileViewer extends React.Component<
       error: null,
       showBlame: false,
       blame: null,
+      blameError: false,
       findVisible: false,
       findQuery: '',
       activeMatchIndex: 0,
     }
+  }
+
+  private onActiveLineRef = (element: HTMLTableRowElement | null) => {
+    this.activeLineElement = element
   }
 
   /**
@@ -117,10 +142,10 @@ export class FileViewer extends React.Component<
   private toggleBlame = () => {
     const { filePath } = this.props
     if (this.state.showBlame) {
-      this.setState({ showBlame: false, blame: null })
+      this.setState({ showBlame: false, blame: null, blameError: false })
       return
     }
-    this.setState({ showBlame: true })
+    this.setState({ showBlame: true, blameError: false })
     if (filePath !== null) {
       this.loadBlame(filePath)
     }
@@ -131,10 +156,13 @@ export class FileViewer extends React.Component<
     try {
       const blame = await getBlame(this.props.repository, filePath)
       if (token === this.blameToken && this.props.filePath === filePath) {
-        this.setState({ blame })
+        this.setState({ blame, blameError: false })
       }
     } catch (error) {
       log.warn(`[FileViewer] failed to load blame for ${filePath}`, error)
+      if (token === this.blameToken && this.props.filePath === filePath) {
+        this.setState({ blame: null, blameError: true })
+      }
     }
   }
 
@@ -144,7 +172,7 @@ export class FileViewer extends React.Component<
     if (contents === null || !findQuery) {
       return []
     }
-    return findMatches(contents.content.split('\n'), findQuery)
+    return this.computeMatches(contents.content, findQuery)
   }
 
   private onFindKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -167,7 +195,9 @@ export class FileViewer extends React.Component<
       return
     }
     this.setState(prev => ({
-      activeMatchIndex: (prev.activeMatchIndex + delta + count) % count,
+      // Clamp first: a reload can leave the stored index past the new end.
+      activeMatchIndex:
+        (Math.min(prev.activeMatchIndex, count - 1) + delta + count) % count,
     }))
   }
 
@@ -180,9 +210,21 @@ export class FileViewer extends React.Component<
     }
   }
 
-  public componentDidUpdate(prevProps: IFileViewerProps) {
+  public componentWillUnmount() {
+    // Invalidate in-flight loads so their continuations don't setState on a
+    // viewer that is gone (tab or section changed mid-read).
+    this.loadToken++
+    this.blameToken++
+  }
+
+  public componentDidUpdate(
+    prevProps: IFileViewerProps,
+    prevState: IFileViewerState
+  ) {
     const { filePath, reloadToken, openFindToken } = this.props
     if (prevProps.filePath !== filePath && filePath !== null) {
+      // A different file has its own matches; start from the first.
+      this.setState({ activeMatchIndex: 0 })
       this.load(filePath)
     } else if (prevProps.reloadToken !== reloadToken && filePath !== null) {
       this.reloadIfChanged(filePath)
@@ -194,6 +236,16 @@ export class FileViewer extends React.Component<
     ) {
       this.setState({ findVisible: true })
     }
+
+    // Next / Previous / typing a query move the active match; without this the
+    // counter changes but the match is usually off-screen on a long file.
+    if (
+      this.state.findVisible &&
+      (prevState.activeMatchIndex !== this.state.activeMatchIndex ||
+        prevState.findQuery !== this.state.findQuery)
+    ) {
+      this.activeLineElement?.scrollIntoView?.({ block: 'center' })
+    }
   }
 
   /** Reload the open file only if its on-disk modification time has changed. */
@@ -204,14 +256,28 @@ export class FileViewer extends React.Component<
       return
     }
     if (mtimeMs !== this.loadedMtimeMs) {
-      await this.load(filePath)
+      await this.load(filePath, true)
     }
   }
 
-  private async load(filePath: string) {
+  /**
+   * @param refresh true when re-reading the file already on screen (it changed
+   * on disk). The current contents stay visible rather than being swapped for
+   * "Loading…", which would discard the scroll position and the find bar.
+   */
+  private async load(filePath: string, refresh: boolean = false) {
     const { repository } = this.props
     const token = ++this.loadToken
-    this.setState({ loading: true, error: null, blame: null })
+    if (refresh) {
+      this.setState({ error: null })
+    } else {
+      this.setState({
+        loading: true,
+        error: null,
+        blame: null,
+        blameError: false,
+      })
+    }
     // Reload blame for the new file when the gutter is showing.
     if (this.state.showBlame) {
       this.loadBlame(filePath)
@@ -320,6 +386,25 @@ export class FileViewer extends React.Component<
     return <div className="file-viewer notice">{message}</div>
   }
 
+  private renderOpenError(filePath: string, error: Error): JSX.Element {
+    return (
+      <div className="file-viewer notice" role="alert">
+        <p>Could not open this file.</p>
+        {error.message && (
+          <p className="file-viewer-error-detail">{error.message}</p>
+        )}
+        <Button onClick={this.onRetry}>Retry</Button>
+      </div>
+    )
+  }
+
+  private onRetry = () => {
+    const { filePath } = this.props
+    if (filePath !== null) {
+      this.load(filePath)
+    }
+  }
+
   public render() {
     const { filePath } = this.props
     const { loading, contents, media, browserViewable, tokens, error } =
@@ -332,7 +417,7 @@ export class FileViewer extends React.Component<
       return this.renderNotice('Loading…')
     }
     if (error !== null) {
-      return this.renderNotice('Could not open this file.')
+      return this.renderOpenError(filePath, error)
     }
     if (browserViewable) {
       return this.renderBrowserViewable(filePath)
@@ -362,10 +447,13 @@ export class FileViewer extends React.Component<
       return this.renderDelimited(contents.content, delimited.delimiter)
     }
 
-    const lines = contents.content.split('\n')
+    const lines = this.splitLines(contents.content)
     const { showBlame, blame, findVisible } = this.state
     const matches = this.findMatches
-    const activeMatch = matches[this.state.activeMatchIndex]
+    // The stored index can outlive the match list it pointed into (the file
+    // was reloaded with fewer matches), so clamp rather than index past the end.
+    const activeMatch =
+      matches[Math.min(this.state.activeMatchIndex, matches.length - 1)]
     return (
       <div className="file-viewer">
         <div className="file-viewer-toolbar">
@@ -375,6 +463,7 @@ export class FileViewer extends React.Component<
           <Button onClick={this.toggleFind}>
             {findVisible ? 'Hide find' : 'Find'}
           </Button>
+          {this.renderBlameStatus()}
         </div>
         {findVisible && this.renderFindBar(matches.length)}
         {/* cm-s-default scopes the CodeMirror syntax theme so the cm-* token
@@ -384,6 +473,11 @@ export class FileViewer extends React.Component<
             {lines.map((line, i) => (
               <tr
                 key={i}
+                ref={
+                  activeMatch !== undefined && activeMatch.line === i
+                    ? this.onActiveLineRef
+                    : undefined
+                }
                 className={
                   activeMatch !== undefined && activeMatch.line === i
                     ? 'file-viewer-line is-find-active'
@@ -403,13 +497,39 @@ export class FileViewer extends React.Component<
     )
   }
 
+  /** Say what the blame gutter is doing instead of leaving it blank. */
+  private renderBlameStatus(): JSX.Element | null {
+    const { showBlame, blame, blameError } = this.state
+    if (!showBlame) {
+      return null
+    }
+    if (blameError) {
+      return (
+        <span className="file-viewer-blame-status" role="status">
+          Blame unavailable for this file (is it tracked by Git?).
+        </span>
+      )
+    }
+    if (blame === null) {
+      return (
+        <span className="file-viewer-blame-status" role="status">
+          Loading blame…
+        </span>
+      )
+    }
+    return null
+  }
+
   private toggleFind = () => {
     this.setState(prev => ({ findVisible: !prev.findVisible }))
   }
 
   /** Render the find-in-file bar: query input, match count, and navigation. */
   private renderFindBar(matchCount: number): JSX.Element {
-    const current = matchCount === 0 ? 0 : this.state.activeMatchIndex + 1
+    const current =
+      matchCount === 0
+        ? 0
+        : Math.min(this.state.activeMatchIndex, matchCount - 1) + 1
     return (
       <div className="file-viewer-find">
         <TextBox
@@ -507,7 +627,7 @@ export class FileViewer extends React.Component<
   }
 
   private renderDelimited(content: string, delimiter: string): JSX.Element {
-    const rows = parseDelimited(content, delimiter)
+    const rows = this.parseRows(content, delimiter)
     if (rows.length === 0) {
       return this.renderNotice('This file is empty.')
     }
