@@ -28,8 +28,9 @@ import {
  *     fills the panel width and `clear` doesn't leave dead space.
  *   - Resize forwarding: when the container changes size, the new
  *     cols/rows are posted to the PTY over the message port.
- *   - Clipboard: Ctrl+Shift+C copies the selection, Ctrl+Shift+V pastes
- *     from the system clipboard. Right-click also copies/pastes.
+ *   - Clipboard: Ctrl+Shift+C / Ctrl+Insert copies the selection,
+ *     Ctrl+Shift+V / Shift+Insert pastes from the system clipboard.
+ *     Right-click also copies/pastes.
  */
 
 /** Subset of `MessagePort` used by the view. Tests can pass a fake. */
@@ -147,28 +148,41 @@ export interface IRuntimeFitAddon {
   dispose?(): void
 }
 
+/**
+ * Clipboard adapter. Electron 40+ made its `clipboard` module Promise-based
+ * (`readText()` resolves to the text), so both methods are async here.
+ * Treating the result as a string silently turned every paste into a no-op.
+ */
 export interface IClipboard {
-  readText(): string
-  writeText(text: string): void
+  readText(): Promise<string>
+  writeText(text: string): Promise<void>
 }
 
 const defaultClipboard: IClipboard = {
-  readText: () => {
+  readText: async () => {
     try {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const { clipboard } = require('electron')
-      return clipboard.readText()
+      return (await clipboard.readText()) ?? ''
     } catch {
-      return ''
+      try {
+        return await navigator.clipboard.readText()
+      } catch {
+        return ''
+      }
     }
   },
-  writeText: (text: string) => {
+  writeText: async (text: string) => {
     try {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const { clipboard } = require('electron')
-      clipboard.writeText(text)
+      await clipboard.writeText(text)
     } catch {
-      // ignore — fall through to xterm's native bridge if any
+      try {
+        await navigator.clipboard.writeText(text)
+      } catch {
+        // nothing more we can do
+      }
     }
   },
 }
@@ -543,10 +557,7 @@ export class XtermView extends React.Component<
       }
     }
     const text = extractBlockText(getLineText, block)
-    navigator.clipboard.writeText(text).catch(() => {
-      // fall back to Electron clipboard
-      this.clipboard.writeText(text)
-    })
+    void this.clipboard.writeText(text)
   }
 
   // --- helpers ---
@@ -1038,36 +1049,37 @@ export class XtermView extends React.Component<
       return true
     }
     const ctrl = e.ctrlKey || e.metaKey
+    // Classic terminal clipboard keys: Ctrl+Insert copies, Shift+Insert pastes.
+    if (e.key === 'Insert' && !e.altKey) {
+      if (e.ctrlKey && !e.shiftKey) {
+        e.preventDefault()
+        e.stopPropagation()
+        this.copySelection()
+        return false
+      }
+      if (e.shiftKey && !e.ctrlKey) {
+        e.preventDefault()
+        e.stopPropagation()
+        void this.pasteFromClipboard()
+        return false
+      }
+      return true
+    }
     if (!ctrl || !e.shiftKey) {
       return true
     }
     if (e.key === 'C' || e.key === 'c') {
       e.preventDefault()
       e.stopPropagation()
-      if (this.term && this.term.hasSelection()) {
-        const sel = this.term.getSelection()
-        if (sel.length > 0) {
-          this.clipboard.writeText(sel)
-          // Don't clear the selection — let the user re-select if they
-          // want to copy more lines.
-        }
-      }
+      // Don't clear the selection — let the user re-select if they
+      // want to copy more lines.
+      this.copySelection()
       return false
     }
     if (e.key === 'V' || e.key === 'v') {
       e.preventDefault()
       e.stopPropagation()
-      const text = this.clipboard.readText()
-      if (text.length > 0 && this.term) {
-        if (
-          XtermView.needsPasteConfirm(text) &&
-          this.props.onPasteConfirmRequired
-        ) {
-          this.props.onPasteConfirmRequired(text)
-        } else {
-          this.term.paste(text)
-        }
-      }
+      void this.pasteFromClipboard()
       return false
     }
     if (e.key === 'K' || e.key === 'k') {
@@ -1077,6 +1089,35 @@ export class XtermView extends React.Component<
       return false
     }
     return true
+  }
+
+  /** Copy the current selection to the system clipboard. Returns true if copied. */
+  private copySelection(): boolean {
+    if (this.term && this.term.hasSelection()) {
+      const sel = this.term.getSelection()
+      if (sel.length > 0) {
+        void this.clipboard.writeText(sel)
+        return true
+      }
+    }
+    return false
+  }
+
+  /** Paste the system clipboard, going through the multi-line paste guard. */
+  private async pasteFromClipboard(): Promise<void> {
+    const text = await this.clipboard.readText()
+    if (text.length === 0 || !this.term) {
+      return
+    }
+    if (
+      XtermView.needsPasteConfirm(text) &&
+      this.props.onPasteConfirmRequired
+    ) {
+      this.props.onPasteConfirmRequired(text)
+    } else {
+      this.term.paste(text)
+      this.term.focus()
+    }
   }
 
   /**
@@ -1102,25 +1143,10 @@ export class XtermView extends React.Component<
     if (!this.term) {
       return
     }
-    if (this.term.hasSelection()) {
-      const sel = this.term.getSelection()
-      if (sel.length > 0) {
-        this.clipboard.writeText(sel)
-        this.term.clearSelection()
-      }
+    if (this.copySelection()) {
+      this.term.clearSelection()
       return
     }
-    const text = this.clipboard.readText()
-    if (text.length > 0) {
-      if (
-        XtermView.needsPasteConfirm(text) &&
-        this.props.onPasteConfirmRequired
-      ) {
-        this.props.onPasteConfirmRequired(text)
-      } else {
-        this.term.paste(text)
-        this.term.focus()
-      }
-    }
+    void this.pasteFromClipboard()
   }
 }
