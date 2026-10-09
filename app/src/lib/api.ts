@@ -516,6 +516,12 @@ export interface IAPIWorkflows {
   readonly workflows: ReadonlyArray<IAPIWorkflow>
 }
 
+/** GitHub's maximum page size for the workflow jobs endpoint. */
+const WorkflowJobsPerPage = 100
+
+/** Safety ceiling on pages walked, so a misbehaving server can't loop us. */
+const MaxWorkflowJobPages = 10
+
 export interface IAPIWorkflowJobs {
   readonly total_count: number
   readonly jobs: IAPIWorkflowJob[]
@@ -1607,28 +1613,46 @@ export class API {
   }
 
   /**
-   * List workflow run jobs for a given workflow run
+   * List workflow run jobs for a given workflow run.
+   *
+   * GitHub returns 30 jobs per page by default, which silently truncates
+   * large matrix runs, so request the maximum page size and keep walking
+   * until every job is collected. Returns `null` when the first page cannot
+   * be loaded (callers must treat that as a failure, not as "no jobs"); a
+   * later page failing returns the jobs gathered so far.
    */
   public async fetchWorkflowRunJobs(
     owner: string,
     name: string,
     workflowRunId: number
   ): Promise<IAPIWorkflowJobs | null> {
-    const path = `repos/${owner}/${name}/actions/runs/${workflowRunId}/jobs`
     const customHeaders = {
       Accept: 'application/vnd.github.antiope-preview+json',
     }
-    const response = await this.request('GET', path, {
-      customHeaders,
-    })
-    try {
-      return await parsedResponse<IAPIWorkflowJobs>(response)
-    } catch (err) {
-      log.debug(
-        `Failed fetching workflow jobs (${owner}/${name}) workflow run: ${workflowRunId}`
-      )
+    const jobs: IAPIWorkflowJob[] = []
+    let totalCount = 0
+
+    for (let page = 1; page <= MaxWorkflowJobPages; page++) {
+      const path =
+        `repos/${owner}/${name}/actions/runs/${workflowRunId}/jobs` +
+        `?per_page=${WorkflowJobsPerPage}&page=${page}`
+      try {
+        const response = await this.request('GET', path, { customHeaders })
+        const result = await parsedResponse<IAPIWorkflowJobs>(response)
+        totalCount = result.total_count
+        jobs.push(...result.jobs)
+        if (result.jobs.length === 0 || jobs.length >= totalCount) {
+          break
+        }
+      } catch (err) {
+        log.debug(
+          `Failed fetching workflow jobs (${owner}/${name}) workflow run: ${workflowRunId} (page ${page})`
+        )
+        return page === 1 ? null : { total_count: totalCount, jobs }
+      }
     }
-    return null
+
+    return { total_count: totalCount, jobs }
   }
 
   /**

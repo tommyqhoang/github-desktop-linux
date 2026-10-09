@@ -109,10 +109,15 @@ export class WorkflowRunDetail extends React.Component<
         return
       }
 
+      // `null` means the request failed (rate limit, auth, network) — that is
+      // not the same as a run with no jobs, so don't present it as one.
       this.setStateIfMounted({
         jobs: response?.jobs ?? [],
         jobsLoading: false,
-        jobsError: null,
+        jobsError:
+          response === null
+            ? 'Couldn’t load this run’s jobs. Check your connection and sign-in, then try again.'
+            : null,
       })
     } catch (error) {
       if (this.props.run.id !== requestedRunId) {

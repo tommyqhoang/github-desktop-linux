@@ -191,4 +191,129 @@ describe('API workflow run methods', () => {
       expect(result?.workflows[0].name).toBe('CI')
     })
   })
+
+  describe('fetchWorkflowRunJobs', () => {
+    const job = (id: number) => ({ id, name: `job-${id}`, steps: [] })
+    const page = (ids: number[], total: number) => ({
+      status: 200,
+      ok: true,
+      json: async () => ({ total_count: total, jobs: ids.map(job) }),
+      headers: new Headers(),
+    })
+    const failure = (status: number) => ({
+      status,
+      ok: false,
+      json: async () => ({ message: 'nope' }),
+      headers: new Headers(),
+    })
+    const range = (from: number, to: number) =>
+      Array.from({ length: to - from + 1 }, (_, i) => from + i)
+
+    it('requests the maximum page size', async () => {
+      const api = new API('https://api.github.com', 'fake-token')
+      const requestSpy = jest
+        .spyOn(api as any, 'request')
+        .mockResolvedValue(page([1], 1))
+
+      await api.fetchWorkflowRunJobs('owner', 'name', 42)
+
+      expect(requestSpy.mock.calls[0][1]).toBe(
+        'repos/owner/name/actions/runs/42/jobs?per_page=100&page=1'
+      )
+    })
+
+    it('returns a single page without asking for more', async () => {
+      const api = new API('https://api.github.com', 'fake-token')
+      const requestSpy = jest
+        .spyOn(api as any, 'request')
+        .mockResolvedValue(page(range(1, 3), 3))
+
+      const result = await api.fetchWorkflowRunJobs('owner', 'name', 42)
+
+      expect(result?.jobs.map(j => j.id)).toEqual([1, 2, 3])
+      expect(requestSpy).toHaveBeenCalledTimes(1)
+    })
+
+    it('walks every page of a large matrix run', async () => {
+      const api = new API('https://api.github.com', 'fake-token')
+      const requestSpy = jest
+        .spyOn(api as any, 'request')
+        .mockResolvedValueOnce(page(range(1, 100), 230))
+        .mockResolvedValueOnce(page(range(101, 200), 230))
+        .mockResolvedValueOnce(page(range(201, 230), 230))
+
+      const result = await api.fetchWorkflowRunJobs('owner', 'name', 42)
+
+      expect(result?.jobs).toHaveLength(230)
+      expect(result?.total_count).toBe(230)
+      expect(requestSpy.mock.calls.map(c => c[1])).toEqual([
+        'repos/owner/name/actions/runs/42/jobs?per_page=100&page=1',
+        'repos/owner/name/actions/runs/42/jobs?per_page=100&page=2',
+        'repos/owner/name/actions/runs/42/jobs?per_page=100&page=3',
+      ])
+    })
+
+    it('stops when a page comes back empty even if the total is larger', async () => {
+      const api = new API('https://api.github.com', 'fake-token')
+      const requestSpy = jest
+        .spyOn(api as any, 'request')
+        .mockResolvedValueOnce(page(range(1, 100), 500))
+        .mockResolvedValueOnce(page([], 500))
+
+      const result = await api.fetchWorkflowRunJobs('owner', 'name', 42)
+
+      expect(result?.jobs).toHaveLength(100)
+      expect(requestSpy).toHaveBeenCalledTimes(2)
+    })
+
+    it('never loops past the page ceiling', async () => {
+      const api = new API('https://api.github.com', 'fake-token')
+      const requestSpy = jest
+        .spyOn(api as any, 'request')
+        .mockResolvedValue(page(range(1, 100), 1_000_000))
+
+      await api.fetchWorkflowRunJobs('owner', 'name', 42)
+
+      expect(requestSpy).toHaveBeenCalledTimes(10)
+    })
+
+    it.each([[0], [401], [403], [429], [500]])(
+      'returns null (a failure, not "no jobs") when the first page fails with %s',
+      async status => {
+        const api = new API('https://api.github.com', 'fake-token')
+        jest.spyOn(api as any, 'request').mockResolvedValue(failure(status))
+
+        expect(await api.fetchWorkflowRunJobs('owner', 'name', 42)).toBeNull()
+      }
+    )
+
+    it('returns null when the request itself throws', async () => {
+      const api = new API('https://api.github.com', 'fake-token')
+      jest.spyOn(api as any, 'request').mockRejectedValue(new Error('offline'))
+
+      expect(await api.fetchWorkflowRunJobs('owner', 'name', 42)).toBeNull()
+    })
+
+    it('keeps the jobs already gathered when a later page fails', async () => {
+      const api = new API('https://api.github.com', 'fake-token')
+      jest
+        .spyOn(api as any, 'request')
+        .mockResolvedValueOnce(page(range(1, 100), 230))
+        .mockResolvedValueOnce(failure(500))
+
+      const result = await api.fetchWorkflowRunJobs('owner', 'name', 42)
+
+      expect(result?.jobs).toHaveLength(100)
+    })
+
+    it('treats a run that genuinely has no jobs as an empty list, not a failure', async () => {
+      const api = new API('https://api.github.com', 'fake-token')
+      jest.spyOn(api as any, 'request').mockResolvedValue(page([], 0))
+
+      const result = await api.fetchWorkflowRunJobs('owner', 'name', 42)
+
+      expect(result).not.toBeNull()
+      expect(result?.jobs).toEqual([])
+    })
+  })
 })
