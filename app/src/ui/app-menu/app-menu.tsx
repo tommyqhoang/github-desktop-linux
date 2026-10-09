@@ -218,7 +218,7 @@ export class AppMenu extends React.Component<IAppMenuProps, {}> {
     }
   }
 
-  private renderMenuPane(depth: number, menu: IMenu): JSX.Element {
+  private renderMenuPane(depth: number, menu: IMenu): React.JSX.Element {
     // If the menu doesn't have an id it's the root menu
     const key = menu.id || '@'
     const className = menu.id ? menuPaneClassNameFromId(menu.id) : undefined

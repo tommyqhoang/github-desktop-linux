@@ -87,7 +87,7 @@ export abstract class Merge extends BaseMultiCommitOperation {
     this.onInvokeConflictsDialogDismissed('merge into')
   }
 
-  protected renderChooseBranch = (): JSX.Element | null => {
+  protected renderChooseBranch = (): React.JSX.Element | null => {
     const { repository, dispatcher, state } = this.props
     const { step, operationDetail } = state
 

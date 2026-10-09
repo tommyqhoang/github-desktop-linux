@@ -9,6 +9,9 @@ import { Octicon } from '../octicons'
 import * as octicons from '../octicons/octicons.generated'
 
 interface ITutorialStepInstructionsProps {
+  /** Content rendered inside the component. */
+  readonly children?: React.ReactNode
+
   /** Text displayed to summarize this step */
   readonly summaryText: string
   /** Used to find out if this step has been completed */
@@ -24,7 +27,7 @@ interface ITutorialStepInstructionsProps {
   readonly currentlyOpenSectionId: ValidTutorialStep
 
   /** Skip button (if possible for this step) */
-  readonly skipLinkButton?: JSX.Element
+  readonly skipLinkButton?: React.JSX.Element
   /** Handler to open and close section */
   readonly onSummaryClick: (id: ValidTutorialStep) => void
 }

@@ -35,7 +35,7 @@ const defaultConflictsResolvedMessage = 'No conflicts remaining'
  * Renders an unmerged file status and associated buttons for the merge conflicts modal
  * (An "unmerged file" can be conflicted _and_ resolved or _just_ conflicted)
  */
-export const renderUnmergedFile: React.FunctionComponent<{
+export const renderUnmergedFile = (props: {
   /** repository this file is in (for pathing and git operations) */
   readonly repository: Repository
   /** file path relative to repository */
@@ -78,7 +78,7 @@ export const renderUnmergedFile: React.FunctionComponent<{
   readonly setIsFileResolutionOptionsMenuOpen: (
     isFileResolutionOptionsMenuOpen: boolean
   ) => void
-}> = props => {
+}): React.JSX.Element => {
   if (
     isConflictWithMarkers(props.status) &&
     hasUnresolvedConflicts(props.status, props.manualResolution)
@@ -126,14 +126,14 @@ export const renderUnmergedFile: React.FunctionComponent<{
 }
 
 /** renders the status of a resolved file (of a manual or markered conflict) and associated buttons for the merge conflicts modal */
-const renderResolvedFile: React.FunctionComponent<{
+const renderResolvedFile = (props: {
   readonly repository: Repository
   readonly path: string
   readonly status: ConflictedFileStatus
   readonly manualResolution?: ManualConflictResolution
   readonly branch?: string
   readonly dispatcher: Dispatcher
-}> = props => {
+}): React.JSX.Element => {
   const fileStatusSummary = getResolvedFileStatusSummary(
     props.status,
     props.manualResolution,
@@ -167,14 +167,14 @@ const renderResolvedFile: React.FunctionComponent<{
 }
 
 /** renders the status of a manually conflicted file and associated buttons for the merge conflicts modal */
-const renderManualConflictedFile: React.FunctionComponent<{
+const renderManualConflictedFile = (props: {
   readonly path: string
   readonly status: ManualConflict
   readonly repository: Repository
   readonly ourBranch?: string
   readonly theirBranch?: string
   readonly dispatcher: Dispatcher
-}> = props => {
+}): React.JSX.Element => {
   const onDropdownClick = makeManualConflictDropdownClickHandler(
     props.path,
     props.status,
@@ -223,8 +223,8 @@ const renderManualConflictedFile: React.FunctionComponent<{
 
 function renderConflictedFileWrapper(
   path: string,
-  content: JSX.Element
-): JSX.Element {
+  content: React.JSX.Element
+): React.JSX.Element {
   return (
     <li key={path} className="unmerged-file-status-conflicts">
       <Octicon symbol={octicons.fileCode} className="file-octicon" />
@@ -233,7 +233,7 @@ function renderConflictedFileWrapper(
   )
 }
 
-const renderConflictedFileWithConflictMarkers: React.FunctionComponent<{
+const renderConflictedFileWithConflictMarkers = (props: {
   readonly path: string
   readonly status: ConflictsWithMarkers
   readonly resolvedExternalEditor: string | null
@@ -246,7 +246,7 @@ const renderConflictedFileWithConflictMarkers: React.FunctionComponent<{
   readonly setIsFileResolutionOptionsMenuOpen: (
     isFileResolutionOptionsMenuOpen: boolean
   ) => void
-}> = props => {
+}): React.JSX.Element => {
   const humanReadableConflicts = calculateConflicts(
     props.status.conflictMarkerCount
   )

@@ -78,7 +78,7 @@ export class FileTabs extends React.Component<IFileTabsProps, IFileTabsState> {
     )
   }
 
-  private renderTab(path: string, isActive: boolean): JSX.Element {
+  private renderTab(path: string, isActive: boolean): React.JSX.Element {
     const name = Path.basename(path)
     const className =
       'file-tab' +

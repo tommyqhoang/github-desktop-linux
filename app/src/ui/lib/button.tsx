@@ -5,6 +5,9 @@ import { createObservableRef } from './observable-ref'
 import { AriaHasPopupType } from './aria-types'
 
 export interface IButtonProps {
+  /** Content rendered inside the component. */
+  readonly children?: React.ReactNode
+
   /**
    * A callback which is invoked when the button is clicked
    * using a pointer device or keyboard. The source event is

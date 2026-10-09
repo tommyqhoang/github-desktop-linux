@@ -382,11 +382,11 @@ export class FileViewer extends React.Component<
     }
   }
 
-  private renderNotice(message: string): JSX.Element {
+  private renderNotice(message: string): React.JSX.Element {
     return <div className="file-viewer notice">{message}</div>
   }
 
-  private renderOpenError(filePath: string, error: Error): JSX.Element {
+  private renderOpenError(filePath: string, error: Error): React.JSX.Element {
     return (
       <div className="file-viewer notice" role="alert">
         <p>Could not open this file.</p>
@@ -498,7 +498,7 @@ export class FileViewer extends React.Component<
   }
 
   /** Say what the blame gutter is doing instead of leaving it blank. */
-  private renderBlameStatus(): JSX.Element | null {
+  private renderBlameStatus(): React.JSX.Element | null {
     const { showBlame, blame, blameError } = this.state
     if (!showBlame) {
       return null
@@ -525,7 +525,7 @@ export class FileViewer extends React.Component<
   }
 
   /** Render the find-in-file bar: query input, match count, and navigation. */
-  private renderFindBar(matchCount: number): JSX.Element {
+  private renderFindBar(matchCount: number): React.JSX.Element {
     const current =
       matchCount === 0
         ? 0
@@ -558,7 +558,10 @@ export class FileViewer extends React.Component<
    * commit of the line above, the attribution is suppressed so contiguous
    * blocks read as a single annotation.
    */
-  private renderBlameCell(blame: Blame | null, index: number): JSX.Element {
+  private renderBlameCell(
+    blame: Blame | null,
+    index: number
+  ): React.JSX.Element {
     const entry = blame?.[index]
     if (entry === undefined) {
       return <td className="file-viewer-blame" />
@@ -579,7 +582,7 @@ export class FileViewer extends React.Component<
   private renderMedia(
     filePath: string,
     media: MediaViewerContents
-  ): JSX.Element {
+  ): React.JSX.Element {
     if (media.tooLarge) {
       return this.renderNotice('File is too large to display.')
     }
@@ -608,7 +611,7 @@ export class FileViewer extends React.Component<
     }
   }
 
-  private renderBrowserViewable(filePath: string): JSX.Element {
+  private renderBrowserViewable(filePath: string): React.JSX.Element {
     const name = Path.basename(filePath)
     const isPdf = Path.extname(filePath).toLowerCase() === '.pdf'
     const kind = isPdf ? 'PDF' : 'HTML'
@@ -626,7 +629,10 @@ export class FileViewer extends React.Component<
     )
   }
 
-  private renderDelimited(content: string, delimiter: string): JSX.Element {
+  private renderDelimited(
+    content: string,
+    delimiter: string
+  ): React.JSX.Element {
     const rows = this.parseRows(content, delimiter)
     if (rows.length === 0) {
       return this.renderNotice('This file is empty.')
@@ -659,7 +665,10 @@ export class FileViewer extends React.Component<
     )
   }
 
-  private renderMarkdown(filePath: string, markdown: string): JSX.Element {
+  private renderMarkdown(
+    filePath: string,
+    markdown: string
+  ): React.JSX.Element {
     return (
       <div className="file-viewer file-viewer-markdown">
         <SandboxedMarkdown

@@ -132,7 +132,7 @@ export class TerminalPanel extends React.Component<
   private dragStartY: number | null = null
   private dragStartHeight: number = 0
   /** Per-session refs to mounted XtermView instances, used to drive search. */
-  private xtermRefs = new Map<string, React.RefObject<XtermView>>()
+  private xtermRefs = new Map<string, React.RefObject<XtermView | null>>()
   /** Session id of the tab currently being drag-reordered, or null. */
   private dragSessionId: string | null = null
   /**
@@ -779,7 +779,7 @@ export class TerminalPanel extends React.Component<
 
   // --- find bar ---
 
-  private refForSession(sid: string): React.RefObject<XtermView> {
+  private refForSession(sid: string): React.RefObject<XtermView | null> {
     let ref = this.xtermRefs.get(sid)
     if (ref === undefined) {
       ref = React.createRef<XtermView>()

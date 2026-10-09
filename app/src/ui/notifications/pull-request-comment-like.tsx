@@ -35,7 +35,7 @@ interface IPullRequestCommentLikeProps {
 
   readonly underlineLinks: boolean
 
-  readonly renderFooterContent: () => JSX.Element
+  readonly renderFooterContent: () => React.JSX.Element
 
   readonly onSubmit: () => void
   readonly onDismissed: () => void
@@ -46,7 +46,7 @@ interface IPullRequestCommentLikeProps {
 /**
  * Dialog to show a pull request review.
  */
-export abstract class PullRequestCommentLike extends React.Component<IPullRequestCommentLikeProps> {
+export class PullRequestCommentLike extends React.Component<IPullRequestCommentLikeProps> {
   public render() {
     const { title, pullRequestNumber } = this.props.pullRequest
 

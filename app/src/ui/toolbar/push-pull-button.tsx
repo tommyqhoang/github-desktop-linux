@@ -123,7 +123,7 @@ export enum DropdownItemType {
 
 export type DropdownItem = {
   readonly title: string
-  readonly description: string | JSX.Element
+  readonly description: string | React.JSX.Element
   readonly action: () => void
   readonly icon: OcticonSymbol
 }
@@ -134,7 +134,7 @@ function renderAheadBehind(aheadBehind: IAheadBehind, numTagsToPush: number) {
     return null
   }
 
-  const content = new Array<JSX.Element>()
+  const content = new Array<React.JSX.Element>()
   if (ahead > 0 || numTagsToPush > 0) {
     content.push(
       <span key="ahead">
@@ -156,7 +156,9 @@ function renderAheadBehind(aheadBehind: IAheadBehind, numTagsToPush: number) {
   return <div className="ahead-behind">{content}</div>
 }
 
-function renderLastFetched(lastFetched: Date | null): JSX.Element | string {
+function renderLastFetched(
+  lastFetched: Date | null
+): React.JSX.Element | string {
   if (lastFetched) {
     return (
       <span>

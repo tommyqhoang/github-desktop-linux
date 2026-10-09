@@ -148,10 +148,10 @@ export class RepositoryListItem extends React.Component<
   }
 }
 
-const renderRepoIndicators: React.FunctionComponent<{
+const renderRepoIndicators = (props: {
   aheadBehind: IAheadBehind | null
   hasChanges: boolean
-}> = props => {
+}): React.JSX.Element => {
   return (
     <div className="repo-indicators">
       {props.aheadBehind && renderAheadBehindIndicator(props.aheadBehind)}

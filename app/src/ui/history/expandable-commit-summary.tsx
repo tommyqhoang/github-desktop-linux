@@ -377,7 +377,7 @@ export class ExpandableCommitSummary extends React.Component<
     )
   }
 
-  private renderExpandedAuthor(user: IAvatarUser): string | JSX.Element {
+  private renderExpandedAuthor(user: IAvatarUser): string | React.JSX.Element {
     if (!user) {
       return 'Unknown user'
     }

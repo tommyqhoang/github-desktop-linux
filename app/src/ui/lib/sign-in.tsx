@@ -14,6 +14,9 @@ import { Ref } from './ref'
 import { getHTMLURL } from '../../lib/api'
 
 interface ISignInProps {
+  /** Content rendered inside the component. */
+  readonly children?: React.ReactNode
+
   readonly signInState: SignInState
   readonly dispatcher: Dispatcher
 }
@@ -49,7 +52,7 @@ export class SignIn extends React.Component<ISignInProps, {}> {
   private renderEndpointEntryStep(
     state: IEndpointEntryState | IExistingAccountWarning
   ) {
-    const children = this.props.children as ReadonlyArray<JSX.Element>
+    const children = this.props.children as ReadonlyArray<React.JSX.Element>
     return (
       <EnterpriseServerEntry
         loading={state.loading}
@@ -63,7 +66,7 @@ export class SignIn extends React.Component<ISignInProps, {}> {
   private renderAuthenticationStep(
     state: IAuthenticationState | IExistingAccountWarning
   ) {
-    const children = this.props.children as ReadonlyArray<JSX.Element>
+    const children = this.props.children as ReadonlyArray<React.JSX.Element>
 
     return (
       <AuthenticationForm

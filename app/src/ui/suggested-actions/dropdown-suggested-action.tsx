@@ -20,7 +20,7 @@ export interface IDropdownSuggestedActionOption extends IDropdownSelectButtonOpt
    * to the user about how and where to access the action
    * outside of the suggested action.
    */
-  readonly discoverabilityContent?: string | JSX.Element
+  readonly discoverabilityContent?: string | React.JSX.Element
 
   /**
    * A callback which is invoked when the user clicks
@@ -38,7 +38,7 @@ export interface IDropdownSuggestedActionOption extends IDropdownSelectButtonOpt
   /**
    * An image to illustrate what this component's action does
    */
-  readonly image?: JSX.Element
+  readonly image?: React.JSX.Element
 
   /**
    * The id of the menu item backing this action.

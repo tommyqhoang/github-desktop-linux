@@ -1,5 +1,4 @@
 import * as React from 'react'
-import * as ReactDOM from 'react-dom'
 import { Grid, AutoSizer, Index } from 'react-virtualized'
 import { shallowEquals, structuralEquals } from '../../../lib/equality'
 import { FocusContainer } from '../../lib/focus-container'
@@ -31,6 +30,7 @@ import {
 } from './list-row-index-path'
 import { range } from '../../../lib/range'
 import { sendNonFatalException } from '../../../lib/helpers/non-fatal-exception'
+import { getVirtualizedElement } from './virtualized-element'
 
 /**
  * Describe the first argument given to the cellRenderer,
@@ -64,7 +64,7 @@ interface ISectionListProps {
    * of the row, only its contents and may return null although
    * that will result in an empty list item.
    */
-  readonly rowRenderer: (indexPath: RowIndexPath) => JSX.Element | null
+  readonly rowRenderer: (indexPath: RowIndexPath) => React.JSX.Element | null
 
   /**
    * Whether or not a given section has a header row at the beginning. When
@@ -966,7 +966,7 @@ export class SectionList extends React.Component<
     const sectionOffset = this.getSectionScrollOffset(indexPath.section)
     const rowOffsetInSection = this.getRowOffsetInSection(indexPath)
 
-    const grid = ReactDOM.findDOMNode(this.rootGrid)
+    const grid = getVirtualizedElement(this.rootGrid)
     if (!(grid instanceof HTMLElement)) {
       return
     }
@@ -1108,8 +1108,8 @@ export class SectionList extends React.Component<
       // programmatically to the grid so that keyboard navigation still works
       if (element === null) {
         const rowGrid = this.grids.get(rowIndex.section)
-        if (rowGrid === undefined) {
-          const grid = ReactDOM.findDOMNode(rowGrid)
+        if (rowGrid !== undefined) {
+          const grid = getVirtualizedElement(rowGrid)
           if (grid instanceof HTMLElement) {
             grid.focus({ preventScroll: true })
           }
@@ -1224,7 +1224,7 @@ export class SectionList extends React.Component<
   }
 
   public render() {
-    let content: JSX.Element[] | JSX.Element | null
+    let content: React.JSX.Element[] | React.JSX.Element | null
     if (this.resizeObserver) {
       content = this.renderContents(
         this.state.width ?? 0,
@@ -1497,7 +1497,7 @@ export class SectionList extends React.Component<
     this.lastScroll = 'fake'
 
     if (this.rootGrid) {
-      const element = ReactDOM.findDOMNode(this.rootGrid)
+      const element = getVirtualizedElement(this.rootGrid)
       if (element instanceof Element) {
         element.scrollTop = e.currentTarget.scrollTop
       }
@@ -1751,7 +1751,7 @@ export class SectionList extends React.Component<
     } else {
       // TODO: decide which grid to focus
       // if (this.grid) {
-      //   const element = ReactDOM.findDOMNode(this.grid) as HTMLDivElement
+      //   const element = getVirtualizedElement(this.grid) as HTMLDivElement
       //   if (element) {
       //     element.focus()
       //   }

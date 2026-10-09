@@ -449,7 +449,7 @@ export class XtermView extends React.Component<
     )
   }
 
-  private renderScrollToBottom(): JSX.Element | null {
+  private renderScrollToBottom(): React.JSX.Element | null {
     if (this.state.isAtBottom) {
       return null
     }
@@ -509,7 +509,7 @@ export class XtermView extends React.Component<
     }
   }
 
-  private renderGutter(): JSX.Element | null {
+  private renderGutter(): React.JSX.Element | null {
     if (this.commandBlocks.length === 0) {
       return null
     }

@@ -71,7 +71,7 @@ export class MissingRepository extends React.Component<
   }
 
   public render() {
-    const buttons = new Array<JSX.Element>()
+    const buttons = new Array<React.JSX.Element>()
     const { isPathUnsafe, unsafePath } = this.state
 
     if (!isPathUnsafe) {

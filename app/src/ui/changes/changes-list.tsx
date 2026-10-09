@@ -322,7 +322,7 @@ export class ChangesList extends React.Component<
     this.props.onSelectAll(include)
   }
 
-  private renderRow = (row: number): JSX.Element => {
+  private renderRow = (row: number): React.JSX.Element => {
     const {
       rebaseConflictState,
       isCommitting,
@@ -797,7 +797,7 @@ export class ChangesList extends React.Component<
     this.props.onChangesListScrolled(scrollTop)
   }
 
-  private renderCommitMessageForm = (): JSX.Element => {
+  private renderCommitMessageForm = (): React.JSX.Element => {
     const {
       rebaseConflictState,
       workingDirectory,

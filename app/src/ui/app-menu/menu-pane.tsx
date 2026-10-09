@@ -97,7 +97,7 @@ interface IMenuPaneProps {
    * the typed character if such an menu item exists. */
   readonly allowFirstCharacterNavigation?: boolean
 
-  readonly renderLabel?: (item: MenuItem) => JSX.Element | undefined
+  readonly renderLabel?: (item: MenuItem) => React.JSX.Element | undefined
 }
 
 export class MenuPane extends React.Component<IMenuPaneProps> {
@@ -248,7 +248,7 @@ export class MenuPane extends React.Component<IMenuPaneProps> {
     }
   }
 
-  public render(): JSX.Element {
+  public render(): React.JSX.Element {
     const className = classNames('menu-pane', this.props.className)
 
     return (

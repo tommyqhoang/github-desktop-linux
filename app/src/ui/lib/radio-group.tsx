@@ -28,7 +28,9 @@ interface IRadioGroupProps<T> {
   readonly onSelectionChanged: (key: T) => void
 
   /** Render radio button label contents */
-  readonly renderRadioButtonLabelContents: (key: T) => JSX.Element | string
+  readonly renderRadioButtonLabelContents: (
+    key: T
+  ) => React.JSX.Element | string
 }
 
 /**

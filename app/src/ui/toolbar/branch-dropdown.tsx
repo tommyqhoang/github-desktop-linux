@@ -89,7 +89,7 @@ interface IBranchDropdownProps {
 export class BranchDropdown extends React.Component<IBranchDropdownProps> {
   private badgeRef: HTMLElement | null = null
 
-  private renderBranchFoldout = (): JSX.Element | null => {
+  private renderBranchFoldout = (): React.JSX.Element | null => {
     const repositoryState = this.props.repositoryState
     const branchesState = repositoryState.branchesState
 

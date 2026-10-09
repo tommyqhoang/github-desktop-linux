@@ -4,6 +4,9 @@ import { Button } from './button'
 import classNames from 'classnames'
 
 interface ICallToActionProps {
+  /** Content rendered inside the component. */
+  readonly children?: React.ReactNode
+
   /** The action title. */
   readonly actionTitle: string
 

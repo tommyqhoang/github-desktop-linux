@@ -101,12 +101,12 @@ export class PublishRepository extends React.Component<
     this.props.onSettingsChanged(newSettings)
   }
 
-  private renderOrgs(): JSX.Element | null {
+  private renderOrgs(): React.JSX.Element | null {
     if (this.state.orgs.length === 0) {
       return null
     }
 
-    const options = new Array<JSX.Element>()
+    const options = new Array<React.JSX.Element>()
     options.push(
       <option value={-1} key={-1}>
         None

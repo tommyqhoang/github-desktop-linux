@@ -44,7 +44,7 @@ export class AccessText extends React.Component<IAccessTextProps, {}> {
       return <span>{this.props.text}</span>
     }
 
-    const elements = new Array<JSX.Element>()
+    const elements = new Array<React.JSX.Element>()
 
     if (m[1]) {
       elements.push(

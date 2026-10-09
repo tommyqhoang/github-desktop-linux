@@ -105,7 +105,7 @@ export class Acknowledgements extends React.Component<
   public render() {
     const licenses = this.state.licenses
 
-    let desktopLicense: JSX.Element | null = null
+    let desktopLicense: React.JSX.Element | null = null
     if (licenses) {
       const key = `desktop@${this.props.applicationVersion}`
       const entry = licenses[key]

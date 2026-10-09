@@ -13,6 +13,9 @@ export enum InsertionFeedbackType {
 }
 
 interface IListItemInsertionOverlayProps {
+  /** Content rendered inside the component. */
+  readonly children?: React.ReactNode
+
   readonly onDropDataInsertion?: (
     insertionIndex: RowIndexPath,
     data: DragData

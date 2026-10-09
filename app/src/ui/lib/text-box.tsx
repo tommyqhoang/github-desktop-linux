@@ -8,7 +8,7 @@ import { AriaLiveContainer } from '../accessibility/aria-live-container'
 
 export interface ITextBoxProps {
   /** The label for the input field. */
-  readonly label?: string | JSX.Element
+  readonly label?: string | React.JSX.Element
 
   /**
    * An optional className to be applied to the rendered

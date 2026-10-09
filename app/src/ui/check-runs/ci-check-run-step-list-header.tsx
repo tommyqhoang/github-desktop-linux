@@ -23,7 +23,7 @@ export class CICheckRunStepListHeader extends React.PureComponent<ICICheckRunSte
     onRerunJob?.(checkRun)
   }
 
-  private renderJobRerun = (): JSX.Element | null => {
+  private renderJobRerun = (): React.JSX.Element | null => {
     const { checkRun, onRerunJob } = this.props
 
     if (onRerunJob === undefined) {
@@ -43,7 +43,7 @@ export class CICheckRunStepListHeader extends React.PureComponent<ICICheckRunSte
     )
   }
 
-  private renderLinkExternal = (): JSX.Element | null => {
+  private renderLinkExternal = (): React.JSX.Element | null => {
     const { onViewCheckExternally, checkRun } = this.props
 
     if (onViewCheckExternally === undefined) {

@@ -8,6 +8,9 @@ export { TabBarType } from './tab-bar-type'
 const dragTabSwitchWaitTime = 500
 
 interface ITabBarProps {
+  /** Content rendered inside the component. */
+  readonly children?: React.ReactNode
+
   /** The currently selected tab. */
   readonly selectedIndex: number
 
@@ -24,7 +27,7 @@ interface ITabBarProps {
 /**
  * The tab bar component.
  *
- * Set `children` to an array of JSX.Elements to represent the tab bar items.
+ * Set `children` to an array of React.JSX.Elements to represent the tab bar items.
  */
 export class TabBar extends React.Component<ITabBarProps, {}> {
   private readonly tabRefsByIndex = new Map<number, HTMLButtonElement>()

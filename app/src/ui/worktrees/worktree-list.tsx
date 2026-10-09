@@ -37,7 +37,7 @@ export class WorktreeList extends React.Component<IWorktreeListProps> {
     )
   }
 
-  private renderBody(): JSX.Element {
+  private renderBody(): React.JSX.Element {
     if (this.props.loading) {
       return (
         <div className="worktree-list__loading" role="status">

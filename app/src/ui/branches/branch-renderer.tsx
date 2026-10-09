@@ -13,7 +13,7 @@ export function renderDefaultBranch(
   currentBranch: Branch | null,
   onDropOntoBranch?: (branchName: string) => void,
   onDropOntoCurrentBranch?: () => void
-): JSX.Element {
+): React.JSX.Element {
   const branch = item.branch
   const commit = branch.tip
   const currentBranchName = currentBranch ? currentBranch.name : null

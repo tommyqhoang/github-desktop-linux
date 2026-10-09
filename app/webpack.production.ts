@@ -1,3 +1,4 @@
+/// <reference path="./webpack-bundle-analyzer.d.ts" />
 import * as common from './webpack.common'
 
 import * as webpack from 'webpack'

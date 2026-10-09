@@ -9,7 +9,7 @@ interface IAIResultDialogProps<T> {
   /** The generated result, or null before it arrives. */
   readonly result: T | null
   /** Render the result body. Lets each feature own its result layout. */
-  readonly renderResult: (result: T) => JSX.Element
+  readonly renderResult: (result: T) => React.JSX.Element
   readonly onRegenerate: () => void
   /** Optional primary action (e.g. insert into the commit message / PR form). */
   readonly onInsert?: () => void
@@ -45,7 +45,7 @@ export class AIResultDialog<T = unknown> extends React.Component<
     )
   }
 
-  private renderBody(): JSX.Element {
+  private renderBody(): React.JSX.Element {
     if (this.props.loading) {
       return (
         <div className="ai-result-dialog__loading" role="status">
@@ -80,7 +80,7 @@ export class AIResultDialog<T = unknown> extends React.Component<
     return <div className="ai-result-dialog__empty" />
   }
 
-  private renderActions(): JSX.Element {
+  private renderActions(): React.JSX.Element {
     const { loading, result, onInsert, onCopy } = this.props
     const hasResult = !loading && result !== null
     return (

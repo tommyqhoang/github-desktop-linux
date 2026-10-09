@@ -1,3 +1,4 @@
+import * as React from 'react'
 import { Disposable, DisposableLike } from 'event-kit'
 
 import {
@@ -4257,7 +4258,7 @@ export class Dispatcher {
   /** Opens conflicts found banner for part of multi commit operation */
   public onConflictsFoundBanner = (
     repository: Repository,
-    operationDescription: string | JSX.Element,
+    operationDescription: string | React.JSX.Element,
     multiCommitOperationConflictState: MultiCommitOperationConflictState
   ) => {
     this.setBanner({

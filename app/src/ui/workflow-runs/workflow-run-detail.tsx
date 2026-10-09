@@ -164,7 +164,7 @@ export class WorkflowRunDetail extends React.Component<
     )
   }
 
-  private renderMeta(): JSX.Element {
+  private renderMeta(): React.JSX.Element {
     const { run } = this.props
     return (
       <dl className="workflow-run-detail__meta">
@@ -186,7 +186,10 @@ export class WorkflowRunDetail extends React.Component<
     )
   }
 
-  private renderMetaItem(label: string, value: React.ReactNode): JSX.Element {
+  private renderMetaItem(
+    label: string,
+    value: React.ReactNode
+  ): React.JSX.Element {
     return (
       <div className="workflow-run-detail__meta-item">
         <dt>{label}</dt>
@@ -208,7 +211,7 @@ export class WorkflowRunDetail extends React.Component<
     )
   }
 
-  private renderCommitMessage(): JSX.Element | null {
+  private renderCommitMessage(): React.JSX.Element | null {
     const message = this.props.run.headCommitMessage
     if (message === null || message.trim().length === 0) {
       return null
@@ -218,7 +221,7 @@ export class WorkflowRunDetail extends React.Component<
     return <p className="workflow-run-detail__commit">{summary}</p>
   }
 
-  private renderActions(): JSX.Element {
+  private renderActions(): React.JSX.Element {
     const { run } = this.props
     const { busyAction } = this.state
     const canReRun =
@@ -249,7 +252,7 @@ export class WorkflowRunDetail extends React.Component<
     )
   }
 
-  private renderJobs(): JSX.Element {
+  private renderJobs(): React.JSX.Element {
     const { jobs, jobsLoading, jobsError } = this.state
 
     return (
@@ -276,7 +279,7 @@ export class WorkflowRunDetail extends React.Component<
     )
   }
 
-  private renderJob(job: IAPIWorkflowJob): JSX.Element {
+  private renderJob(job: IAPIWorkflowJob): React.JSX.Element {
     const statusClass = getWorkflowRunStatusClass(job.status, job.conclusion)
     const statusIcon = getWorkflowRunStatusIcon(job.status, job.conclusion)
     const statusLabel = getWorkflowRunStatusLabel(job.status, job.conclusion)

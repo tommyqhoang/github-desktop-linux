@@ -361,7 +361,7 @@ export class CommitMessageAvatar extends React.Component<
     return
   }
 
-  private getCommittingAsTitle(): string | JSX.Element | undefined {
+  private getCommittingAsTitle(): string | React.JSX.Element | undefined {
     const { user } = this.props
 
     if (user === undefined) {
@@ -384,7 +384,7 @@ export class CommitMessageAvatar extends React.Component<
   private renderPopover() {
     const { warningType } = this.props
 
-    let header: string | JSX.Element | undefined = ''
+    let header: string | React.JSX.Element | undefined = ''
     switch (this.props.warningType) {
       case 'misattribution':
         header = 'This commit will be misattributed'

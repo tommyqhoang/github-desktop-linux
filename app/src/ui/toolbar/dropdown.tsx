@@ -32,6 +32,9 @@ export enum ToolbarDropdownStyle {
 }
 
 export interface IToolbarDropdownProps {
+  /** Content rendered inside the component. */
+  readonly children?: React.ReactNode
+
   /** The style of the dropdown. Default: Foldout */
   readonly dropdownStyle?: ToolbarDropdownStyle
 
@@ -39,7 +42,7 @@ export interface IToolbarDropdownProps {
   readonly title?: string
 
   /** An optional description of the function of the button */
-  readonly description?: string | JSX.Element
+  readonly description?: string | React.JSX.Element
 
   /** The tooltip for the button. */
   readonly tooltip?: string
@@ -86,7 +89,7 @@ export interface IToolbarDropdownProps {
    * An render callback for when the dropdown is open.
    * Use this to render the contents of the fold out.
    */
-  readonly dropdownContentRenderer: () => JSX.Element | null
+  readonly dropdownContentRenderer: () => React.JSX.Element | null
 
   /**
    * A callback which is invoked when the button's context menu
@@ -277,7 +280,7 @@ export class ToolbarDropdown extends React.Component<
     }
   }
 
-  private renderDropdownArrow(): JSX.Element | null {
+  private renderDropdownArrow(): React.JSX.Element | null {
     if (this.props.showDisclosureArrow === false) {
       return null
     }
@@ -409,7 +412,7 @@ export class ToolbarDropdown extends React.Component<
     }
   }
 
-  private renderDropdownContents = (): JSX.Element | null => {
+  private renderDropdownContents = (): React.JSX.Element | null => {
     if (this.props.dropdownState !== 'open') {
       return null
     }

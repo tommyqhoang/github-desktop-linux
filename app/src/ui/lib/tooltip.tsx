@@ -29,6 +29,8 @@ const InteractiveTooltipHideDelay = 250
 export type TooltipTarget = Element & GlobalEventHandlers
 
 export interface ITooltipProps<T> {
+  readonly children?: React.ReactNode
+
   /**
    * The target element for which to display a tooltip. Use
    * `createObservableRef` to create an `ObservableRef`. Note that

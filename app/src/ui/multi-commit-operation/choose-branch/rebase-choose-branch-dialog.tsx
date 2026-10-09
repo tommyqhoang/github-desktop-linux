@@ -120,7 +120,7 @@ export class RebaseChooseBranchDialog extends React.Component<
     })
   }
 
-  private renderStatusPreviewMessage(): JSX.Element | null {
+  private renderStatusPreviewMessage(): React.JSX.Element | null {
     const { rebasePreview, selectedBranch: baseBranch } = this.state
     if (rebasePreview == null || baseBranch == null) {
       return null

@@ -112,7 +112,7 @@ export class UserAutocompletionProvider implements IAutocompletionProvider<UserH
     return this.getUserAutocompletionItems(text, false)
   }
 
-  public renderItem(item: UserHit): JSX.Element {
+  public renderItem(item: UserHit): React.JSX.Element {
     return item.kind === 'known-user' ? (
       <div className="user" key={item.username}>
         <span className="username">{item.username}</span>

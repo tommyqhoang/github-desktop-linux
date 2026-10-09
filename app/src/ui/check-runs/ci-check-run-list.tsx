@@ -176,7 +176,7 @@ export class CICheckRunList extends React.PureComponent<
     )
   }
 
-  private renderList = (): JSX.Element | null => {
+  private renderList = (): React.JSX.Element | null => {
     const { checkRunGroups } = this.state
     const checkRunGroupNames = getCheckRunGroupNames(checkRunGroups)
     if (

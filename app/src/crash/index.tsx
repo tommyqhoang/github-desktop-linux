@@ -1,5 +1,5 @@
 import * as React from 'react'
-import * as ReactDOM from 'react-dom'
+import { createRoot } from 'react-dom/client'
 
 import { CrashApp } from './crash-app'
 
@@ -15,4 +15,4 @@ const container = document.createElement('div')
 container.id = 'desktop-crash-container'
 document.body.appendChild(container)
 
-ReactDOM.render(<CrashApp />, container)
+createRoot(container).render(<CrashApp />)

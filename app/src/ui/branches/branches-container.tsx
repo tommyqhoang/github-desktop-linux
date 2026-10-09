@@ -130,7 +130,7 @@ export class BranchesContainer extends React.Component<
     )
   }
 
-  private renderPullRequestQuickView = (): JSX.Element | null => {
+  private renderPullRequestQuickView = (): React.JSX.Element | null => {
     if (
       !enablePullRequestQuickView() ||
       this.state.pullRequestBeingViewed === null

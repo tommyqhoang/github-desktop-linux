@@ -2,6 +2,8 @@ import * as React from 'react'
 import { createUniqueId, releaseUniqueId } from './id-pool'
 
 interface IRadioButtonProps<T> {
+  readonly children?: React.ReactNode
+
   /**
    * Called when the user selects this radio button.
    *
@@ -21,7 +23,7 @@ interface IRadioButtonProps<T> {
   /**
    * The label of the radio button. If not provided, the children are used
    */
-  readonly label?: string | JSX.Element
+  readonly label?: string | React.JSX.Element
 
   /**
    * The value of the radio button.

@@ -440,7 +440,7 @@ export class AppMenuBar extends React.Component<
     delete this.menuButtonRefsByMenuItemId[menuItem.id]
   }
 
-  private renderMenuItem(item: ISubmenuItem): JSX.Element {
+  private renderMenuItem(item: ISubmenuItem): React.JSX.Element {
     const foldoutState = this.props.foldoutState
 
     // Slice away the top menu so that each menu bar button receives

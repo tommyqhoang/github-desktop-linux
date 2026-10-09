@@ -13,19 +13,19 @@ interface ISuggestedActionProps {
    * An optional description to be rendered directly
    * underneath the title.
    */
-  readonly description?: string | JSX.Element
+  readonly description?: string | React.JSX.Element
 
   /**
    * A text or set of elements used to present information
    * to the user about how and where to access the action
    * outside of the suggested action.
    */
-  readonly discoverabilityContent?: string | JSX.Element
+  readonly discoverabilityContent?: string | React.JSX.Element
 
   /**
    * The text, or "label", for the action button.
    */
-  readonly buttonText: string | JSX.Element
+  readonly buttonText: string | React.JSX.Element
 
   /**
    * A callback which is invoked when the user clicks
@@ -51,7 +51,7 @@ interface ISuggestedActionProps {
   /**
    * An image to illustrate what this component's action does
    */
-  readonly image?: JSX.Element
+  readonly image?: React.JSX.Element
 }
 
 /**

@@ -1,3 +1,4 @@
+import * as React from 'react'
 import { AutocompletingTextInput } from './autocompleting-text-input'
 
 export class AutocompletingTextArea<
@@ -42,7 +43,7 @@ export interface IAutocompletionProvider<T> {
    * Render the autocompletion item. The item will be one which the provider
    * returned from `getAutocompletionItems`.
    */
-  renderItem(item: T): JSX.Element
+  renderItem(item: T): React.JSX.Element
 
   /** Returns the aria-label attribute for the rendered item. Optional. */
   getItemAriaLabel?(item: T): string

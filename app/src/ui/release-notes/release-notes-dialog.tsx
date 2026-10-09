@@ -26,12 +26,12 @@ export class ReleaseNotes extends React.Component<IReleaseNotesProps, {}> {
   private renderList(
     releaseEntries: ReadonlyArray<ReleaseNote>,
     header: string
-  ): JSX.Element | null {
+  ): React.JSX.Element | null {
     if (releaseEntries.length === 0) {
       return null
     }
 
-    const options = new Array<JSX.Element>()
+    const options = new Array<React.JSX.Element>()
 
     for (const [i, entry] of releaseEntries.entries()) {
       options.push(
@@ -56,7 +56,7 @@ export class ReleaseNotes extends React.Component<IReleaseNotesProps, {}> {
     )
   }
 
-  private drawSingleColumnLayout(release: ReleaseSummary): JSX.Element {
+  private drawSingleColumnLayout(release: ReleaseSummary): React.JSX.Element {
     return (
       <div className="container">
         <div className="column">
@@ -68,7 +68,7 @@ export class ReleaseNotes extends React.Component<IReleaseNotesProps, {}> {
     )
   }
 
-  private drawTwoColumnLayout(release: ReleaseSummary): JSX.Element {
+  private drawTwoColumnLayout(release: ReleaseSummary): React.JSX.Element {
     return (
       <div className="container">
         <div className="column">

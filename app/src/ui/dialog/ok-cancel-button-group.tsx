@@ -3,6 +3,9 @@ import classNames from 'classnames'
 import { Button } from '../lib/button'
 
 interface IOkCancelButtonGroupProps {
+  /** Content rendered inside the component. */
+  readonly children?: React.ReactNode
+
   /**
    * An optional className to be applied to the rendered div element.
    */
@@ -16,7 +19,7 @@ interface IOkCancelButtonGroupProps {
   readonly destructive?: boolean
 
   /** An optional text/label for the Ok button, defaults to "Ok" */
-  readonly okButtonText?: string | JSX.Element
+  readonly okButtonText?: string | React.JSX.Element
 
   /** An optional title (i.e. tooltip) for the Ok button, defaults to none */
   readonly okButtonTitle?: string
@@ -38,7 +41,7 @@ interface IOkCancelButtonGroupProps {
   readonly okButtonDisabled?: boolean
 
   /** An optional text/label for the Cancel button, defaults to "Cancel" */
-  readonly cancelButtonText?: string | JSX.Element
+  readonly cancelButtonText?: string | React.JSX.Element
 
   /** An optional title (i.e. tooltip) for the Cancel button, defaults to none */
   readonly cancelButtonTitle?: string

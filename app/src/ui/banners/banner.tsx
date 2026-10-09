@@ -3,6 +3,9 @@ import { Octicon } from '../octicons'
 import * as octicons from '../octicons/octicons.generated'
 
 interface IBannerProps {
+  /** Content rendered inside the component. */
+  readonly children?: React.ReactNode
+
   readonly id?: string
   readonly timeout?: number
   readonly dismissable?: boolean

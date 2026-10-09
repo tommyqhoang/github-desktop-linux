@@ -48,7 +48,7 @@ export class IssuesAutocompletionProvider implements IAutocompletionProvider<IIs
     return this.issuesStore.getIssuesMatching(this.repository, text)
   }
 
-  public renderItem(item: IIssueHit): JSX.Element {
+  public renderItem(item: IIssueHit): React.JSX.Element {
     return (
       <div className="issue" key={item.number}>
         <span className="number">#{item.number}</span>&nbsp;

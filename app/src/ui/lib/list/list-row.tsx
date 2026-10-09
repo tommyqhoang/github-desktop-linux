@@ -3,6 +3,9 @@ import classNames from 'classnames'
 import { RowIndexPath } from './list-row-index-path'
 
 interface IListRowProps {
+  /** Content rendered inside the component. */
+  readonly children?: React.ReactNode
+
   /** whether or not the section to which this row belongs has a header */
   readonly sectionHasHeader: boolean
 

@@ -227,7 +227,7 @@ export class RepositoryView extends React.Component<
     this.setState({ compareListScrollTop: scrollTop })
   }
 
-  private renderChangesBadge(): JSX.Element | null {
+  private renderChangesBadge(): React.JSX.Element | null {
     const filesChangedCount =
       this.props.state.changesState.workingDirectory.files.length
 
@@ -238,7 +238,7 @@ export class RepositoryView extends React.Component<
     return <FilesChangedBadge filesChangedCount={filesChangedCount} />
   }
 
-  private renderTabs(): JSX.Element {
+  private renderTabs(): React.JSX.Element {
     const section = this.props.state.selectedSection
     const selectedTab =
       section === RepositorySectionTab.Changes
@@ -324,7 +324,7 @@ export class RepositoryView extends React.Component<
     }
   }
 
-  private renderChangesSidebar(): JSX.Element {
+  private renderChangesSidebar(): React.JSX.Element {
     const tip = this.props.state.branchesState.tip
 
     let branchName: string | null = null
@@ -389,7 +389,7 @@ export class RepositoryView extends React.Component<
     )
   }
 
-  private renderCompareSidebar(): JSX.Element {
+  private renderCompareSidebar(): React.JSX.Element {
     const { repository, dispatcher, state, aheadBehindStore, emoji } =
       this.props
     const {
@@ -444,7 +444,7 @@ export class RepositoryView extends React.Component<
     )
   }
 
-  private renderSidebarContents(): JSX.Element {
+  private renderSidebarContents(): React.JSX.Element {
     const selectedSection = this.props.state.selectedSection
 
     if (selectedSection === RepositorySectionTab.Changes) {
@@ -466,7 +466,7 @@ export class RepositoryView extends React.Component<
     }
   }
 
-  private renderFilesSidebar(): JSX.Element {
+  private renderFilesSidebar(): React.JSX.Element {
     return (
       <FileTree
         state={this.props.fileTreeState}
@@ -626,7 +626,7 @@ export class RepositoryView extends React.Component<
     showContextualMenu(items)
   }
 
-  private renderActionsSidebar(): JSX.Element {
+  private renderActionsSidebar(): React.JSX.Element {
     const { state } = this.props
     const { tip } = state.branchesState
     const currentBranch = tip.kind === TipState.Valid ? tip.branch.name : ''
@@ -649,7 +649,7 @@ export class RepositoryView extends React.Component<
     this.setState({ selectedWorkflowRunId: entry.id })
   }
 
-  private renderStashesSidebar(): JSX.Element {
+  private renderStashesSidebar(): React.JSX.Element {
     return (
       <StashList
         entries={this.props.stashEntries}
@@ -661,11 +661,11 @@ export class RepositoryView extends React.Component<
     )
   }
 
-  private renderWorktreesSidebar(): JSX.Element {
+  private renderWorktreesSidebar(): React.JSX.Element {
     return this.renderWorktreeList()
   }
 
-  private renderSubmodulesSidebar(): JSX.Element {
+  private renderSubmodulesSidebar(): React.JSX.Element {
     return this.renderSubmoduleList()
   }
 
@@ -673,7 +673,7 @@ export class RepositoryView extends React.Component<
    * Shared `SubmoduleList` render used by both the sidebar and the detail
    * pane. SubmoduleList owns the toolbar, loading, and empty states.
    */
-  private renderSubmoduleList(): JSX.Element {
+  private renderSubmoduleList(): React.JSX.Element {
     return (
       <SubmoduleList
         entries={this.props.submoduleEntries}
@@ -702,7 +702,7 @@ export class RepositoryView extends React.Component<
    * pane so the two never drift apart. WorktreeList owns the toolbar,
    * loading, and empty states.
    */
-  private renderWorktreeList(): JSX.Element {
+  private renderWorktreeList(): React.JSX.Element {
     return (
       <WorktreeList
         entries={this.props.worktreeEntries}
@@ -753,7 +753,7 @@ export class RepositoryView extends React.Component<
     this.props.dispatcher.setSidebarWidth(width)
   }
 
-  private renderSidebar(): JSX.Element {
+  private renderSidebar(): React.JSX.Element {
     return (
       <FocusContainer onFocusWithinChanged={this.onSidebarFocusWithinChanged}>
         <Resizable
@@ -782,7 +782,7 @@ export class RepositoryView extends React.Component<
     }
   }
 
-  private renderStashedChangesContent(): JSX.Element | null {
+  private renderStashedChangesContent(): React.JSX.Element | null {
     const { changesState } = this.props.state
     const { selection, stashEntry } = changesState
 
@@ -823,7 +823,7 @@ export class RepositoryView extends React.Component<
     )
   }
 
-  private renderContentForHistory(): JSX.Element {
+  private renderContentForHistory(): React.JSX.Element {
     const { commitSelection, commitLookup, localCommitSHAs } = this.props.state
     const { changesetData, file, diff, shas, shasInDiff, isContiguous } =
       commitSelection
@@ -879,7 +879,7 @@ export class RepositoryView extends React.Component<
     )
   }
 
-  private renderTutorialPane(): JSX.Element {
+  private renderTutorialPane(): React.JSX.Element {
     if (
       [TutorialStep.AllDone, TutorialStep.Announced].includes(
         this.props.currentTutorialStep
@@ -900,7 +900,7 @@ export class RepositoryView extends React.Component<
     }
   }
 
-  private renderContentForChanges(): JSX.Element | null {
+  private renderContentForChanges(): React.JSX.Element | null {
     const { changesState } = this.props.state
     const { workingDirectory, selection } = changesState
 
@@ -979,7 +979,7 @@ export class RepositoryView extends React.Component<
     this.props.dispatcher.changeImageDiffType(imageDiffType)
   }
 
-  private renderContent(): JSX.Element | null {
+  private renderContent(): React.JSX.Element | null {
     const selectedSection = this.props.state.selectedSection
     if (selectedSection === RepositorySectionTab.Changes) {
       return this.renderContentForChanges()
@@ -1000,7 +1000,7 @@ export class RepositoryView extends React.Component<
     }
   }
 
-  private renderContentForFiles(): JSX.Element {
+  private renderContentForFiles(): React.JSX.Element {
     const { openFilePaths, activeFilePath } = this.props.fileTreeState
     return (
       <div className="files-content">
@@ -1024,7 +1024,7 @@ export class RepositoryView extends React.Component<
     )
   }
 
-  private renderContentForActions(): JSX.Element {
+  private renderContentForActions(): React.JSX.Element {
     const runId = this.state.selectedWorkflowRunId
     const run =
       runId === null
@@ -1060,7 +1060,7 @@ export class RepositoryView extends React.Component<
     return this.props.stashEntries.find(e => e.stashSha === sha) ?? null
   }
 
-  private renderContentForStashes(): JSX.Element {
+  private renderContentForStashes(): React.JSX.Element {
     const entry = this.getSelectedStashEntry()
     if (entry === null) {
       return (
@@ -1089,7 +1089,7 @@ export class RepositoryView extends React.Component<
     )
   }
 
-  private renderContentForWorktrees(): JSX.Element {
+  private renderContentForWorktrees(): React.JSX.Element {
     // Reuse the same WorktreeList component the sidebar renders so the
     // detail pane and sidebar never drift apart. WorktreeList owns the
     // loading and empty states.
@@ -1101,7 +1101,7 @@ export class RepositoryView extends React.Component<
     )
   }
 
-  private renderContentForSubmodules(): JSX.Element {
+  private renderContentForSubmodules(): React.JSX.Element {
     // Reuse the same SubmoduleList the sidebar renders so the detail pane and
     // sidebar never drift apart.
     return (
@@ -1308,7 +1308,7 @@ export class RepositoryView extends React.Component<
     }
   }
 
-  private maybeRenderTutorialPanel(): JSX.Element | null {
+  private maybeRenderTutorialPanel(): React.JSX.Element | null {
     if (isValidTutorialStep(this.props.currentTutorialStep)) {
       return (
         <TutorialPanel

@@ -1341,7 +1341,7 @@ export class CommitMessage extends React.Component<
     )
   }
 
-  private renderSummaryLengthHint(): JSX.Element | null {
+  private renderSummaryLengthHint(): React.JSX.Element | null {
     return (
       <ToggledtippedContent
         delay={0}
@@ -1368,7 +1368,7 @@ export class CommitMessage extends React.Component<
     )
   }
 
-  private renderRepoRuleCommitMessageFailureHint(): JSX.Element | null {
+  private renderRepoRuleCommitMessageFailureHint(): React.JSX.Element | null {
     // enableRepoRules FF is checked before this method
 
     if (this.state.repoRuleCommitMessageFailures.status === 'pass') {

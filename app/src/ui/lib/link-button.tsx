@@ -5,6 +5,9 @@ import { Tooltip } from './tooltip'
 import { createObservableRef } from './observable-ref'
 
 interface ILinkButtonProps {
+  /** Content rendered inside the component. */
+  readonly children?: React.ReactNode
+
   /** A URI to open on click. */
   readonly uri?: string
 

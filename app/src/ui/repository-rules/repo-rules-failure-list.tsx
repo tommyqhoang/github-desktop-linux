@@ -17,7 +17,7 @@ interface IRepoRulesMetadataFailureListProps {
    * that's being checked. For example, "The email in your global Git config" or
    * "This commit message".
    */
-  readonly leadingText: string | JSX.Element
+  readonly leadingText: string | React.JSX.Element
 }
 
 /**

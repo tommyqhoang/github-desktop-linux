@@ -1,6 +1,9 @@
 import * as React from 'react'
 
 interface IToolbarProps {
+  /** Content rendered inside the component. */
+  readonly children?: React.ReactNode
+
   readonly id?: string
 }
 

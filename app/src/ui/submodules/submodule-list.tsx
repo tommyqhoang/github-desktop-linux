@@ -37,7 +37,7 @@ export class SubmoduleList extends React.Component<ISubmoduleListProps> {
     )
   }
 
-  private renderBody(): JSX.Element {
+  private renderBody(): React.JSX.Element {
     if (this.props.loading) {
       return (
         <div className="submodule-list__loading" role="status">

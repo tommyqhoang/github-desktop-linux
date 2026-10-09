@@ -158,7 +158,7 @@ export class PullRequestQuickView extends React.Component<
     this.props.dispatcher.openInBrowser(url)
   }
 
-  private renderHeader = (): JSX.Element => {
+  private renderHeader = (): React.JSX.Element => {
     return (
       <header className="header">
         <Octicon symbol={octicons.listUnordered} />

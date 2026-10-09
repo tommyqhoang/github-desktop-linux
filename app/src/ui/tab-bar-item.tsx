@@ -3,6 +3,9 @@ import classNames from 'classnames'
 import { TabBarType } from './tab-bar-type'
 
 interface ITabBarItemProps {
+  /** Content rendered inside the component. */
+  readonly children?: React.ReactNode
+
   readonly index: number
   readonly selected: boolean
   readonly onClick: (index: number) => void

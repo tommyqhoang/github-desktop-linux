@@ -65,7 +65,7 @@ export class WorkflowRunList extends React.Component<
     )
   }
 
-  private renderBody(): JSX.Element {
+  private renderBody(): React.JSX.Element {
     if (this.props.loading) {
       return (
         <div className="workflow-run-list-loading" role="status">

@@ -24,6 +24,9 @@ import { getDotComAPIEndpoint } from '../../lib/api'
 import { Loading } from './loading'
 
 interface IConfigureGitUserProps {
+  /** Content rendered inside the component. */
+  readonly children?: React.ReactNode
+
   /** The logged-in accounts. */
   readonly accounts: ReadonlyArray<Account>
 

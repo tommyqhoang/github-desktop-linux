@@ -17,7 +17,7 @@ interface IRefNameProps {
   /**
    * The label of the text box.
    */
-  readonly label?: string | JSX.Element
+  readonly label?: string | React.JSX.Element
 
   /**
    * The aria-labelledBy attribute for the text box.

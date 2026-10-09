@@ -7,7 +7,9 @@ import * as React from 'react'
  *
  * Provide `children` to display content inside the dialog footer.
  */
-export class DialogFooter extends React.Component<{}, {}> {
+export class DialogFooter extends React.Component<{
+  readonly children?: React.ReactNode
+}> {
   public render() {
     return <div className="dialog-footer">{this.props.children}</div>
   }

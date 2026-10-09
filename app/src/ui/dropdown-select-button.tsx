@@ -12,7 +12,7 @@ export interface IDropdownSelectButtonOption {
   readonly label: string
 
   /** The select option description */
-  readonly description?: string | JSX.Element
+  readonly description?: string | React.JSX.Element
 
   /** The select option's value */
   readonly id: string

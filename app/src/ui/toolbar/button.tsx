@@ -20,11 +20,14 @@ export enum ToolbarButtonStyle {
 }
 
 export interface IToolbarButtonProps {
+  /** Content rendered inside the component. */
+  readonly children?: React.ReactNode
+
   /** The primary button text, describing its function */
   readonly title?: string
 
   /** An optional description of the function of the button */
-  readonly description?: JSX.Element | string
+  readonly description?: React.JSX.Element | string
 
   /** The tooltip for the button. */
   readonly tooltip?: string

@@ -1,3 +1,4 @@
+import * as React from 'react'
 import { Emoji } from '../lib/emoji'
 import { Popup } from './popup'
 
@@ -118,7 +119,7 @@ export type Banner =
        *  - cherry-picking onto <strong>target-branch-name</strong>
        *  - squashing commits on <strong>target-branch-name</strong>
        */
-      readonly operationDescription: string | JSX.Element
+      readonly operationDescription: string | React.JSX.Element
       /** callback to run when user clicks on link in banner text */
       readonly onOpenConflictsDialog: () => void
     }

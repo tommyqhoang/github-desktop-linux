@@ -239,7 +239,7 @@ export class PullRequestChecksFailed extends React.Component<
     )
   }
 
-  private renderCheckRunStepsLoading(): JSX.Element {
+  private renderCheckRunStepsLoading(): React.JSX.Element {
     return (
       <div className="loading-check-runs">
         <img src={BlankSlateImage} className="blankslate-image" alt="" />

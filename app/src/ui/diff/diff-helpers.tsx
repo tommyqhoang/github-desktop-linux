@@ -271,7 +271,7 @@ export function getDiffTokens(
 export function syntaxHighlightLine(
   line: string,
   tokensArray: ReadonlyArray<ILineTokens>
-): JSX.Element {
+): React.JSX.Element {
   const elements = []
   let currentElement = {
     content: '',

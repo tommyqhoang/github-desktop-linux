@@ -9,7 +9,9 @@ import * as React from 'react'
  * it appears in the general style is an inline-box with a suitable background
  * color, using a fixed-width font.
  */
-export class Ref extends React.Component<{}, {}> {
+export class Ref extends React.Component<{
+  readonly children?: React.ReactNode
+}> {
   public render() {
     return <em className="ref-component">{this.props.children}</em>
   }
