@@ -1,4 +1,5 @@
 import { BaseStore } from './base-store'
+import { SingleFlight } from '../single-flight'
 import { Repository } from '../../models/repository'
 import { ISubmoduleStatusEntry } from '../../models/submodule'
 import { getSubmodules } from '../git/submodule'
@@ -23,6 +24,7 @@ const EMPTY_STATE: IRepoSubmoduleState = Object.freeze({
 
 /** Cache of submodule entries by repository id. */
 export class SubmoduleStore extends BaseStore {
+  private readonly flight = new SingleFlight<number, void>()
   private state: Map<number, IRepoSubmoduleState> = new Map()
 
   /** Get the cached state for a repository, or an empty state if not loaded. */
@@ -36,18 +38,22 @@ export class SubmoduleStore extends BaseStore {
   }
 
   /**
-   * Refresh the submodule list for the given repository. Concurrent calls for
-   * the same repository coalesce.
+   * Refresh the submodule list for the given repository. Overlapping calls
+   * share one trailing refresh that starts after the current one settles, so a
+   * caller that just updated or synced submodules never gets a list read
+   * before its change.
    */
-  public async loadSubmodules(repository: Repository): Promise<void> {
+  public loadSubmodules(repository: Repository): Promise<void> {
     if (!repository?.path) {
-      return
+      return Promise.resolve()
     }
+    return this.flight.run(repository.id, () =>
+      this.doLoadSubmodules(repository)
+    )
+  }
 
+  private async doLoadSubmodules(repository: Repository): Promise<void> {
     const current = this.state.get(repository.id)
-    if (current?.loading) {
-      return
-    }
 
     this.update(repository.id, current ?? EMPTY_STATE, { loading: true })
 
@@ -83,6 +89,9 @@ export class SubmoduleStore extends BaseStore {
 
   /** Drop the cached state for a repository. */
   public clear(repository: Repository): void {
+    // A refresh queued behind the one in flight must not repopulate the cache
+    // for a repository that is being dropped.
+    this.flight.cancel(repository.id, undefined)
     this.state.delete(repository.id)
     this.emitUpdate()
   }

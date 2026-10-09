@@ -1,4 +1,5 @@
 import { BaseStore } from './base-store'
+import { SingleFlight } from '../single-flight'
 import { Repository } from '../../models/repository'
 import { IStashEntry } from '../../models/stash-entry'
 import { getAllStashes } from '../git/stash'
@@ -30,6 +31,7 @@ const EMPTY_STATE: IRepoStashState = Object.freeze({
  * back here to refresh the cache.
  */
 export class StashStore extends BaseStore {
+  private readonly flight = new SingleFlight<number, void>()
   private state: Map<number, IRepoStashState> = new Map()
 
   /** Get the cached state for a repository, or an empty state if not loaded. */
@@ -43,15 +45,17 @@ export class StashStore extends BaseStore {
   }
 
   /**
-   * Refresh the stash list for the given repository. Concurrent calls for the
-   * same repository coalesce — the second caller awaits the in-flight result
-   * rather than re-running git.
+   * Refresh the stash list for the given repository. Overlapping calls for the
+   * same repository share one trailing refresh that starts after the current
+   * one settles, so a caller that just changed the stash list (create / apply /
+   * drop) never gets back a list read before its change.
    */
-  public async loadStashes(repository: Repository): Promise<void> {
+  public loadStashes(repository: Repository): Promise<void> {
+    return this.flight.run(repository.id, () => this.doLoadStashes(repository))
+  }
+
+  private async doLoadStashes(repository: Repository): Promise<void> {
     const current = this.state.get(repository.id)
-    if (current?.loading) {
-      return
-    }
 
     this.update(repository.id, current ?? EMPTY_STATE, { loading: true })
 
@@ -88,6 +92,9 @@ export class StashStore extends BaseStore {
    * the app). Emits an update so any view bound to the cache re-renders.
    */
   public clear(repository: Repository): void {
+    // A refresh queued behind the one in flight must not repopulate the cache
+    // for a repository that is being dropped.
+    this.flight.cancel(repository.id, undefined)
     if (this.state.delete(repository.id)) {
       this.emitUpdate()
     }

@@ -4,6 +4,7 @@ import { Repository } from '../../models/repository'
 import { IWorkingDirectoryStats } from '../../models/working-directory-stats'
 import { getTempFilePath } from '../file-system'
 import { git } from '.'
+import { SingleFlight } from '../single-flight'
 
 /**
  * Compute aggregate diff statistics for the working directory.
@@ -22,51 +23,15 @@ import { git } from '.'
 export function getWorkingDirectoryStats(
   repository: Repository
 ): Promise<IWorkingDirectoryStats | null> {
-  const key = repository.path
-  const state = inFlight.get(key)
-
-  if (state === undefined) {
-    return startRun(key, repository)
-  }
-
-  // A run is already in progress. Its result may predate the change that
-  // triggered this call, so queue exactly one trailing run (shared by every
-  // caller that arrives meanwhile) rather than handing back a stale result
-  // or spawning an unbounded pile of git subprocesses.
-  if (state.queued === null) {
-    state.queued = state.running.then(
-      () => startRun(key, repository),
-      () => startRun(key, repository)
-    )
-  }
-  return state.queued
+  // Overlapping calls share one trailing run, so a caller never receives a
+  // result computed before the change that prompted it, and a burst of status
+  // refreshes costs at most two runs instead of one per refresh.
+  return flight.run(repository.path, () =>
+    computeWorkingDirectoryStats(repository)
+  )
 }
 
-interface IInFlightStats {
-  running: Promise<IWorkingDirectoryStats | null>
-  queued: Promise<IWorkingDirectoryStats | null> | null
-}
-
-const inFlight = new Map<string, IInFlightStats>()
-
-function startRun(
-  key: string,
-  repository: Repository
-): Promise<IWorkingDirectoryStats | null> {
-  const state: IInFlightStats = {
-    running: computeWorkingDirectoryStats(repository),
-    queued: null,
-  }
-  inFlight.set(key, state)
-  const clear = () => {
-    // Only drop the entry if no newer run replaced it.
-    if (inFlight.get(key) === state) {
-      inFlight.delete(key)
-    }
-  }
-  state.running.then(clear, clear)
-  return state.running
-}
+const flight = new SingleFlight<string, IWorkingDirectoryStats | null>()
 
 async function computeWorkingDirectoryStats(
   repository: Repository

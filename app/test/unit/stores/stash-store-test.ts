@@ -58,19 +58,72 @@ describe('StashStore', () => {
       expect(updateCount).toBeGreaterThanOrEqual(2)
     })
 
-    it('coalesces concurrent loads for the same repo (single git invocation)', async () => {
+    it('bounds overlapping loads to one running plus one trailing refresh', async () => {
+      const spy = jest.spyOn(StashGit, 'getAllStashes')
+      try {
+        const calls = Array.from({ length: 10 }, () =>
+          store.loadStashes(repository)
+        )
+        await Promise.all(calls)
+
+        expect(spy).toHaveBeenCalledTimes(2)
+        expect(store.getState(repository).loading).toBe(false)
+      } finally {
+        spy.mockRestore()
+      }
+    })
+
+    it('does not hand back a list read before a change made mid-refresh', async () => {
       const readme = path.join(repository.path, 'README.md')
-      await FSE.appendFile(readme, generateString())
-      await exec(['stash', 'push', '-m', 'only'], repository.path)
 
-      // Kick off two concurrent loads. The second should early-exit.
-      const a = store.loadStashes(repository)
-      const b = store.loadStashes(repository)
-      await Promise.all([a, b])
+      // Hold the first refresh open on the pre-change (empty) list.
+      let release: (entries: ReadonlyArray<IStashEntry>) => void = () => {}
+      const spy = jest.spyOn(StashGit, 'getAllStashes').mockReturnValueOnce(
+        new Promise<ReadonlyArray<IStashEntry>>(resolve => {
+          release = resolve
+        })
+      )
+      try {
+        const inFlight = store.loadStashes(repository)
 
-      const state = store.getState(repository)
-      expect(state.entries).toHaveLength(1)
-      expect(state.loading).toBe(false)
+        // The user stashes something while that refresh is still running,
+        // then asks for a refresh.
+        await FSE.appendFile(readme, generateString())
+        await exec(['stash', 'push', '-m', 'made-mid-refresh'], repository.path)
+        const afterChange = store.loadStashes(repository)
+
+        release([])
+        await inFlight
+        await afterChange
+
+        const entries = store.getState(repository).entries
+        expect(entries).toHaveLength(1)
+        expect(entries[0].message).toContain('made-mid-refresh')
+      } finally {
+        spy.mockRestore()
+      }
+    })
+
+    it('does not run a queued refresh for a repository cleared meanwhile', async () => {
+      let release: (entries: ReadonlyArray<IStashEntry>) => void = () => {}
+      const spy = jest.spyOn(StashGit, 'getAllStashes').mockReturnValueOnce(
+        new Promise<ReadonlyArray<IStashEntry>>(resolve => {
+          release = resolve
+        })
+      )
+      try {
+        const inFlight = store.loadStashes(repository)
+        const queued = store.loadStashes(repository)
+        store.clear(repository)
+
+        release([])
+        await Promise.all([inFlight, queued])
+
+        expect(spy).toHaveBeenCalledTimes(1)
+        expect(store.getAllState().has(42)).toBe(false)
+      } finally {
+        spy.mockRestore()
+      }
     })
 
     it('isolates state per repository', async () => {

@@ -55,20 +55,39 @@ describe('SubmoduleStore', () => {
     expect(state.loadedAt).not.toBeNull()
   })
 
-  it('coalesces concurrent loads for the same repository', async () => {
+  it('bounds overlapping loads to one running plus one trailing refresh', async () => {
     const repo = makeRepo(1, '/tmp/repo')
     let release: (v: ISubmoduleStatusEntry[]) => void = () => {}
-    mockedGetSubmodules.mockReturnValueOnce(
-      new Promise<ISubmoduleStatusEntry[]>(resolve => (release = resolve))
-    )
+    mockedGetSubmodules
+      .mockReturnValueOnce(
+        new Promise<ISubmoduleStatusEntry[]>(resolve => (release = resolve))
+      )
+      .mockResolvedValue([entry('vendor/after')])
 
-    const first = store.loadSubmodules(repo)
-    const second = store.loadSubmodules(repo)
-    release([entry('vendor/a')])
-    await Promise.all([first, second])
+    const calls = Array.from({ length: 10 }, () => store.loadSubmodules(repo))
+    release([entry('vendor/before')])
+    await Promise.all(calls)
 
-    // The second call should have bailed because a load was in flight.
-    expect(mockedGetSubmodules).toHaveBeenCalledTimes(1)
+    expect(mockedGetSubmodules).toHaveBeenCalledTimes(2)
+  })
+
+  it('reflects a change made while a refresh was running', async () => {
+    const repo = makeRepo(1, '/tmp/repo')
+    let release: (v: ISubmoduleStatusEntry[]) => void = () => {}
+    mockedGetSubmodules
+      .mockReturnValueOnce(
+        new Promise<ISubmoduleStatusEntry[]>(resolve => (release = resolve))
+      )
+      .mockResolvedValueOnce([entry('vendor/after-update')])
+
+    const inFlight = store.loadSubmodules(repo)
+    const afterUpdate = store.loadSubmodules(repo)
+    release([entry('vendor/before-update')])
+    await Promise.all([inFlight, afterUpdate])
+
+    expect(store.getState(repo).entries.map(e => e.path)).toEqual([
+      'vendor/after-update',
+    ])
   })
 
   it('records an error when loading fails', async () => {
