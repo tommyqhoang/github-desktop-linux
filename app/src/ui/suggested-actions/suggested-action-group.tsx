@@ -42,22 +42,25 @@ export const SuggestedActionGroup: React.FunctionComponent<
       props.enableTransitions !== undefined ? props.enableTransitions : true
     // The single child is swapped for the next one with an enter/exit
     // animation (see the `replace-*` rules in _suggested-action-group.scss).
-    const child = React.Children.only(props.children)
+    // The child can legitimately be empty (e.g. nothing to suggest for a clean,
+    // up-to-date repo); `Children.only` would throw there, so use toArray and
+    // render an empty group, which still lets a previous child animate out.
+    const child = React.Children.toArray(props.children)[0]
     return (
       <TransitionGroup
         className={cn + ' replace-container'}
         enter={enableTransitions}
         exit={enableTransitions}
       >
-        <CSSTransitionContents
-          key={
-            React.isValidElement(child) ? (child.key ?? undefined) : undefined
-          }
-          classNames={props.transitions}
-          timeout={{ enter: 750, exit: 500 }}
-        >
-          {child}
-        </CSSTransitionContents>
+        {React.isValidElement(child) ? (
+          <CSSTransitionContents
+            key={child.key ?? undefined}
+            classNames={props.transitions}
+            timeout={{ enter: 750, exit: 500 }}
+          >
+            {child}
+          </CSSTransitionContents>
+        ) : null}
       </TransitionGroup>
     )
   }
