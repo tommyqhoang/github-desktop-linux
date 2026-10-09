@@ -16,7 +16,7 @@ import {
 } from '../../lib/api'
 
 import { TypedBaseStore } from './base-store'
-import uuid from 'uuid'
+import { v4 as uuid } from 'uuid'
 import { IOAuthAction } from '../parse-app-url'
 import { shell } from '../app-shell'
 import noop from 'lodash/noop'

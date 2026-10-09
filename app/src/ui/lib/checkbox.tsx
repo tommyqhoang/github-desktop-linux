@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { createUniqueId, releaseUniqueId } from './id-pool'
-import uuid from 'uuid'
+import { v4 as uuid } from 'uuid'
 
 /** The possible values for a Checkbox component. */
 export enum CheckboxValue {
