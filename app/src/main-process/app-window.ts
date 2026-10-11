@@ -29,6 +29,7 @@ import {
 } from './notifications'
 import { addTrustedIPCSender } from './trusted-ipc-sender'
 import { getUpdaterGUID } from '../lib/get-updater-guid'
+import { ILinuxUpdateState } from '../lib/linux-update'
 
 export class AppWindow {
   private window: Electron.BrowserWindow
@@ -182,6 +183,17 @@ export class AppWindow {
           }, 5)
         })
       })
+    }
+  }
+
+  /** Notify only this application's trusted renderer about Linux update state. */
+  public sendLinuxUpdateState(state: ILinuxUpdateState) {
+    if (!this.window.webContents.isDestroyed()) {
+      ipcWebContents.send(
+        this.window.webContents,
+        'linux-update-state-changed',
+        state
+      )
     }
   }
 

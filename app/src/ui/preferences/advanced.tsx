@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { Disposable } from 'event-kit'
 import { DialogContent } from '../dialog'
 import { Button } from '../lib/button'
 import { Checkbox, CheckboxValue } from '../lib/checkbox'
@@ -19,6 +20,8 @@ import {
   setAICommitMessageSettings,
 } from '../../lib/ai/commit-message-settings'
 import { testOpenRouterConnection } from '../../lib/ai/commit-message'
+import { LinuxUpdateControls } from '../lib/linux-update-controls'
+import { linuxUpdateStore } from '../lib/linux-update-store'
 
 interface IAdvancedPreferencesProps {
   readonly useWindowsOpenSSH: boolean
@@ -32,6 +35,7 @@ interface IAdvancedPreferencesProps {
 }
 
 interface IAdvancedPreferencesState {
+  readonly automaticUpdatesEnabled: boolean
   readonly optOutOfUsageTracking: boolean
   readonly canUseWindowsSSH: boolean
   readonly useExternalCredentialHelper: boolean
@@ -51,10 +55,14 @@ export class Advanced extends React.Component<
   IAdvancedPreferencesProps,
   IAdvancedPreferencesState
 > {
+  private linuxUpdateSubscription: Disposable | null = null
+
   public constructor(props: IAdvancedPreferencesProps) {
     super(props)
 
     this.state = {
+      automaticUpdatesEnabled:
+        __LINUX__ && linuxUpdateStore.automaticUpdatesEnabled,
       optOutOfUsageTracking: this.props.optOutOfUsageTracking,
       canUseWindowsSSH: false,
       useExternalCredentialHelper: this.props.useExternalCredentialHelper,
@@ -74,6 +82,28 @@ export class Advanced extends React.Component<
   public componentDidMount() {
     this.checkSSHAvailability()
     this.loadAICommitMessageSettings()
+    if (__LINUX__) {
+      this.linuxUpdateSubscription = linuxUpdateStore.onDidChange(() => {
+        this.setState({
+          automaticUpdatesEnabled: linuxUpdateStore.automaticUpdatesEnabled,
+        })
+      })
+      this.setState({
+        automaticUpdatesEnabled: linuxUpdateStore.automaticUpdatesEnabled,
+      })
+    }
+  }
+
+  public componentWillUnmount() {
+    this.linuxUpdateSubscription?.dispose()
+  }
+
+  private onAutomaticUpdatesChanged = (
+    event: React.FormEvent<HTMLInputElement>
+  ) => {
+    const automaticUpdatesEnabled = event.currentTarget.checked
+    linuxUpdateStore.setAutomaticUpdatesEnabled(automaticUpdatesEnabled)
+    this.setState({ automaticUpdatesEnabled })
   }
 
   private async checkSSHAvailability() {
@@ -361,6 +391,37 @@ export class Advanced extends React.Component<
   public render() {
     return (
       <DialogContent>
+        {__LINUX__ && (
+          <div className="advanced-section">
+            <h2>Application updates</h2>
+            <Checkbox
+              label="Automatic updates"
+              value={
+                this.state.automaticUpdatesEnabled
+                  ? CheckboxValue.On
+                  : CheckboxValue.Off
+              }
+              onChange={this.onAutomaticUpdatesChanged}
+              ariaDescribedBy="automatic-updates-description"
+            />
+            <div
+              id="automatic-updates-description"
+              className="git-settings-description"
+            >
+              <p>
+                Automatically check for and download updates. GitHub Desktop
+                will never restart without your consent. Installing an update
+                requires administrator approval.
+              </p>
+              <p>
+                Turning this off stops future automatic checks and downloads. An
+                in-progress download may complete. You can still check for and
+                install updates manually.
+              </p>
+            </div>
+            <LinuxUpdateControls />
+          </div>
+        )}
         <div className="advanced-section">
           <h2>Background updates</h2>
           <Checkbox

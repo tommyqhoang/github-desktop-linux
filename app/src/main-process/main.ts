@@ -61,6 +61,7 @@ import {
   showNotification,
 } from 'desktop-notifications'
 import { initializeDesktopNotifications } from './notifications'
+import { LinuxUpdater, registerLinuxUpdaterIPC } from './linux-updater'
 
 app.setAppLogsPath()
 enableSourceMaps()
@@ -344,6 +345,23 @@ app.on('ready', () => {
   possibleProtocols.forEach(protocol => setAsDefaultProtocolClient(protocol))
 
   createWindow()
+
+  if (__LINUX__) {
+    const linuxUpdater = new LinuxUpdater({
+      platform: process.platform,
+      arch: process.arch,
+      packaged: app.isPackaged && !__DEV__,
+      currentVersion: app.getVersion(),
+      executablePath: process.execPath,
+      userDataPath: app.getPath('userData'),
+      onStateChanged: state => mainWindow?.sendLinuxUpdateState(state),
+      relaunch: () => app.relaunch(),
+      // app.quit emits before-quit, setting AppWindow's normal quitting flag.
+      // Linux does not use AppWindow's Squirrel isDownloadingUpdate guard.
+      quit: () => app.quit(),
+    })
+    registerLinuxUpdaterIPC(linuxUpdater, ipcMain.handle)
+  }
 
   const orderedWebRequest = new OrderedWebRequest(
     session.defaultSession.webRequest

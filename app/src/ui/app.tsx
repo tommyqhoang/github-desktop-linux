@@ -22,6 +22,8 @@ import { matchExistingRepository } from '../lib/repository-matching'
 import { getDotComAPIEndpoint } from '../lib/api'
 import { getVersion, getName } from './lib/app-proxy'
 import { checkForForkUpdate } from '../lib/fork-release-check'
+import { linuxUpdateStore } from './lib/linux-update-store'
+import { LinuxUpdateBanner } from './banners/linux-update-banner'
 import { DismissedReleaseTagKey } from './banners/new-release-available-banner'
 import {
   getOS,
@@ -248,6 +250,7 @@ export class App extends React.Component<IAppProps, IAppState> {
   private lastKeyPressed: string | null = null
 
   private updateIntervalHandle?: number
+  private linuxUpdateTimer?: { dispose(): void }
 
   private repositoryViewRef = React.createRef<RepositoryView>()
 
@@ -348,6 +351,7 @@ export class App extends React.Component<IAppProps, IAppState> {
 
   public componentWillUnmount() {
     window.clearInterval(this.updateIntervalHandle)
+    this.linuxUpdateTimer?.dispose()
 
     if (__DARWIN__) {
       window.removeEventListener('keydown', this.onMacOSWindowKeyDown)
@@ -366,21 +370,27 @@ export class App extends React.Component<IAppProps, IAppState> {
 
     // We only want to automatically check for updates on beta and prod
     if (
+      !__LINUX__ &&
       __RELEASE_CHANNEL__ !== 'development' &&
       __RELEASE_CHANNEL__ !== 'test'
     ) {
       setInterval(() => this.checkForUpdates(true), UpdateCheckInterval)
       this.checkForUpdates(true)
-    } else if (await updateStore.isUpdateShowcase()) {
+    } else if (!__LINUX__ && (await updateStore.isUpdateShowcase())) {
       // The only purpose of this call is so we can see the showcase on dev/test
       // env. Prod and beta environment will trigger this during automatic check
       // for updates.
       this.props.dispatcher.setUpdateShowCaseVisibility(true)
     }
 
-    // Squirrel updates aren't available on Linux and the macOS fork build is
-    // ad-hoc signed, so point those users at the newest fork release instead.
-    if (__LINUX__ || __DARWIN__) {
+    if (__LINUX__) {
+      await linuxUpdateStore.initialize()
+      this.linuxUpdateTimer =
+        linuxUpdateStore.startAutomaticChecks(UpdateCheckInterval)
+    }
+
+    // The ad-hoc signed macOS fork still uses release-page notifications.
+    if (__DARWIN__) {
       setInterval(() => this.checkForForkRelease(), UpdateCheckInterval)
       this.checkForForkRelease()
     }
@@ -830,7 +840,12 @@ export class App extends React.Component<IAppProps, IAppState> {
     inBackground: boolean,
     skipGuidCheck: boolean = false
   ) {
-    if (__LINUX__ || __RELEASE_CHANNEL__ === 'development') {
+    if (__LINUX__) {
+      linuxUpdateStore.checkForUpdates(inBackground)
+      return
+    }
+
+    if (__RELEASE_CHANNEL__ === 'development') {
       return
     }
 
@@ -3141,6 +3156,7 @@ export class App extends React.Component<IAppProps, IAppState> {
       >
         {this.renderToolbar()}
         {this.renderBanner()}
+        {__LINUX__ && <LinuxUpdateBanner />}
         {this.renderRepository()}
         {this.renderPopups()}
         {this.renderDragElement()}

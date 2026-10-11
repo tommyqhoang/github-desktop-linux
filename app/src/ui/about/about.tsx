@@ -14,7 +14,8 @@ import { Disposable } from 'event-kit'
 import { Loading } from '../lib/loading'
 import { RelativeTime } from '../relative-time'
 import { assertNever } from '../../lib/fatal-error'
-import { ReleaseNotesUri, LinuxReleasesUri } from '../lib/releases'
+import { ReleaseNotesUri } from '../lib/releases'
+import { LinuxUpdateControls } from '../lib/linux-update-controls'
 import { encodePathAsUrl } from '../../lib/path'
 import { isOSNoLongerSupportedByElectron } from '../../lib/get-os'
 
@@ -96,19 +97,8 @@ export class About extends React.Component<IAboutProps, IAboutState> {
   }
 
   private renderUpdateButton() {
-    if (__RELEASE_CHANNEL__ === 'development') {
+    if (__LINUX__ || __RELEASE_CHANNEL__ === 'development') {
       return null
-    }
-
-    if (__LINUX__) {
-      const linuxReleaseLink = (
-        <LinkButton uri={LinuxReleasesUri}>View Releases</LinkButton>
-      )
-      return (
-        <Row>
-          <p className="no-padding">{linuxReleaseLink}</p>
-        </Row>
-      )
     }
 
     const updateStatus = this.state.updateState.status
@@ -196,12 +186,7 @@ export class About extends React.Component<IAboutProps, IAboutState> {
 
   private renderUpdateDetails() {
     if (__LINUX__) {
-      return (
-        <p>
-          Please visit the GitHub Desktop for Linux release page for
-          Linux-specific release notes and to download the latest version.
-        </p>
-      )
+      return <LinuxUpdateControls />
     }
 
     if (__RELEASE_CHANNEL__ === 'development') {

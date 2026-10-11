@@ -17,6 +17,7 @@ import { TitleBarStyle } from '../ui/lib/title-bar-style'
 import { DesktopNotificationPermission } from 'desktop-notifications/dist/notification-permission'
 import { NotificationCallback } from 'desktop-notifications/dist/notification-callback'
 import { DesktopAliveEvent } from './stores/alive-store'
+import { ILinuxUpdateState } from './linux-update'
 
 /**
  * Defines the simplex IPC channel names we use from the renderer
@@ -25,6 +26,7 @@ import { DesktopAliveEvent } from './stores/alive-store'
  * the two over the untyped IPC framework.
  */
 export type RequestChannels = {
+  'linux-update-state-changed': (state: ILinuxUpdateState) => void
   'select-all-window-contents': () => void
   'dialog-did-open': () => void
   'update-menu-state': (
@@ -97,6 +99,10 @@ export type RequestChannels = {
  * Return signatures must be promises
  */
 export type RequestResponseChannels = {
+  'linux-update-state': () => Promise<ILinuxUpdateState>
+  'linux-update-check': (download: boolean) => Promise<ILinuxUpdateState>
+  'linux-update-download': () => Promise<ILinuxUpdateState>
+  'linux-update-install': () => Promise<ILinuxUpdateState>
   'get-path': (path: PathType) => Promise<string>
   'get-app-architecture': () => Promise<Architecture>
   'get-app-path': () => Promise<string>
