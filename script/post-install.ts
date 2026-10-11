@@ -48,14 +48,22 @@ function rebuildNodePty() {
   if (!Fs.existsSync(ptyDir)) {
     return
   }
-  // Re-run node-pty's install script (`prebuild || node-gyp rebuild`) now
-  // that binding.gyp is patched. `npm rebuild` resolves node-gyp without
-  // needing to know where it lives in the hoisted tree.
-  const result = spawnSync('npm', ['rebuild', 'node-pty'], {
-    cwd: Path.join(root, 'app'),
-    stdio: 'inherit',
-    shell: process.platform === 'win32',
-  })
+  // Rebuild node-pty against Electron's V8 ABI, not Node's. On macOS
+  // node-pty forks a `spawn-helper` executable; building with Node headers
+  // (the `npm rebuild` default) produces an ABI-mismatched `pty.node` and
+  // either fails to load or leaves `spawn-helper` missing, which surfaces
+  // at runtime as `posix_spawnp failed.` when the integrated terminal opens.
+  // `@electron/rebuild` reads the app's Electron version and compiles the
+  // native addon + helper for the correct ABI and arch.
+  const result = spawnSync(
+    'npx',
+    ['electron-rebuild', '-f', '-w', 'node-pty', '-m', 'app'],
+    {
+      cwd: root,
+      stdio: 'inherit',
+      shell: process.platform === 'win32',
+    }
+  )
   if (result.status !== 0) {
     process.exit(result.status || 1)
   }
