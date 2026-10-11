@@ -22,5 +22,8 @@ jobs:
         run: yarn install --frozen-lockfile
       - name: Lint
         run: yarn lint
+      - name: Install native test dependencies
+        # keytar-forked links against libsecret, which the runner image lacks.
+        run: sudo apt-get update && sudo apt-get install -y libsecret-1-0
       - name: Unit tests
         run: yarn test:unit
