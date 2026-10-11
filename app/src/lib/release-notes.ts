@@ -9,7 +9,6 @@ import {
 import { getVersion } from '../ui/lib/app-proxy'
 import { formatDate } from './format-date'
 import { offsetFromNow } from './offset-from'
-import { encodePathAsUrl } from './path'
 
 // expects a release note entry to contain a header and then some text
 // example:
@@ -157,12 +156,3 @@ export async function generateDevReleaseSummary(): Promise<
     ...releases.slice(1),
   ]
 }
-
-export const ReleaseNoteHeaderLeftUri = encodePathAsUrl(
-  __dirname,
-  'static/release-note-header-left.svg'
-)
-export const ReleaseNoteHeaderRightUri = encodePathAsUrl(
-  __dirname,
-  'static/release-note-header-right.svg'
-)

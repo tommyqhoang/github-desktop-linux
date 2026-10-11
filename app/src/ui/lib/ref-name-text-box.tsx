@@ -65,12 +65,25 @@ export class RefNameTextBox extends React.Component<
 
   public constructor(props: IRefNameProps) {
     super(props)
+    this.state = this.getStateForInitialValue(props.initialValue)
+  }
 
-    const proposedValue = props.initialValue || ''
-
-    this.state = {
+  private getStateForInitialValue(initialValue?: string): IRefNameState {
+    const proposedValue = initialValue || ''
+    return {
       proposedValue,
       sanitizedValue: sanitizedRefName(proposedValue),
+    }
+  }
+
+  public componentWillReceiveProps(nextProps: IRefNameProps): void {
+    // Pick up a late initial value (e.g. the default branch name) unless the
+    // user has already typed something.
+    if (
+      nextProps.initialValue !== this.props.initialValue &&
+      this.state.sanitizedValue === ''
+    ) {
+      this.setState(this.getStateForInitialValue(nextProps.initialValue))
     }
   }
 

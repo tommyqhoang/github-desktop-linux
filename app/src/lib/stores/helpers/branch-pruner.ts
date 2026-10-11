@@ -2,6 +2,7 @@ import {
   Repository,
   isRepositoryWithGitHubRepository,
 } from '../../../models/repository'
+import { getBranchRefsCheckedOutInWorktrees } from '../../git/worktree'
 import { RepositoriesStore } from '../repositories-store'
 import { Branch } from '../../../models/branch'
 import { GitStoreCache } from '../git-store-cache'
@@ -189,6 +190,13 @@ export class BranchPruner {
       [...recentlyCheckedOutBranches.keys()].map(formatAsLocalRef)
     )
 
+    const worktreeBranchRefs = await getBranchRefsCheckedOutInWorktrees(
+      this.repository
+    ).catch(e => {
+      log.warn('[BranchPruner] Unable to list worktrees', e)
+      return new Set<string>()
+    })
+
     // get the locally cached branches of remotes (ie `remotes/origin/main`)
     const remoteBranches = (
       await getBranches(this.repository, `refs/remotes/`)
@@ -201,6 +209,9 @@ export class BranchPruner {
           return false
         }
         if (recentlyCheckedOutCanonicalRefs.has(ref)) {
+          return false
+        }
+        if (worktreeBranchRefs.has(ref)) {
           return false
         }
         const upstreamRef = getUpstreamRefForLocalBranchRef(ref, allBranches)

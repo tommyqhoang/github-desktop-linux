@@ -391,6 +391,9 @@ export class RepositoryView extends React.Component<
         }
         commitSpellcheckEnabled={this.props.commitSpellcheckEnabled}
         showCommitLengthWarning={this.props.showCommitLengthWarning}
+        skipCommitHooks={this.props.state.skipCommitHooks}
+        signOffCommits={this.props.state.signOffCommits}
+        allowEmptyCommit={this.props.state.allowEmptyCommit}
       />
     )
   }
@@ -817,6 +820,7 @@ export class RepositoryView extends React.Component<
           maximumWidth={this.props.sidebarWidth.max}
           minimumWidth={this.props.sidebarWidth.min}
           onReset={this.handleSidebarWidthReset}
+          description="Repository sidebar"
           onResize={this.handleSidebarResize}
         >
           {this.renderTabs()}

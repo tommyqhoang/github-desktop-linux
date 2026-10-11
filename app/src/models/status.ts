@@ -47,6 +47,8 @@ export type PlainFileStatus = {
 export type CopiedOrRenamedFileStatus = {
   kind: AppFileStatusKind.Copied | AppFileStatusKind.Renamed
   oldPath: string
+  /** Whether a rename also changed the file's contents (similarity below 100%). */
+  renameIncludesModifications: boolean
   submoduleStatus?: SubmoduleStatus
 }
 
@@ -146,6 +148,8 @@ type RenamedOrCopiedEntry = {
   readonly workingTree?: GitStatusEntry
   /** the submodule status for this entry */
   readonly submoduleStatus?: SubmoduleStatus
+  /** The rename or copy similarity score, 0-100 */
+  readonly renameOrCopyScore?: number
 }
 
 export enum UnmergedEntrySummary {

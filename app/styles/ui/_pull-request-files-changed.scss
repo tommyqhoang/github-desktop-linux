@@ -15,6 +15,11 @@
     .commits-displayed {
       flex-grow: 1;
     }
+
+    .change-summary-badge-wrapper {
+      margin-right: var(--spacing);
+      align-self: center;
+    }
   }
 
   .files-diff-viewer {

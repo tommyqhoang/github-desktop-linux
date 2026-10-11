@@ -605,7 +605,25 @@ export interface IRepositoryState {
   /** State associated with a multi commit operation such as rebase,
    * cherry-pick, squash, reorder... */
   readonly multiCommitOperationState: IMultiCommitOperationState | null
+
+  /** Pass `--no-verify` to `git commit`, skipping the commit hooks */
+  readonly skipCommitHooks: boolean
+
+  /** Pass `--signoff` to `git commit`, adding a Signed-off-by trailer */
+  readonly signOffCommits: boolean
+
+  /**
+   * Pass `--allow-empty` to `git commit`. This resets to false after each
+   * commit.
+   */
+  readonly allowEmptyCommit: boolean
 }
+
+/** The per-repository options that change how a commit is created. */
+export type CommitOptions = Pick<
+  IRepositoryState,
+  'skipCommitHooks' | 'signOffCommits' | 'allowEmptyCommit'
+>
 
 export interface IBranchesState {
   /**

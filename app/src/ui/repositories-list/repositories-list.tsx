@@ -83,6 +83,8 @@ interface IRepositoriesListProps {
 
 interface IRepositoriesListState {
   readonly newRepositoryMenuExpanded: boolean
+  /** The item highlighted with the keyboard, which can differ from the app's selected repository */
+  readonly selectedItem: IRepositoryListItem | null
 }
 
 const RowHeight = 29
@@ -150,6 +152,7 @@ export class RepositoriesList extends React.Component<
 
     this.state = {
       newRepositoryMenuExpanded: false,
+      selectedItem: null,
     }
   }
 
@@ -203,6 +206,12 @@ export class RepositoriesList extends React.Component<
     )
   }
 
+  private onListSelectionChanged = (
+    selectedItem: IRepositoryListItem | null
+  ) => {
+    this.setState({ selectedItem })
+  }
+
   private onItemClick = (item: IRepositoryListItem) => {
     const hasIndicator =
       item.changedFilesCount > 0 ||
@@ -249,10 +258,12 @@ export class RepositoriesList extends React.Component<
       this.props.localRepositoryStateLookup
     )
 
-    const selectedItem = this.getSelectedListItem(
-      baseGroups,
-      this.props.selectedRepository
-    )
+    // Keyboard selection in the list is separate from the repository selected
+    // in the app. Honor the keyboard selection once the user has made one, so
+    // it survives the list refreshing.
+    const selectedItem =
+      this.state.selectedItem ??
+      this.getSelectedListItem(baseGroups, this.props.selectedRepository)
 
     const favoritesGroup = makeFavoriteRepositoriesGroup(
       this.props.favoriteRepositories,
@@ -279,6 +290,7 @@ export class RepositoriesList extends React.Component<
         <SectionFilterList<IRepositoryListItem>
           rowHeight={RowHeight}
           selectedItem={selectedItem}
+          onSelectionChanged={this.onListSelectionChanged}
           filterText={this.props.filterText}
           onFilterTextChanged={this.props.onFilterTextChanged}
           renderItem={this.renderItem}
@@ -304,6 +316,7 @@ export class RepositoriesList extends React.Component<
       <Button
         className="new-repository-button"
         onClick={this.onNewRepositoryButtonClick}
+        onKeyDown={this.onNewRepositoryButtonKeyDown}
         ariaExpanded={this.state.newRepositoryMenuExpanded}
       >
         Add
@@ -334,6 +347,14 @@ export class RepositoriesList extends React.Component<
         </div>
       </div>
     )
+  }
+
+  private onNewRepositoryButtonKeyDown = (
+    event: React.KeyboardEvent<HTMLButtonElement>
+  ) => {
+    if (event.key === 'ArrowDown') {
+      this.onNewRepositoryButtonClick()
+    }
   }
 
   private onNewRepositoryButtonClick = () => {

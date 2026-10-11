@@ -67,7 +67,10 @@ import {
   WorkflowRunStatus,
   WorkflowRunConclusion,
 } from '../../models/workflow-run'
-import { ICommitMessage } from '../../models/commit-message'
+import {
+  DefaultCommitMessage,
+  ICommitMessage,
+} from '../../models/commit-message'
 import {
   Progress,
   ICheckoutProgress,
@@ -135,6 +138,7 @@ import {
   IMultiCommitOperationState,
   IConstrainedValue,
   ICompareState,
+  CommitOptions,
 } from '../app-state'
 import {
   findEditorOrDefault,
@@ -482,7 +486,7 @@ const hideWhitespaceInPullRequestDiffKey =
 const commitSpellcheckEnabledDefault = true
 const commitSpellcheckEnabledKey = 'commit-spellcheck-enabled'
 
-export const tabSizeDefault: number = 8
+export const tabSizeDefault: number = 4
 const tabSizeKey: string = 'tab-size'
 
 const shellKey = 'shell'
@@ -1015,6 +1019,8 @@ export class AppStore extends TypedBaseStore<IAppState> {
       )
 
       updateAccounts(endpointTokens)
+
+      this.refreshSelectedRepositoryAfterAccountChange()
 
       this.emitUpdate()
     })
@@ -1848,8 +1854,24 @@ export class AppStore extends TypedBaseStore<IAppState> {
     if (formState.kind === HistoryTabMode.History) {
       const commits = state.compareState.commitSHAs
 
-      const newCommits = await gitStore.loadCommitBatch('HEAD', commits.length)
-      if (newCommits == null) {
+      const tip = state.branchesState.tip
+      let newCommits: ReadonlyArray<string> | null = null
+
+      // When the last commit we loaded is unpublished, keep paging through the
+      // local commits so the unpublished indicator works past 100 commits.
+      if (
+        commits.length > 0 &&
+        tip.kind === TipState.Valid &&
+        gitStore.localCommitSHAs.includes(commits[commits.length - 1])
+      ) {
+        newCommits = await gitStore.loadLocalCommits(tip.branch, commits.length)
+      }
+
+      if (newCommits === null || newCommits.length === 0) {
+        newCommits = await gitStore.loadCommitBatch('HEAD', commits.length)
+      }
+
+      if (newCommits === null) {
         return
       }
 
@@ -2536,7 +2558,14 @@ export class AppStore extends TypedBaseStore<IAppState> {
     // 220 was determined as the minimum value since it is the smallest width
     // that will still fit the placeholder text in the branch selector textbox
     // of the history tab
-    const maxSidebarWidth = available - toolbarButtonsMinWidth
+    // The tutorial has a fixed-width pane, so keep the sidebar from squeezing it.
+    const tutorialMinWidth =
+      this.currentOnboardingTutorialStep === TutorialStep.NotApplicable
+        ? 0
+        : 650
+
+    const maxSidebarWidth =
+      available - Math.max(toolbarButtonsMinWidth, tutorialMinWidth)
     this.sidebarWidth = constrain(this.sidebarWidth, 220, maxSidebarWidth)
 
     // Now calculate the width we have left to distribute for the other panes
@@ -3471,6 +3500,20 @@ export class AppStore extends TypedBaseStore<IAppState> {
   }
 
   /** This shouldn't be called directly. See `Dispatcher`. */
+  public _updateCommitOptions(
+    repository: Repository,
+    commitOptions: Partial<CommitOptions>
+  ): void {
+    this.repositoryStateCache.update(repository, state => ({
+      skipCommitHooks: state.skipCommitHooks,
+      signOffCommits: state.signOffCommits,
+      allowEmptyCommit: state.allowEmptyCommit,
+      ...commitOptions,
+    }))
+    this.emitUpdate()
+  }
+
+  /** This shouldn't be called directly. See `Dispatcher`. */
   public async _commitIncludedChanges(
     repository: Repository,
     context: ICommitContext
@@ -3486,7 +3529,12 @@ export class AppStore extends TypedBaseStore<IAppState> {
     return this.withIsCommitting(repository, async () => {
       const result = await gitStore.performFailableOperation(async () => {
         const message = await formatCommitMessage(repository, context)
-        return createCommit(repository, message, selectedFiles, context.amend)
+        return createCommit(repository, message, selectedFiles, {
+          amend: context.amend,
+          noVerify: state.skipCommitHooks,
+          signOff: state.signOffCommits,
+          allowEmpty: state.allowEmptyCommit,
+        })
       })
 
       if (result !== undefined) {
@@ -3502,8 +3550,14 @@ export class AppStore extends TypedBaseStore<IAppState> {
         this.repositoryStateCache.update(repository, () => {
           return {
             commitToAmend: null,
+            // Allowing an empty commit is a one-off choice.
+            allowEmptyCommit: false,
           }
         })
+
+        // Clear the persisted message too, so it does not reappear if the user
+        // left the Changes tab while the commit was running.
+        await gitStore.setCommitMessage(DefaultCommitMessage)
 
         await this.refreshChangesSection(repository, {
           includingStatus: true,
@@ -3517,6 +3571,15 @@ export class AppStore extends TypedBaseStore<IAppState> {
           result,
           state.commitToAmend
         )
+      }
+
+      if (result === undefined) {
+        // A failed commit (e.g. a hook that rewrote files) can still leave the
+        // working directory different from what the Changes list shows.
+        await this.refreshChangesSection(repository, {
+          includingStatus: true,
+          clearPartialState: false,
+        })
       }
 
       return result !== undefined
@@ -3628,6 +3691,27 @@ export class AppStore extends TypedBaseStore<IAppState> {
       ? file.selection.withSelectAll()
       : file.selection.withSelectNone()
     this.updateWorkingDirectoryFileSelection(repository, file, selection)
+    return Promise.resolve()
+  }
+
+  /** This shouldn't be called directly. See `Dispatcher`. */
+  public _changeFilesIncluded(
+    repository: Repository,
+    files: ReadonlyArray<WorkingDirectoryFileChange>,
+    include: boolean
+  ): Promise<void> {
+    const ids = new Set(files.map(f => f.id))
+
+    // One state update for the whole batch, rather than one per file.
+    this.repositoryStateCache.updateChangesState(repository, state => ({
+      workingDirectory: WorkingDirectoryStatus.fromFiles(
+        state.workingDirectory.files.map(f =>
+          ids.has(f.id) ? f.withIncludeAll(include) : f
+        )
+      ),
+    }))
+
+    this.emitUpdate()
     return Promise.resolve()
   }
 
@@ -4546,6 +4630,24 @@ export class AppStore extends TypedBaseStore<IAppState> {
     return freshRepo
   }
 
+  /**
+   * Refresh the GitHub repository information of the selected repository when
+   * accounts change, so permission warnings update after signing in or out.
+   */
+  private async refreshSelectedRepositoryAfterAccountChange() {
+    const repository = this.selectedRepository
+
+    if (
+      repository === null ||
+      repository instanceof CloningRepository ||
+      !isRepositoryWithGitHubRepository(repository)
+    ) {
+      return
+    }
+
+    await this.repositoryWithRefreshedGitHubRepository(repository)
+  }
+
   private async updateBranchProtectionsFromAPI(repository: Repository) {
     if (repository.gitHubRepository === null) {
       return
@@ -4564,6 +4666,10 @@ export class AppStore extends TypedBaseStore<IAppState> {
     const api = API.fromAccount(account)
 
     const branches = await api.fetchProtectedBranches(owner.login, name)
+    if (branches === null) {
+      // Keep the protections we already know about rather than clearing them.
+      return
+    }
 
     await this.repositoriesStore.updateBranchProtections(
       repository.gitHubRepository,

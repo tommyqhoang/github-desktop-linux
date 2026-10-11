@@ -92,18 +92,18 @@
     letter-spacing: 0.04em;
 
     &--uninitialized {
-      background: var(--color-deleted-subtle, rgba(207, 34, 46, 0.15));
-      color: var(--color-deleted, #cf222e);
+      background: var(--color-deleted-subtle);
+      color: var(--color-deleted);
     }
 
     &--outofdate {
-      background: var(--color-modified-subtle, rgba(219, 171, 9, 0.2));
-      color: var(--color-modified, #dbab09);
+      background: var(--color-modified-subtle);
+      color: var(--color-modified);
     }
 
     &--conflicted {
-      background: var(--color-deleted-subtle, rgba(207, 34, 46, 0.15));
-      color: var(--color-deleted, #cf222e);
+      background: var(--color-deleted-subtle);
+      color: var(--color-deleted);
     }
   }
 }

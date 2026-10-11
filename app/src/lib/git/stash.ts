@@ -1,5 +1,5 @@
 import { GitError as DugiteError } from 'dugite'
-import { git, GitError } from './core'
+import { git, GitError, IGitResult } from './core'
 import { Repository } from '../../models/repository'
 import {
   IStashEntry,
@@ -11,6 +11,7 @@ import {
   CommittedFileChange,
 } from '../../models/status'
 import { parseRawLogWithNumstat } from './log'
+import { parseFilesToBeOverwritten } from '../../ui/lib/parse-files-to-be-overwritten'
 import { stageFiles } from './update-index'
 import { Branch } from '../../models/branch'
 import { createLogParser } from './git-delimiter-parser'
@@ -267,6 +268,29 @@ export async function dropDesktopStashEntry(
 }
 
 /**
+ * Build the error thrown when `git stash pop|apply` fails with stderr output.
+ * When local changes would be overwritten, explain what to do and list the
+ * blocking files instead of surfacing raw git output.
+ */
+export function createStashRestoreError(
+  result: IGitResult,
+  args: ReadonlyArray<string>
+): Error {
+  const stderr = result.stderr.toString()
+  if (!stderr.includes('would be overwritten')) {
+    return new GitError(result, args)
+  }
+
+  const files = parseFilesToBeOverwritten(stderr)
+  const list = files.length > 0 ? `\n\n${files.join('\n')}` : ''
+  return new Error(
+    'Unable to restore the stash because it conflicts with changes in your ' +
+      'working directory. Commit, stash or discard these changes, then try ' +
+      `again.${list}`
+  )
+}
+
+/**
  * Pops the stash entry identified by matching `stashSha` to its commit hash.
  *
  * To see the commit hash of stash entry, run
@@ -296,7 +320,7 @@ export async function popStashEntry(
     if (result.exitCode === 1) {
       if (result.stderr.length > 0) {
         // rethrow, because anything in stderr should prevent the stash from being popped
-        throw new GitError(result, args)
+        throw createStashRestoreError(result, args)
       }
 
       log.info(
@@ -362,7 +386,7 @@ export async function applyStash(
 
   // exit 1 with non-empty stderr means a real error (not just conflicts).
   if (result.exitCode === 1 && result.stderr.length > 0) {
-    throw new GitError(result, args)
+    throw createStashRestoreError(result, args)
   }
 }
 

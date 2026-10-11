@@ -83,7 +83,7 @@
   .interactive-rebase-warning {
     margin: var(--spacing) 0 0;
     font-size: var(--font-size-sm);
-    color: var(--color-deleted, #cf222e);
+    color: var(--color-deleted);
   }
 
   .interactive-rebase-move {

@@ -1,8 +1,6 @@
 import * as React from 'react'
 import { OcticonSymbol, OcticonSymbolVariant } from '.'
 import classNames from 'classnames'
-import { flushSync } from 'react-dom'
-import { createRoot } from 'react-dom/client'
 import { createObservableRef } from '../lib/observable-ref'
 import { Tooltip, TooltipDirection } from '../lib/tooltip'
 
@@ -138,27 +136,4 @@ export class Octicon extends React.Component<IOcticonProps, {}> {
       naturalHeights[0]
     )
   }
-}
-
-/**
- * Create an Octicon element for the DOM, wrapped in a div element.
- *
- * @param symbol    OcticonSymbol to render in the element.
- * @param className Optional class to add to the wrapper element.
- * @param id        Optional identifier to set to the wrapper element.
- */
-export function createOcticonElement(
-  symbol: OcticonSymbol,
-  className?: string,
-  id?: string
-) {
-  const wrapper = document.createElement('div')
-  wrapper.id = id ?? ''
-  if (className !== undefined) {
-    wrapper.classList.add(className)
-  }
-  const octicon = <Octicon symbol={symbol} />
-  // Render synchronously so the caller gets a populated element back.
-  flushSync(() => createRoot(wrapper).render(octicon))
-  return wrapper
 }

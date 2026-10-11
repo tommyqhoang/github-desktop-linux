@@ -612,6 +612,7 @@ export class TerminalPanel extends React.Component<
           <input
             autoFocus={true}
             className="terminal-panel__tab-rename"
+            aria-label="Terminal tab name"
             value={this.state.renameDraft}
             // eslint-disable-next-line react/jsx-no-bind
             onChange={e => this.setState({ renameDraft: e.target.value })}

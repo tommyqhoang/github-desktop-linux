@@ -91,6 +91,20 @@ export async function listWorkTrees(
 }
 
 /**
+ * Canonical refs (`refs/heads/...`) of every branch checked out in any
+ * worktree of the repository. Git refuses to delete these, so callers that
+ * delete branches in bulk should skip them.
+ */
+export async function getBranchRefsCheckedOutInWorktrees(
+  repository: Repository
+): Promise<ReadonlySet<string>> {
+  const worktrees = await listWorkTrees(repository)
+  return new Set(
+    worktrees.filter(w => w.branch !== null).map(w => `refs/heads/${w.branch}`)
+  )
+}
+
+/**
  * Get the number of changed files in a worktree.
  * This runs git status in the worktree path.
  */

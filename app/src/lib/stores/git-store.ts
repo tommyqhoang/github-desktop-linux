@@ -30,7 +30,6 @@ import {
   ErrorWithMetadata,
   IErrorMetadata,
 } from '../error-with-metadata'
-import { queueWorkHigh } from '../../lib/queue-work'
 
 import {
   reset,
@@ -597,26 +596,33 @@ export class GitStore extends BaseStore {
    * Load local commits into memory for the current repository.
    *
    * @param branch The branch to query for unpublished commits.
+   * @param skip   How many commits to skip, for loading further pages of local
+   *               commits. When undefined the list is reset to the first page.
    *
    * If the tip of the repository does not have commits (i.e. is unborn), this
    * should be invoked with `null`, which clears any existing commits from the
    * store.
+   *
+   * @returns The SHAs added to the list, or null if nothing was loaded.
    */
-  public async loadLocalCommits(branch: Branch | null): Promise<void> {
+  public async loadLocalCommits(
+    branch: Branch | null,
+    skip?: number
+  ): Promise<string[] | null> {
     if (branch === null) {
       this._localCommitSHAs = []
-      return
+      return null
     }
 
     let localCommits: ReadonlyArray<Commit> | undefined
     if (branch.upstream) {
       const range = revRange(branch.upstream, branch.name)
       localCommits = await this.performFailableOperation(() =>
-        getCommits(this.repository, range, CommitBatchSize)
+        getCommits(this.repository, range, CommitBatchSize, skip)
       )
     } else {
       localCommits = await this.performFailableOperation(() =>
-        getCommits(this.repository, 'HEAD', CommitBatchSize, undefined, [
+        getCommits(this.repository, 'HEAD', CommitBatchSize, skip, [
           '--not',
           '--remotes',
         ])
@@ -624,12 +630,27 @@ export class GitStore extends BaseStore {
     }
 
     if (!localCommits) {
-      return
+      return null
     }
 
     this.storeCommits(localCommits)
-    this._localCommitSHAs = localCommits.map(c => c.sha)
+
+    let newCommitSHAs: string[]
+    if (skip !== undefined) {
+      // Append the next page, ignoring anything we already have.
+      const previousSHAs = new Set(this._localCommitSHAs)
+      newCommitSHAs = localCommits
+        .map(c => c.sha)
+        .filter(sha => !previousSHAs.has(sha))
+      this._localCommitSHAs = [...this._localCommitSHAs, ...newCommitSHAs]
+    } else {
+      newCommitSHAs = localCommits.map(c => c.sha)
+      this._localCommitSHAs = Array.from(newCommitSHAs)
+    }
+
     this.emitUpdate()
+
+    return newCommitSHAs
   }
 
   /**
@@ -1509,7 +1530,9 @@ export class GitStore extends BaseStore {
 
     const submodules = await listSubmodules(this.repository)
 
-    await queueWorkHigh(files, async file => {
+    // A plain loop: animation frames never fire while the window is in the
+    // background, which used to leave discards waiting until refocus.
+    for (const file of files) {
       const foundSubmodule = submodules.some(s => s.path === file.path)
 
       if (
@@ -1517,9 +1540,6 @@ export class GitStore extends BaseStore {
         !foundSubmodule &&
         moveToTrash
       ) {
-        // N.B. moveItemToTrash can take a fair bit of time which is why we're
-        // running it inside this work queue that spreads out the calls across
-        // as many animation frames as it needs to.
         try {
           await this.shell.moveItemToTrash(
             Path.resolve(this.repository.path, file.path)
@@ -1547,7 +1567,7 @@ export class GitStore extends BaseStore {
         pathsToCheckout.push(file.path)
         pathsToReset.push(file.path)
       }
-    })
+    }
 
     // Check the index to see which files actually have changes there as compared to HEAD
     const changedFilesInIndex = await getIndexChanges(this.repository)

@@ -9,6 +9,7 @@ import { OkCancelButtonGroup } from '../dialog/ok-cancel-button-group'
 import { Repository } from '../../models/repository'
 import { RetryAction, RetryActionType } from '../../models/retry-actions'
 import { Dispatcher } from '../dispatcher'
+import { PopupType } from '../../models/popup'
 import { PathText } from '../lib/path-text'
 import { assertNever } from '../../lib/fatal-error'
 
@@ -59,7 +60,7 @@ export class LocalChangesOverwrittenDialog extends React.Component<
         id="local-changes-overwritten"
         loading={this.state.stashing}
         disabled={this.state.stashing}
-        onDismissed={this.props.onDismissed}
+        onDismissed={this.onDismissPopup}
         onSubmit={this.onSubmit}
         type="error"
         role="alertdialog"
@@ -152,6 +153,19 @@ export class LocalChangesOverwrittenDialog extends React.Component<
 
     if (createdStash) {
       await dispatcher.performRetry(retryAction)
+    }
+  }
+
+  /**
+   * Closes this popup and, when the user bails out of an interrupted rebase,
+   * the outer multi-commit-operation popup too, which would otherwise stay open.
+   */
+  private onDismissPopup = () => {
+    const { dispatcher, retryAction, onDismissed } = this.props
+    onDismissed()
+
+    if (retryAction.type === RetryActionType.Rebase) {
+      dispatcher.closePopup(PopupType.MultiCommitOperation)
     }
   }
 

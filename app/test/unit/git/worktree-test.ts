@@ -6,6 +6,7 @@ import { exec } from 'dugite'
 import { setupEmptyRepository } from '../../helpers/repositories'
 import {
   listWorkTrees,
+  getBranchRefsCheckedOutInWorktrees,
   getWorktreeStatusCount,
   parseWorktreeListPorcelain,
   addWorktree,
@@ -203,6 +204,25 @@ describe('git/worktree', () => {
         it('returns another entry', async () => {
           const result = await listWorkTrees(repository)
           expect(result).toHaveLength(2)
+        })
+
+        it('reports branches checked out in any worktree', async () => {
+          await exec(
+            ['worktree', 'remove', '-f', workTreePath],
+            repository.path
+          )
+          await exec(
+            ['worktree', 'add', '-b', 'feature', workTreePath],
+            repository.path
+          )
+          const refs = await getBranchRefsCheckedOutInWorktrees(repository)
+          expect(refs.has('refs/heads/feature')).toBe(true)
+          const current = await exec(
+            ['rev-parse', '--abbrev-ref', 'HEAD'],
+            repository.path
+          )
+          expect(refs.has(`refs/heads/${current.stdout.trim()}`)).toBe(true)
+          expect(refs.has('refs/heads/other')).toBe(false)
         })
 
         it('points to same commit sha', async () => {

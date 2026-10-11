@@ -269,6 +269,31 @@ describe('emails', () => {
       ).toBeTrue()
     })
 
+    it('ignores email addresses that are not verified', () => {
+      const emails: IAPIEmail[] = [
+        {
+          email: 'unverified@example.com',
+          primary: false,
+          verified: false,
+          visibility: null,
+        },
+      ]
+      const account = new Account(
+        'niik',
+        getDotComAPIEndpoint(),
+        '',
+        emails,
+        '',
+        123,
+        '',
+        'free'
+      )
+
+      expect(
+        isAttributableEmailFor(account, 'unverified@example.com')
+      ).toBeFalse()
+    })
+
     it('considers stealth emails when account has no emails', () => {
       const endpoint = getDotComAPIEndpoint()
       const account = new Account('niik', endpoint, '', [], '', 123, '', 'free')

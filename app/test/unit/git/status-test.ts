@@ -247,7 +247,26 @@ describe('git/status', () => {
         expect(files[0].status).toEqual({
           kind: AppFileStatusKind.Renamed,
           oldPath: 'foo',
+          renameIncludesModifications: false,
         })
+      })
+
+      it('flags a rename that also modifies the file', async () => {
+        const repo = await setupEmptyRepository()
+        await FSE.writeFile(path.join(repo.path, 'foo'), 'one\ntwo\nthree\n')
+        await exec(['add', 'foo'], repo.path)
+        await exec(['commit', '-m', 'Initial commit'], repo.path)
+        await exec(['mv', 'foo', 'bar'], repo.path)
+        await FSE.appendFile(path.join(repo.path, 'bar'), 'four\n')
+
+        const status = await getStatusOrThrow(repo)
+        const [file] = status.workingDirectory.files
+
+        expect(file.status.kind).toBe(AppFileStatusKind.Renamed)
+        expect(
+          file.status.kind === AppFileStatusKind.Renamed &&
+            file.status.renameIncludesModifications
+        ).toBe(true)
       })
 
       it('reflects copies', async () => {
@@ -275,6 +294,7 @@ describe('git/status', () => {
         expect(files[1].status).toEqual({
           kind: AppFileStatusKind.Copied,
           oldPath: 'CONTRIBUTING.md',
+          renameIncludesModifications: false,
         })
       })
 

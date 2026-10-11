@@ -9,6 +9,14 @@ export function rowIndexPathEquals(a: RowIndexPath, b: RowIndexPath): boolean {
   return a.section === b.section && a.row === b.row
 }
 
+/** Whether the list contains an index path equal to the given one (by value). */
+export function rowListIncludesIndexPath(
+  list: ReadonlyArray<RowIndexPath>,
+  indexPath: RowIndexPath
+) {
+  return list.some(item => rowIndexPathEquals(item, indexPath))
+}
+
 export function getTotalRowCount(rowCount: ReadonlyArray<number>) {
   return rowCount.reduce((sum, count) => sum + count, 0)
 }
@@ -61,32 +69,4 @@ export function isValidRow(
     indexPath.row >= 0 &&
     indexPath.row < rowCount[indexPath.section]
   )
-}
-
-export function getFirstRowIndexPath(
-  rowCount: ReadonlyArray<number>
-): RowIndexPath | null {
-  if (rowCount.length > 0) {
-    for (let section = 0; section < rowCount.length; section++) {
-      if (rowCount[section] > 0) {
-        return { section, row: 0 }
-      }
-    }
-  }
-
-  return null
-}
-
-export function getLastRowIndexPath(
-  rowCount: ReadonlyArray<number>
-): RowIndexPath | null {
-  if (rowCount.length > 0) {
-    for (let section = rowCount.length - 1; section >= 0; section--) {
-      if (rowCount[section] > 0) {
-        return { section, row: rowCount[section] - 1 }
-      }
-    }
-  }
-
-  return null
 }

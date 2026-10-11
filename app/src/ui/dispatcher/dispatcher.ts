@@ -24,6 +24,7 @@ import {
   CherryPickConflictState,
   MultiCommitOperationConflictState,
   IMultiCommitOperationState,
+  CommitOptions,
 } from '../../lib/app-state'
 import { assertNever, fatalError } from '../../lib/fatal-error'
 import {
@@ -36,7 +37,6 @@ import {
   getCommitsBetweenCommits,
   getBranches,
   getRebaseSnapshot,
-  getRepositoryType,
 } from '../../lib/git'
 import { getAccountForRepository } from '../../lib/get-account-for-repository'
 import { isGitOnPath } from '../../lib/is-git-on-path'
@@ -129,6 +129,7 @@ import { UnreachableCommitsTab } from '../history/unreachable-commits-dialog'
 import { sendNonFatalException } from '../../lib/helpers/non-fatal-exception'
 import { SignInResult } from '../../lib/stores/sign-in-store'
 import { ICustomIntegration } from '../../lib/custom-integration'
+import { dirname, isAbsolute } from 'path'
 
 /**
  * An error handler function.
@@ -336,6 +337,23 @@ export class Dispatcher {
     context: ICommitContext
   ): Promise<boolean> {
     return this.appStore._commitIncludedChanges(repository, context)
+  }
+
+  /** Change the options used when creating a commit in the repository. */
+  public updateCommitOptions(
+    repository: Repository,
+    options: Partial<CommitOptions>
+  ) {
+    this.appStore._updateCommitOptions(repository, options)
+  }
+
+  /** Change the includedness of several files at once. */
+  public changeFilesIncluded(
+    repository: Repository,
+    files: ReadonlyArray<WorkingDirectoryFileChange>,
+    include: boolean
+  ): Promise<void> {
+    return this.appStore._changeFilesIncluded(repository, files, include)
   }
 
   /** Change the file's includedness. */
@@ -1813,6 +1831,11 @@ export class Dispatcher {
     }
 
     if (filepath !== null) {
+      if (isAbsolute(filepath)) {
+        log.error(`Refusing to open absolute path: ${filepath}`)
+        return
+      }
+
       const resolved = await resolveWithin(repository.path, filepath)
 
       if (resolved !== null) {
@@ -1923,26 +1946,35 @@ export class Dispatcher {
         break
 
       case 'open-repository-from-path':
-        // user may accidentally provide a folder within the repository
-        // this ensures we use the repository root, if it is actually a repository
-        // otherwise we consider it an untracked repository
-        const path = await getRepositoryType(action.path)
-          .then(t =>
-            t.kind === 'regular' ? t.topLevelWorkingDirectory : action.path
-          )
-          .catch(e => {
-            log.error('Could not determine repository type', e)
-            return action.path
-          })
-
+        // The user may provide a folder within a repository, so walk up the
+        // path looking for a repository we already know about. This avoids
+        // running Git in an arbitrary directory just to resolve its root.
         const { repositories } = this.appStore.getState()
-        const existingRepository = matchExistingRepository(repositories, path)
+
+        let existingRepository
+        let candidate = action.path
+
+        while (
+          !(existingRepository = matchExistingRepository(
+            repositories,
+            candidate
+          ))
+        ) {
+          const parent = dirname(candidate)
+          if (parent === candidate) {
+            break
+          }
+          candidate = parent
+        }
 
         if (existingRepository) {
           await this.selectRepository(existingRepository)
           this.statsStore.recordAddExistingRepository()
         } else {
-          await this.showPopup({ type: PopupType.AddRepository, path })
+          await this.showPopup({
+            type: PopupType.AddRepository,
+            path: action.path,
+          })
         }
         break
 

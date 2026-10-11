@@ -41,6 +41,7 @@ export type ExceptionKinds =
   | 'rebaseConflictsWithBranchAlreadyUpToDate'
   | 'forkCreation'
   | 'NoSuggestedActionsProvided'
+  | 'multiCommitOperation'
 
 export function sendNonFatalException(kind: ExceptionKinds, error: Error) {
   if (getHasOptedOutOfStats()) {

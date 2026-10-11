@@ -74,6 +74,39 @@ describe('git/commit', () => {
       expect(commits[0].sha.substring(0, 7)).toEqual(sha)
     })
 
+    it('skips a failing pre-commit hook when noVerify is set', async () => {
+      const hook = path.join(repository.path, '.git', 'hooks', 'pre-commit')
+      await FSE.outputFile(hook, '#!/bin/sh\nexit 1\n', { mode: 0o755 })
+      await FSE.writeFile(path.join(repository.path, 'README.md'), 'Hi world\n')
+
+      const files = (await getStatusOrThrow(repository)).workingDirectory.files
+      await expect(createCommit(repository, 'blocked', files)).rejects.toThrow()
+
+      const sha = await createCommit(repository, 'bypassed', files, {
+        noVerify: true,
+      })
+      expect(sha).toHaveLength(7)
+    })
+
+    it('adds a Signed-off-by trailer when signOff is set', async () => {
+      await FSE.writeFile(path.join(repository.path, 'README.md'), 'Hi world\n')
+
+      const files = (await getStatusOrThrow(repository)).workingDirectory.files
+      await createCommit(repository, 'signed', files, { signOff: true })
+
+      const commit = await getCommit(repository, 'HEAD')
+      expect(commit!.body).toMatch(/^Signed-off-by: .+ <.+>$/m)
+    })
+
+    it('creates an empty commit only when allowEmpty is set', async () => {
+      await expect(createCommit(repository, 'nothing', [])).rejects.toThrow()
+
+      const sha = await createCommit(repository, 'nothing', [], {
+        allowEmpty: true,
+      })
+      expect(sha).toHaveLength(7)
+    })
+
     it('commit does not strip commentary by default', async () => {
       await FSE.writeFile(path.join(repository.path, 'README.md'), 'Hi world\n')
 

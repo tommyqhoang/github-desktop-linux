@@ -181,16 +181,6 @@ export function getSymbolForLogStep(
   return getSymbolForCheck(logStep)
 }
 
-export function getClassNameForLogStep(logStep: IAPIWorkflowJobStep): string {
-  switch (logStep.conclusion) {
-    case 'failure':
-      return logStep.conclusion
-  }
-
-  // Pending
-  return ''
-}
-
 /**
  * Convert the combined check to an app-friendly string.
  */

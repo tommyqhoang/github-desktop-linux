@@ -45,6 +45,7 @@ import {
   RebaseConflictState,
   ConflictState,
   Foldout,
+  CommitOptions,
 } from '../../lib/app-state'
 import { ContinueRebase } from './continue-rebase'
 import { Octicon, OcticonSymbolVariant } from '../octicons'
@@ -62,7 +63,11 @@ import { RepoRulesInfo } from '../../models/repo-rules'
 import { IAheadBehind } from '../../models/branch'
 import { IWorkingDirectoryStats } from '../../models/working-directory-stats'
 import { StashDiffViewerId } from '../stashing'
-import { filterChangedFilesByPath } from '../../lib/filter-changed-files'
+import {
+  ChangedFilesStatusFilter,
+  changedFilesStatusFilters,
+  filterChangedFiles,
+} from '../../lib/filter-changed-files'
 
 const RowHeight = 29
 const StashIcon: OcticonSymbolVariant = {
@@ -135,6 +140,11 @@ interface IChangesListProps {
   readonly selectedFileIDs: ReadonlyArray<string>
   readonly onFileSelectionChanged: (rows: ReadonlyArray<number>) => void
   readonly onIncludeChanged: (path: string, include: boolean) => void
+  /** Include or exclude several files with a single state update. */
+  readonly onFilesIncludeChanged: (
+    files: ReadonlyArray<WorkingDirectoryFileChange>,
+    include: boolean
+  ) => void
   readonly onSelectAll: (selectAll: boolean) => void
   readonly onCreateCommit: (context: ICommitContext) => Promise<boolean>
   readonly onDiscardChanges: (file: WorkingDirectoryFileChange) => void
@@ -232,22 +242,30 @@ interface IChangesListProps {
   readonly showCommitLengthWarning: boolean
 
   readonly accounts: ReadonlyArray<Account>
+
+  readonly skipCommitHooks: boolean
+  readonly signOffCommits: boolean
+  readonly allowEmptyCommit: boolean
+  readonly onUpdateCommitOptions: (options: Partial<CommitOptions>) => void
 }
 
 interface IChangesState {
   readonly selectedRows: ReadonlyArray<number>
   readonly focusedRow: number | null
   readonly filterText: string
+  readonly statusFilter: ChangedFilesStatusFilter
 }
 
 function getSelectedRowsFromProps(
   props: IChangesListProps,
-  filterText: string = ''
+  filterText: string = '',
+  statusFilter: ChangedFilesStatusFilter = 'all'
 ): ReadonlyArray<number> {
   const selectedFileIDs = props.selectedFileIDs
-  const visibleFiles = filterChangedFilesByPath(
+  const visibleFiles = filterChangedFiles(
     props.workingDirectory.files,
-    filterText
+    filterText,
+    statusFilter
   )
   const selectedRows = []
 
@@ -274,6 +292,7 @@ export class ChangesList extends React.Component<
       selectedRows: getSelectedRowsFromProps(props),
       focusedRow: null,
       filterText: '',
+      statusFilter: 'all',
     }
   }
 
@@ -290,16 +309,18 @@ export class ChangesList extends React.Component<
       this.setState({
         selectedRows: getSelectedRowsFromProps(
           nextProps,
-          this.state.filterText
+          this.state.filterText,
+          this.state.statusFilter
         ),
       })
     }
   }
 
   private get visibleFiles() {
-    return filterChangedFilesByPath(
+    return filterChangedFiles(
       this.props.workingDirectory.files,
-      this.state.filterText
+      this.state.filterText,
+      this.state.statusFilter
     )
   }
 
@@ -313,13 +334,39 @@ export class ChangesList extends React.Component<
   private onFilterTextChanged = (filterText: string) => {
     this.setState({
       filterText,
-      selectedRows: getSelectedRowsFromProps(this.props, filterText),
+      selectedRows: getSelectedRowsFromProps(
+        this.props,
+        filterText,
+        this.state.statusFilter
+      ),
+    })
+  }
+
+  private onStatusFilterChanged = (
+    event: React.ChangeEvent<HTMLSelectElement>
+  ) => {
+    const statusFilter = event.currentTarget.value as ChangedFilesStatusFilter
+    this.setState({
+      statusFilter,
+      selectedRows: getSelectedRowsFromProps(
+        this.props,
+        this.state.filterText,
+        statusFilter
+      ),
     })
   }
 
   private onIncludeAllChanged = (event: React.FormEvent<HTMLInputElement>) => {
     const include = event.currentTarget.checked
-    this.props.onSelectAll(include)
+    const isFiltering =
+      this.state.filterText.trim() !== '' || this.state.statusFilter !== 'all'
+
+    // With a filter active the checkbox applies to the files in view only.
+    if (isFiltering) {
+      this.props.onFilesIncludeChanged(this.visibleFiles, include)
+    } else {
+      this.props.onSelectAll(include)
+    }
   }
 
   private renderRow = (row: number): React.JSX.Element => {
@@ -670,21 +717,13 @@ export class ChangesList extends React.Component<
           label: __DARWIN__
             ? 'Include Selected Files'
             : 'Include selected files',
-          action: () => {
-            selectedFiles.map(file =>
-              this.props.onIncludeChanged(file.path, true)
-            )
-          },
+          action: () => this.props.onFilesIncludeChanged(selectedFiles, true),
         },
         {
           label: __DARWIN__
             ? 'Exclude Selected Files'
             : 'Exclude selected files',
-          action: () => {
-            selectedFiles.map(file =>
-              this.props.onIncludeChanged(file.path, false)
-            )
-          },
+          action: () => this.props.onFilesIncludeChanged(selectedFiles, false),
         },
         { type: 'separator' },
         this.getCopySelectedPathsMenuItem(selectedFiles),
@@ -901,6 +940,10 @@ export class ChangesList extends React.Component<
         onShowCreateForkDialog={this.onShowCreateForkDialog}
         onGenerateCommitMessage={this.onGenerateCommitMessage}
         accounts={this.props.accounts}
+        skipCommitHooks={this.props.skipCommitHooks}
+        signOffCommits={this.props.signOffCommits}
+        allowEmptyCommit={this.props.allowEmptyCommit}
+        onUpdateCommitOptions={this.props.onUpdateCommitOptions}
       />
     )
   }
@@ -1097,6 +1140,17 @@ export class ChangesList extends React.Component<
               onValueChanged={this.onFilterTextChanged}
               displayClearButton={true}
             />
+            <select
+              aria-label="Filter by change type"
+              value={this.state.statusFilter}
+              onChange={this.onStatusFilterChanged}
+            >
+              {changedFilesStatusFilters.map(f => (
+                <option key={f.id} value={f.id}>
+                  {f.label}
+                </option>
+              ))}
+            </select>
           </div>
           <List
             id="changes-list"

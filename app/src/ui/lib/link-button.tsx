@@ -46,6 +46,8 @@ export class LinkButton extends React.Component<ILinkButtonProps, {}> {
 
   public render() {
     const href = this.props.uri || ''
+    // A link-button without a URI acts as a button, so say so to screen readers.
+    const role = this.props.uri === undefined ? 'button' : undefined
     const className = classNames('link-button-component', this.props.className)
     const { title } = this.props
 
@@ -59,9 +61,12 @@ export class LinkButton extends React.Component<ILinkButtonProps, {}> {
         onMouseOver={this.props.onMouseOver}
         // eslint-disable-next-line jsx-a11y/mouse-events-have-key-events
         onMouseOut={this.props.onMouseOut}
+        onFocus={this.props.onMouseOver}
+        onBlur={this.props.onMouseOut}
         onClick={this.onClick}
         tabIndex={this.props.tabIndex}
         aria-label={this.props.ariaLabel}
+        role={role}
       >
         {title && <Tooltip target={this.anchorRef}>{title}</Tooltip>}
         {this.props.children}

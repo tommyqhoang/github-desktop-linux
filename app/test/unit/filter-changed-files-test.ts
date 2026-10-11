@@ -1,4 +1,10 @@
-import { filterChangedFilesByPath } from '../../src/lib/filter-changed-files'
+import { AppFileStatusKind } from '../../src/models/status'
+import { DiffSelectionType } from '../../src/models/diff'
+
+import {
+  filterChangedFiles,
+  filterChangedFilesByPath,
+} from '../../src/lib/filter-changed-files'
 
 describe('filterChangedFilesByPath', () => {
   const files = [
@@ -22,5 +28,44 @@ describe('filterChangedFilesByPath', () => {
     expect(filterChangedFilesByPath(files, 'package script')).toEqual([
       files[2],
     ])
+  })
+})
+
+describe('filterChangedFiles', () => {
+  const file = (
+    path: string,
+    kind: AppFileStatusKind,
+    sel: DiffSelectionType
+  ) => ({
+    path,
+    status: { kind },
+    selection: { getSelectionType: () => sel },
+  })
+  const files = [
+    file('a.ts', AppFileStatusKind.Modified, DiffSelectionType.All),
+    file('b.ts', AppFileStatusKind.New, DiffSelectionType.None),
+    file('c.ts', AppFileStatusKind.Untracked, DiffSelectionType.All),
+    file('d.ts', AppFileStatusKind.Deleted, DiffSelectionType.Partial),
+  ]
+  const paths = (f: ReadonlyArray<{ path: string }>) => f.map(x => x.path)
+
+  it('filters by status bucket', () => {
+    expect(paths(filterChangedFiles(files, '', 'modified'))).toEqual(['a.ts'])
+    expect(paths(filterChangedFiles(files, '', 'new'))).toEqual([
+      'b.ts',
+      'c.ts',
+    ])
+    expect(paths(filterChangedFiles(files, '', 'deleted'))).toEqual(['d.ts'])
+    expect(paths(filterChangedFiles(files, '', 'excluded'))).toEqual(['b.ts'])
+    expect(paths(filterChangedFiles(files, '', 'included'))).toEqual([
+      'a.ts',
+      'c.ts',
+      'd.ts',
+    ])
+  })
+
+  it('combines text and status', () => {
+    expect(paths(filterChangedFiles(files, 'c', 'new'))).toEqual(['c.ts'])
+    expect(paths(filterChangedFiles(files, 'a', 'all'))).toEqual(['a.ts'])
   })
 })

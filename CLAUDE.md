@@ -378,6 +378,23 @@ commit-message provider (OpenRouter, configured in Preferences).
 - Electron's version is pinned in three places: root `package.json`, `app/.npmrc` (`target`, used to
   rebuild native modules) and `script/validate-electron-version.ts`.
 
+## Upstream sync notes
+
+- `app/package.json` still says 3.4.9, but the code already carries some later
+  upstream fixes. Before porting a fix from `desktop/desktop`, grep for it; about
+  one in five was already present.
+- `git merge-tree --write-tree` backs merge previews (`lib/git/merge-tree.ts`),
+  so Git 2.38+ is required. The bundled dugite Git (2.53) satisfies this and also
+  carries the credential-helper and Git LFS CVE fixes. Keep packaged builds on
+  the bundled Git.
+- Commit options: the gear button in the commit box toggles `--no-verify`, `--signoff` and
+  `--allow-empty` per repository (`CommitOptions` in `lib/app-state.ts`; `allowEmptyCommit`
+  resets after each commit).
+- The Changes list filters by path text and by change type
+  (`lib/filter-changed-files.ts`).
+- Git unit tests need dugite's Git binary. Without `node_modules/dugite/git`
+  (for example after `yarn --ignore-scripts`), link a system Git there.
+
 ## Commit & Pull Request Guidelines
 
 Recent history uses short imperative subjects, often with scoped prefixes for

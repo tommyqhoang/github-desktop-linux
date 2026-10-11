@@ -15,8 +15,13 @@ export abstract class CherryPick extends BaseMultiCommitOperation {
       this.props
     const { operationDetail, targetBranch } = state
 
+    // Conflicts were resolved externally, so there is nothing left to continue.
+    if (conflictState === null) {
+      this.onFlowEnded()
+      return
+    }
+
     if (
-      conflictState === null ||
       operationDetail.kind !== MultiCommitOperationKind.CherryPick ||
       targetBranch === null
     ) {

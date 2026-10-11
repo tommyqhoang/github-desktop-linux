@@ -168,32 +168,7 @@ export class GitHubUserStore extends BaseStore {
 
     this.setQueryCache(repository, users)
 
-    const hits = []
-    const needle = query.toLowerCase()
-
-    // Simple substring comparison on login and real name
-    for (const user of users) {
-      const ix = `${user.login} ${user.name}`
-        .trim()
-        .toLowerCase()
-        .indexOf(needle)
-
-      if (ix >= 0) {
-        hits.push({ user, ix })
-      }
-    }
-
-    // Sort hits primarily based on how early in the text the match
-    // was found and then secondarily using alphabetic order. Ideally
-    // we'd use the GitHub user id in order to match dotcom behavior
-    // but sadly we don't have it handy here. The id property on IGitHubUser
-    // refers to our internal database id.
-    return hits
-      .sort(
-        (x, y) => compare(x.ix, y.ix) || compare(x.user.login, y.user.login)
-      )
-      .slice(0, maxHits)
-      .map(h => h.user)
+    return matchMentionableUsers(users, query, maxHits)
   }
 
   private setQueryCache(
@@ -214,4 +189,41 @@ export class GitHubUserStore extends BaseStore {
       this.pruneQueryCacheTimeoutId = null
     }
   }
+}
+
+/**
+ * Filter and rank mentionable users by how well they match a query.
+ *
+ * A user is a hit if the query is a substring of their login or real name.
+ * Hits are ordered by how early the match appears, then by login. Exported so
+ * the matching can be tested without a database.
+ */
+export function matchMentionableUsers(
+  users: ReadonlyArray<IMentionableUser>,
+  query: string,
+  maxHits: number = DefaultMaxHits
+): ReadonlyArray<IMentionableUser> {
+  const hits: Array<{ readonly user: IMentionableUser; readonly ix: number }> =
+    []
+  const needle = query.toLowerCase()
+
+  for (const user of users) {
+    // Users without a real name have a null name; without the coalesce the
+    // literal text "null" would match queries such as "@null".
+    const ix = `${user.login} ${user.name ?? ''}`
+      .trim()
+      .toLowerCase()
+      .indexOf(needle)
+
+    if (ix >= 0) {
+      hits.push({ user, ix })
+    }
+  }
+
+  // Ideally we'd match dotcom ordering using the GitHub user id, but the id
+  // property here is our internal database id.
+  return hits
+    .sort((x, y) => compare(x.ix, y.ix) || compare(x.user.login, y.user.login))
+    .slice(0, maxHits)
+    .map(h => h.user)
 }

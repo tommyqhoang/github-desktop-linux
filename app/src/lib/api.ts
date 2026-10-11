@@ -1899,10 +1899,14 @@ export class API {
     }
   }
 
+  /**
+   * Fetch the repository's protected branches. Returns an empty array when
+   * there are none, or null when the list could not be refreshed.
+   */
   public async fetchProtectedBranches(
     owner: string,
     name: string
-  ): Promise<ReadonlyArray<IAPIBranch>> {
+  ): Promise<ReadonlyArray<IAPIBranch> | null> {
     const path = `repos/${owner}/${name}/branches?protected=true`
     try {
       const response = await this.request('GET', path)
@@ -1912,7 +1916,7 @@ export class API {
         `[fetchProtectedBranches] unable to list protected branches`,
         err
       )
-      return new Array<IAPIBranch>()
+      return null
     }
   }
 
@@ -2257,6 +2261,10 @@ export function getEnterpriseAPIURL(endpoint: string): string {
   const parsed = URL.parse(endpoint)
   return `${parsed.protocol}//${parsed.hostname}/api/v3`
 }
+
+/** Get the API endpoint for a web endpoint of github.com or an Enterprise server. */
+export const getAPIEndpoint = (endpoint: string) =>
+  isDotCom(endpoint) ? getDotComAPIEndpoint() : getEnterpriseAPIURL(endpoint)
 
 /** Get github.com's API endpoint. */
 export function getDotComAPIEndpoint(): string {

@@ -12,10 +12,11 @@ import { assertNever } from '../fatal-error'
 import * as GitPerf from '../../ui/lib/git-perf'
 import * as Path from 'path'
 import { isErrnoException } from '../errno-exception'
-import { getFileFromExceedsError } from '../helpers/regex'
 import { merge } from '../merge'
 import { withTrampolineEnv } from '../trampoline/trampoline-environment'
 import { createTailStream } from './create-tail-stream'
+
+import { kStringMaxLength } from 'buffer'
 
 export const coerceToString = (
   value: string | Buffer,
@@ -156,6 +157,17 @@ export class GitError extends Error {
   }
 }
 
+/** Whether the error is a GitError, optionally one parsed as the given kind. */
+export const isGitError = (
+  e: unknown,
+  parsedError?: DugiteError
+): e is GitError => {
+  return (
+    e instanceof GitError &&
+    (parsedError === undefined || e.result.gitError === parsedError)
+  )
+}
+
 /**
  * Shell out to git with the given arguments, at the given path.
  *
@@ -196,6 +208,9 @@ export async function git(
   const defaultOptions: IGitExecutionOptions = {
     successExitCodes: new Set([0]),
     expectedErrors: new Set(),
+    // Strings longer than V8's limit cannot be created, so cap the captured
+    // output and surface a normal error instead of crashing.
+    maxBuffer: options?.encoding === 'buffer' ? Infinity : kStringMaxLength,
   }
 
   const opts = { ...defaultOptions, ...options }
@@ -235,6 +250,10 @@ export async function git(
         // the operation.
         if (isErrnoException(err)) {
           throw new Error(`Failed to execute ${name}: ${err.code}`)
+        }
+
+        if (isMaxBufferExceededError(err)) {
+          throw new Error(`${err.message} for ${name}`, { cause: err })
         }
 
         throw err
@@ -292,16 +311,6 @@ export async function git(
       }
 
       log.error(errorMessage.join('\n'))
-
-      if (gitError === DugiteError.PushWithFileSizeExceedingLimit) {
-        const files = getFileFromExceedsError(
-          coerceToString(result.stderr)
-        ).join('\n')
-
-        if (files !== '') {
-          gitResult.gitErrorDescription += '\n\nFile causing error:\n\n' + files
-        }
-      }
 
       throw new GitError(gitResult, args)
     },

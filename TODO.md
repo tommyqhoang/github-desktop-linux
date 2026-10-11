@@ -12,8 +12,10 @@ workflows while keeping changes test-driven and shipped in small E2E slices.
 - [x] Finish AI commit message polish: Preferences tests, better error UX,
       provider/model validation, and optional per-repo control.
 - [x] Filter changed files in the Changes view.
-- [ ] Git hooks support with hook output, skip/bypass controls, and clear errors.
-- [ ] Multi-domain account support audit and missing-flow fixes.
+- [x] Git hooks support with hook output, skip/bypass controls, and clear errors
+      (commit options menu bypasses hooks, adds Signed-off-by and allows empty commits; failed commits refresh the Changes list).
+- [x] Multi-domain account support audit and missing-flow fixes (multiple Enterprise
+      accounts already supported).
 - [ ] Lightweight security alert surfacing for Dependabot/code scanning/secret
       scanning, linking to GitHub for details.
 - [ ] Issues/Projects/Codespaces browser shortcuts where local management is too

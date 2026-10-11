@@ -43,7 +43,7 @@
     border: var(--base-border);
 
     &.tone-warn {
-      border-color: var(--warning-color);
+      border-color: var(--dialog-warning-color);
     }
     &.tone-bad {
       border-color: var(--error-color);
@@ -164,13 +164,13 @@
     border-left: 3px solid var(--error-color);
   }
   &.tier-mid {
-    border-left: 3px solid var(--warning-color);
+    border-left: 3px solid var(--dialog-warning-color);
   }
   &.tier-low {
     border-left: 3px solid var(--link-button-color);
   }
   &.tier-ok {
-    border-left: 3px solid var(--success-color, #2ea44f);
+    border-left: 3px solid var(--status-success-color);
   }
 
   &.refreshing {
@@ -208,7 +208,7 @@
       color: #fff;
     }
     &.score-mid {
-      background: var(--warning-color);
+      background: var(--dialog-warning-color);
       color: var(--text-color);
     }
     &.score-low {
@@ -243,7 +243,7 @@
     border: 1px solid transparent;
 
     &.warn {
-      border-color: var(--warning-color);
+      border-color: var(--dialog-warning-color);
     }
     &.bad {
       border-color: var(--error-color);

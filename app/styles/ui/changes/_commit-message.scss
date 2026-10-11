@@ -82,7 +82,8 @@
     }
   }
 
-  .co-authors-toggle {
+  .co-authors-toggle,
+  .commit-options-button {
     color: var(--text-secondary-color);
 
     &:hover {
@@ -92,6 +93,10 @@
     &:focus {
       outline-offset: 2px;
     }
+  }
+
+  .commit-options-button.non-default-options {
+    color: var(--link-button-color);
   }
 
   &.with-co-authors .co-authors-toggle {
@@ -184,7 +189,8 @@
       }
     }
 
-    .co-authors-toggle {
+    .co-authors-toggle,
+    .commit-options-button {
       // button reset styles
       border: none;
       border-radius: 0px;

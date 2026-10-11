@@ -562,6 +562,9 @@
 
     .image-container {
       position: relative;
+      // Force GPU compositing so both image layers rasterize consistently for
+      // mix-blend-mode (avoids false green artifacts in Difference mode).
+      transform: translate3d(0, 0, 0);
 
       .image-diff-previous,
       .image-diff-current {

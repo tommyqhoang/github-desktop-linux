@@ -7,12 +7,20 @@ import {
   DefaultDialogFooter,
 } from './dialog'
 import { dialogTransitionTimeout } from './app'
-import { GitError, isAuthFailureError } from '../lib/git/core'
+import {
+  coerceToString,
+  GitError,
+  isAuthFailureError,
+  isGitError,
+} from '../lib/git/core'
 import { Popup, PopupType } from '../models/popup'
 import { OkCancelButtonGroup } from './dialog/ok-cancel-button-group'
 import { ErrorWithMetadata } from '../lib/error-with-metadata'
 import { RetryActionType, RetryAction } from '../models/retry-actions'
 import { Ref } from './lib/ref'
+import { GitError as DugiteError } from 'dugite'
+import { LinkButton } from './lib/link-button'
+import { getFileFromExceedsError } from '../lib/helpers/regex'
 import memoizeOne from 'memoize-one'
 import { parseCarriageReturn } from '../lib/parse-carriage-return'
 
@@ -91,6 +99,30 @@ export class AppError extends React.Component<IAppErrorProps, IAppErrorState> {
   private renderErrorMessage(error: Error) {
     const e = getUnderlyingError(error)
 
+    if (isGitError(e, DugiteError.PushWithFileSizeExceedingLimit)) {
+      const files = getFileFromExceedsError(coerceToString(e.result.stderr))
+      return (
+        <>
+          <p>{e.message}</p>
+          {files.length > 0 && (
+            <>
+              <p>Files that exceed the limit:</p>
+              <ul>
+                {files.map(file => (
+                  <li key={file}>{file}</li>
+                ))}
+              </ul>
+            </>
+          )}
+          <p>
+            See{' '}
+            <LinkButton uri="https://gh.io/lfs">https://gh.io/lfs</LinkButton>{' '}
+            for more information on managing large files on GitHub.
+          </p>
+        </>
+      )
+    }
+
     // If the error message is just the raw git output, display it in
     // fixed-width font
     if (isRawGitError(e)) {
@@ -102,6 +134,15 @@ export class AppError extends React.Component<IAppErrorProps, IAppErrorState> {
   }
 
   private getTitle(error: Error) {
+    if (
+      isGitError(
+        getUnderlyingError(error),
+        DugiteError.PushWithFileSizeExceedingLimit
+      )
+    ) {
+      return 'File size limit exceeded'
+    }
+
     if (isCloneError(error)) {
       return 'Clone failed'
     }
@@ -248,10 +289,6 @@ function getUnderlyingError(error: Error): Error {
 
 function isErrorWithMetaData(error: Error): error is ErrorWithMetadata {
   return error instanceof ErrorWithMetadata
-}
-
-function isGitError(error: Error): error is GitError {
-  return error instanceof GitError
 }
 
 function isRawGitError(error: Error | null) {

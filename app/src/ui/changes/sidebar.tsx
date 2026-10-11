@@ -8,6 +8,7 @@ import {
   RebaseConflictState,
   isRebaseConflictState,
   ChangesSelectionKind,
+  CommitOptions,
 } from '../../lib/app-state'
 import { Repository } from '../../models/repository'
 import { Dispatcher } from '../dispatcher'
@@ -86,6 +87,15 @@ interface IChangesSidebarProps {
   readonly commitSpellcheckEnabled: boolean
 
   readonly showCommitLengthWarning: boolean
+
+  /** Whether commits skip the git hooks (`--no-verify`) */
+  readonly skipCommitHooks: boolean
+
+  /** Whether commits get a Signed-off-by trailer (`--signoff`) */
+  readonly signOffCommits: boolean
+
+  /** Whether the next commit may be empty (`--allow-empty`) */
+  readonly allowEmptyCommit: boolean
 }
 
 export class ChangesSidebar extends React.Component<IChangesSidebarProps, {}> {
@@ -191,6 +201,21 @@ export class ChangesSidebar extends React.Component<IChangesSidebarProps, {}> {
     this.props.dispatcher.selectWorkingDirectoryFiles(
       this.props.repository,
       files
+    )
+  }
+
+  private onUpdateCommitOptions = (options: Partial<CommitOptions>) => {
+    this.props.dispatcher.updateCommitOptions(this.props.repository, options)
+  }
+
+  private onFilesIncludeChanged = (
+    files: ReadonlyArray<WorkingDirectoryFileChange>,
+    include: boolean
+  ) => {
+    this.props.dispatcher.changeFilesIncluded(
+      this.props.repository,
+      files,
+      include
     )
   }
 
@@ -411,6 +436,7 @@ export class ChangesSidebar extends React.Component<IChangesSidebarProps, {}> {
           onFileSelectionChanged={this.onFileSelectionChanged}
           onCreateCommit={this.onCreateCommit}
           onIncludeChanged={this.onIncludeChanged}
+          onFilesIncludeChanged={this.onFilesIncludeChanged}
           onSelectAll={this.onSelectAll}
           onDiscardChanges={this.onDiscardChanges}
           askForConfirmationOnDiscardChanges={
@@ -437,6 +463,10 @@ export class ChangesSidebar extends React.Component<IChangesSidebarProps, {}> {
           onOpenItemInExternalEditor={this.onOpenItemInExternalEditor}
           onChangesListScrolled={this.props.onChangesListScrolled}
           changesListScrollTop={this.props.changesListScrollTop}
+          skipCommitHooks={this.props.skipCommitHooks}
+          signOffCommits={this.props.signOffCommits}
+          allowEmptyCommit={this.props.allowEmptyCommit}
+          onUpdateCommitOptions={this.onUpdateCommitOptions}
           stashEntry={this.props.changes.stashEntry}
           isShowingStashEntry={isShowingStashEntry}
           currentBranchProtected={currentBranchProtected}

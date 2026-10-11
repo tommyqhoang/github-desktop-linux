@@ -13,7 +13,6 @@ import { Commit } from '../../models/commit'
 import { CommitIdentity } from '../../models/commit-identity'
 import { parseRawUnfoldedTrailers } from './interpret-trailers'
 import { createLogParser } from './git-delimiter-parser'
-import { revRange } from '.'
 import { forceUnwrap } from '../fatal-error'
 
 // File mode 160000 is used by git specifically for submodules:
@@ -69,20 +68,40 @@ function mapStatus(
     return { kind: AppFileStatusKind.Deleted, submoduleStatus }
   } // deleted
   if (status === 'R' && oldPath != null) {
-    return { kind: AppFileStatusKind.Renamed, oldPath, submoduleStatus }
+    return {
+      kind: AppFileStatusKind.Renamed,
+      oldPath,
+      submoduleStatus,
+      renameIncludesModifications: false,
+    }
   } // renamed
   if (status === 'C' && oldPath != null) {
-    return { kind: AppFileStatusKind.Copied, oldPath, submoduleStatus }
+    return {
+      kind: AppFileStatusKind.Copied,
+      oldPath,
+      submoduleStatus,
+      renameIncludesModifications: false,
+    }
   } // copied
 
   // git log -M --name-status will return a RXXX - where XXX is a percentage
   if (status.match(/R[0-9]+/) && oldPath != null) {
-    return { kind: AppFileStatusKind.Renamed, oldPath, submoduleStatus }
+    return {
+      kind: AppFileStatusKind.Renamed,
+      oldPath,
+      submoduleStatus,
+      renameIncludesModifications: status !== 'R100',
+    }
   }
 
   // git log -C --name-status will return a CXXX - where XXX is a percentage
   if (status.match(/C[0-9]+/) && oldPath != null) {
-    return { kind: AppFileStatusKind.Copied, oldPath, submoduleStatus }
+    return {
+      kind: AppFileStatusKind.Copied,
+      oldPath,
+      submoduleStatus,
+      renameIncludesModifications: false,
+    }
   }
 
   return { kind: AppFileStatusKind.Modified, submoduleStatus }
@@ -322,26 +341,4 @@ export async function getCommit(
   }
 
   return commits[0]
-}
-
-/**
- * Determine if merge commits exist in history after given commit
- * If no commitRef is null, goes back to HEAD of branch.
- */
-export async function doMergeCommitsExistAfterCommit(
-  repository: Repository,
-  commitRef: string | null
-): Promise<boolean> {
-  const commitRevRange =
-    commitRef === null ? undefined : revRange(commitRef, 'HEAD')
-
-  const mergeCommits = await getCommits(
-    repository,
-    commitRevRange,
-    undefined,
-    undefined,
-    ['--merges']
-  )
-
-  return mergeCommits.length > 0
 }

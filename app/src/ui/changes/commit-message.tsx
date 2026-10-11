@@ -21,7 +21,7 @@ import { Commit, ICommitContext } from '../../models/commit'
 import { startTimer } from '../lib/timing'
 import { CommitWarning, CommitWarningIcon } from './commit-warning'
 import { LinkButton } from '../lib/link-button'
-import { Foldout, FoldoutType } from '../../lib/app-state'
+import { CommitOptions, Foldout, FoldoutType } from '../../lib/app-state'
 import { IAvatarUser, getAvatarUserFromAuthor } from '../../models/avatar'
 import { showContextualMenu } from '../../lib/menu-item'
 import { Account } from '../../models/account'
@@ -30,8 +30,13 @@ import {
   CommitMessageAvatarWarningType,
 } from './commit-message-avatar'
 import { getDotComAPIEndpoint } from '../../lib/api'
-import { isAttributableEmailFor, lookupPreferredEmail } from '../../lib/email'
+import {
+  getStealthEmailForUser,
+  isAttributableEmailFor,
+  lookupPreferredEmail,
+} from '../../lib/email'
 import { setGlobalConfigValue } from '../../lib/git/config'
+import { isDotCom } from '../../lib/endpoint-capabilities'
 import { Popup, PopupType } from '../../models/popup'
 import { RepositorySettingsTab } from '../repository-settings/repository-settings'
 import { IdealSummaryLength } from '../../lib/wrap-rich-text-commit-message'
@@ -169,6 +174,15 @@ interface ICommitMessageProps {
   readonly onGenerateCommitMessage?: () => Promise<ICommitMessage>
 
   readonly accounts: ReadonlyArray<Account>
+
+  /**
+   * Commit options for the repository. The commit options button is only shown
+   * when `onUpdateCommitOptions` is provided.
+   */
+  readonly skipCommitHooks?: boolean
+  readonly signOffCommits?: boolean
+  readonly allowEmptyCommit?: boolean
+  readonly onUpdateCommitOptions?: (options: Partial<CommitOptions>) => void
 }
 
 interface ICommitMessageState {
@@ -228,6 +242,7 @@ export class CommitMessage extends React.Component<
 > {
   private descriptionComponent: AutocompletingTextArea | null = null
 
+  private wrapperRef = React.createRef<HTMLDivElement>()
   private summaryTextInput: HTMLInputElement | null = null
 
   private descriptionTextArea: HTMLTextAreaElement | null = null
@@ -577,7 +592,8 @@ export class CommitMessage extends React.Component<
 
   private canCommit(): boolean {
     return (
-      ((this.props.anyFilesSelected === true &&
+      (((this.props.anyFilesSelected === true ||
+        this.props.allowEmptyCommit === true) &&
         this.state.summary.length > 0) ||
         this.props.prepopulateCommitSummary) &&
       !this.hasRepoRuleFailure()
@@ -614,8 +630,21 @@ export class CommitMessage extends React.Component<
     )
   }
 
-  private canExcecuteCommitShortcut(): boolean {
-    return !this.props.isShowingFoldout && !this.props.isShowingModal
+  private canExcecuteCommitShortcut(
+    event: React.KeyboardEvent<Element> | KeyboardEvent
+  ): boolean {
+    // This component used to live only in the changes view, so the window-level
+    // CmdOrCtrl+Enter shortcut was allowed whenever no modal or foldout was
+    // open. It is now also used inside dialogs such as the squash dialog, where
+    // the shortcut must still work when it comes from within the component.
+    const isFromThisComponent =
+      event.target instanceof Node &&
+      this.wrapperRef.current?.contains(event.target) === true
+
+    return (
+      isFromThisComponent ||
+      (!this.props.isShowingFoldout && !this.props.isShowingModal)
+    )
   }
 
   private onKeyDown = (event: React.KeyboardEvent<Element> | KeyboardEvent) => {
@@ -628,7 +657,7 @@ export class CommitMessage extends React.Component<
       isShortcutKey &&
       event.key === 'Enter' &&
       (this.canCommit() || this.canAmend()) &&
-      this.canExcecuteCommitShortcut()
+      this.canExcecuteCommitShortcut(event)
     ) {
       this.createCommit()
       event.preventDefault()
@@ -644,7 +673,23 @@ export class CommitMessage extends React.Component<
         : undefined
 
     const repositoryAccount = this.props.repositoryAccount
-    const accountEmails = repositoryAccount?.emails.map(e => e.email) ?? []
+    const accountEmails =
+      repositoryAccount?.emails.filter(e => e.verified).map(e => e.email) ?? []
+
+    // The no-reply address is always an option on GitHub.com
+    if (repositoryAccount && isDotCom(repositoryAccount.endpoint)) {
+      const { id, login, endpoint } = repositoryAccount
+      const stealthEmail = getStealthEmailForUser(id, login, endpoint)
+
+      if (
+        !accountEmails
+          .map(x => x.toLowerCase())
+          .includes(stealthEmail.toLowerCase())
+      ) {
+        accountEmails.push(stealthEmail)
+      }
+    }
+
     const email = commitAuthor?.email
 
     let warningType: CommitMessageAvatarWarningType = 'none'
@@ -838,6 +883,74 @@ export class CommitMessage extends React.Component<
     )
   }
 
+  private onCommitOptionsButtonClick = (
+    e: React.MouseEvent<HTMLButtonElement>
+  ) => {
+    e.preventDefault()
+
+    const { onUpdateCommitOptions } = this.props
+    if (onUpdateCommitOptions === undefined) {
+      return
+    }
+
+    showContextualMenu([
+      {
+        type: 'checkbox',
+        checked: this.props.skipCommitHooks === true,
+        label: __DARWIN__ ? 'Bypass Commit Hooks' : 'Bypass commit hooks',
+        action: () =>
+          onUpdateCommitOptions({
+            skipCommitHooks: this.props.skipCommitHooks !== true,
+          }),
+      },
+      {
+        type: 'checkbox',
+        checked: this.props.signOffCommits === true,
+        label: __DARWIN__
+          ? 'Add Signed-off-by Trailer'
+          : 'Add Signed-off-by trailer',
+        action: () =>
+          onUpdateCommitOptions({
+            signOffCommits: this.props.signOffCommits !== true,
+          }),
+      },
+      {
+        type: 'checkbox',
+        checked: this.props.allowEmptyCommit === true,
+        label: __DARWIN__ ? 'Allow Empty Commit' : 'Allow empty commit',
+        action: () =>
+          onUpdateCommitOptions({
+            allowEmptyCommit: this.props.allowEmptyCommit !== true,
+          }),
+      },
+    ])
+  }
+
+  private renderCommitOptionsButton() {
+    if (this.props.onUpdateCommitOptions === undefined) {
+      return null
+    }
+
+    const usesNonDefaultOptions =
+      this.props.skipCommitHooks === true ||
+      this.props.signOffCommits === true ||
+      this.props.allowEmptyCommit === true
+
+    return (
+      <Button
+        className={classNames('commit-options-button', {
+          'non-default-options': usesNonDefaultOptions,
+        })}
+        onClick={this.onCommitOptionsButtonClick}
+        ariaLabel="Configure commit options"
+        tooltip="Commit options"
+        disabled={this.props.isCommitting === true}
+      >
+        <Octicon symbol={octicons.gear} />
+      </Button>
+    )
+  }
+
   private onDescriptionFieldRef = (
     component: AutocompletingTextArea | null
   ) => {
@@ -890,7 +1003,8 @@ export class CommitMessage extends React.Component<
   private get isActionBarEnabled() {
     return (
       this.isCoAuthorInputEnabled ||
-      this.props.onGenerateCommitMessage !== undefined
+      this.props.onGenerateCommitMessage !== undefined ||
+      this.props.onUpdateCommitOptions !== undefined
     )
   }
 
@@ -907,6 +1021,7 @@ export class CommitMessage extends React.Component<
       <div className={className}>
         {this.renderAICommitMessageButton()}
         {this.renderCoAuthorToggleButton()}
+        {this.renderCommitOptionsButton()}
       </div>
     )
   }
@@ -1305,7 +1420,11 @@ export class CommitMessage extends React.Component<
     const isSummaryBlank = isEmptyOrWhitespace(this.summaryOrPlaceholder)
     if (isSummaryBlank) {
       return `A commit summary is required to commit`
-    } else if (!this.props.anyFilesSelected && this.props.anyFilesAvailable) {
+    } else if (
+      !this.props.anyFilesSelected &&
+      this.props.anyFilesAvailable &&
+      !this.props.allowEmptyCommit
+    ) {
       return `Select one or more files to commit`
     } else if (this.props.isCommitting) {
       return `Committing changes…`
@@ -1445,6 +1564,7 @@ export class CommitMessage extends React.Component<
         className={className}
         onContextMenu={this.onContextMenu}
         onKeyDown={this.onKeyDown}
+        ref={this.wrapperRef}
       >
         <div className={summaryClassName}>
           {this.renderAvatar()}

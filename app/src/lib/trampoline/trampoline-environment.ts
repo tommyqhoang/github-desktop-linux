@@ -26,15 +26,6 @@ export const setHasRejectedCredentialsForEndpoint = (
   }
 }
 
-export const getHasRejectedCredentialsForEndpoint = (
-  trampolineToken: string,
-  endpoint: string
-) => {
-  return (
-    hasRejectedCredentialsForEndpoint.get(trampolineToken)?.has(endpoint) ??
-    false
-  )
-}
 const isBackgroundTaskEnvironment = new Map<string, boolean>()
 const trampolineEnvironmentPath = new Map<string, string>()
 

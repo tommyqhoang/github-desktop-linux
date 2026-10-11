@@ -110,7 +110,7 @@ interface IListRowProps {
 
   /** Optional role setting.
    *
-   * By default our lists use the `list-box` role paired with list items of role
+   * By default our lists use the `listbox` role paired with list items of role
    * 'option' because that have selection capability. In that case, a
    * screenreader will only browse to the selected list option. If the list is
    * meant to be informational as opposed for selection, we should use `list`

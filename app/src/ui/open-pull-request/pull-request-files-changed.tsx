@@ -1,3 +1,4 @@
+import { ChangeSummaryBadge } from '../changes/change-summary-badge'
 import * as React from 'react'
 import * as Path from 'path'
 import { IDiff, ImageDiffType } from '../../models/diff'
@@ -35,6 +36,10 @@ interface IPullRequestFilesChangedProps {
 
   /** The files changed in the pull request. */
   readonly files: ReadonlyArray<CommittedFileChange>
+
+  /** Total lines added/deleted across the pull request. */
+  readonly linesAdded: number
+  readonly linesDeleted: number
 
   /** The diff that should be rendered */
   readonly diff: IDiff | null
@@ -246,6 +251,14 @@ export class PullRequestFilesChanged extends React.Component<
         <div className="commits-displayed">
           Showing changes from all commits
         </div>
+        <ChangeSummaryBadge
+          stats={{
+            files: this.props.files.length,
+            additions: this.props.linesAdded,
+            deletions: this.props.linesDeleted,
+          }}
+          changedFilesCount={this.props.files.length}
+        />
         <DiffOptions
           isInteractiveDiff={false}
           hideWhitespaceChanges={hideWhitespaceInDiff}
@@ -268,6 +281,7 @@ export class PullRequestFilesChanged extends React.Component<
         maximumWidth={fileListWidth.max}
         onResize={this.onFileListResize}
         onReset={this.onFileListSizeReset}
+        description="Pull request file list"
       >
         <FileList
           files={files}

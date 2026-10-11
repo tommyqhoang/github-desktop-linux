@@ -16,7 +16,16 @@ export async function createCommit(
   repository: Repository,
   message: string,
   files: ReadonlyArray<WorkingDirectoryFileChange>,
-  amend: boolean = false
+  options?: {
+    /** Replace the last commit (`--amend`) */
+    readonly amend?: boolean
+    /** Skip pre-commit and commit-msg hooks (`--no-verify`) */
+    readonly noVerify?: boolean
+    /** Add a Signed-off-by trailer (`--signoff`) */
+    readonly signOff?: boolean
+    /** Allow a commit with no changes (`--allow-empty`) */
+    readonly allowEmpty?: boolean
+  }
 ): Promise<string> {
   // Clear the staging area, our diffs reflect the difference between the
   // working directory and the last commit (if any) so our commits should
@@ -27,8 +36,20 @@ export async function createCommit(
 
   const args = ['-F', '-']
 
-  if (amend) {
+  if (options?.amend) {
     args.push('--amend')
+  }
+
+  if (options?.noVerify) {
+    args.push('--no-verify')
+  }
+
+  if (options?.signOff) {
+    args.push('--signoff')
+  }
+
+  if (options?.allowEmpty) {
+    args.push('--allow-empty')
   }
 
   const result = await git(

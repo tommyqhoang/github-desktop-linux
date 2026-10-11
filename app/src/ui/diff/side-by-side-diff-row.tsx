@@ -453,10 +453,10 @@ export class SideBySideDiffRow extends React.Component<
 
           {syntaxHighlightLine(data.content, data.tokens)}
           {data.noNewLineIndicator && (
-            <Octicon
-              symbol={narrowNoNewlineSymbol}
-              title="No newline at end of file"
-            />
+            <span className="no-newline-indicator">
+              <Octicon symbol={narrowNoNewlineSymbol} />
+              No newline at end of file
+            </span>
           )}
         </div>
       </div>
@@ -1015,6 +1015,10 @@ export class SideBySideDiffRow extends React.Component<
 
   private onContextMenuLineNumber = (evt: React.MouseEvent) => {
     if (this.props.hideWhitespaceInDiff) {
+      const column = this.getDiffColumn(evt.currentTarget)
+      if (column !== null) {
+        this.setState({ showWhitespaceHint: column })
+      }
       return
     }
 
@@ -1026,6 +1030,12 @@ export class SideBySideDiffRow extends React.Component<
 
   private onContextMenuHunk = () => {
     if (this.props.hideWhitespaceInDiff) {
+      const { row } = this.props
+      // Prefer the left-hand popover unless the row has no left gutter.
+      const column =
+        row.type === DiffRowType.Added ? DiffColumn.After : DiffColumn.Before
+
+      this.setState({ showWhitespaceHint: column })
       return
     }
 

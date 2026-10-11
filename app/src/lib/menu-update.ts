@@ -138,6 +138,7 @@ const allMenuIds: ReadonlyArray<MenuIDs> = [
   'create-pull-request',
   'preview-pull-request',
   'squash-and-merge-branch',
+  'toggle-stashed-changes',
 ]
 
 function getAllMenusDisabledBuilder(): MenuStateBuilder {

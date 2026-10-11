@@ -77,5 +77,10 @@ export function getAvatarUsersForCommit(
     )
   }
 
-  return avatarUsers
+  // The same person can show up as author, committer and co-author.
+  const avatarUsersByIdentity = new Map<string, IAvatarUser>(
+    avatarUsers.map(x => [x.name + x.email, x])
+  )
+
+  return [...avatarUsersByIdentity.values()]
 }

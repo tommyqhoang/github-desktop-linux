@@ -54,6 +54,18 @@
     padding: var(--spacing-half) var(--spacing);
     background: var(--box-background-color);
     flex: 0 0 auto;
+    display: flex;
+    gap: var(--spacing-half);
+
+    .text-box-component {
+      flex: 1;
+      min-width: 0;
+    }
+
+    select {
+      flex: 0 0 auto;
+      max-width: 45%;
+    }
   }
 }
 

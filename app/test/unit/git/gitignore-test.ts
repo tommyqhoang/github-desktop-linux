@@ -142,6 +142,15 @@ describe('gitignore', () => {
   })
 
   describe('appendIgnoreRule', () => {
+    it('does not prepend a blank line when .gitignore does not exist', async () => {
+      const repo = await setupEmptyRepository()
+
+      await appendIgnoreRule(repo, ['yarn-error.log'])
+
+      const gitignore = await FSE.readFile(`${repo.path}/.gitignore`)
+      expect(gitignore.toString('utf8')).toBe('yarn-error.log\n')
+    })
+
     it('appends one rule', async () => {
       const repo = await setupEmptyRepository()
 

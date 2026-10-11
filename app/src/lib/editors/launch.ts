@@ -1,4 +1,4 @@
-import { spawn, SpawnOptions } from 'child_process'
+import { ChildProcess, spawn, SpawnOptions } from 'child_process'
 import { pathExists, spawnEditor } from '../helpers/linux'
 import { ExternalEditorError, FoundEditor } from './shared'
 import {
@@ -36,17 +36,22 @@ export async function launchExternalEditor(
   }
 
   try {
+    let child: ChildProcess
     if (editor.usesShell) {
-      spawn(`"${editorPath}"`, [`"${fullPath}"`], { ...opts, shell: true })
+      child = spawn(`"${editorPath}"`, [`"${fullPath}"`], {
+        ...opts,
+        shell: true,
+      })
     } else if (__DARWIN__) {
       // In macOS we can use `open`, which will open the right executable file
       // for us, we only need the path to the editor .app folder.
-      spawn('open', ['-a', editorPath, fullPath], opts)
+      child = spawn('open', ['-a', editorPath, fullPath], opts)
     } else if (__LINUX__) {
-      spawnEditor(editorPath, fullPath, opts)
+      child = spawnEditor(editorPath, fullPath, opts)
     } else {
-      spawn(editorPath, [fullPath], opts)
+      child = spawn(editorPath, [fullPath], opts)
     }
+    logSpawnErrors(child, editor.editor)
   } catch (error) {
     log.error(`Error while launching ${editor.editor}`, error)
     if (error?.code === 'EACCES') {
@@ -61,6 +66,17 @@ export async function launchExternalEditor(
       )
     }
   }
+}
+
+/**
+ * Spawn failures such as EACCES or ENOENT are reported through the child's
+ * 'error' event. Without a listener Node rethrows them as an uncaught
+ * exception, which crashes the app.
+ */
+function logSpawnErrors(child: ChildProcess, editorName: string) {
+  child.on('error', error => {
+    log.error(`Error while running ${editorName}`, error)
+  })
 }
 
 /**
@@ -96,10 +112,11 @@ export async function launchCustomExternalEditor(
   const args = expandTargetPathArgument(argv, fullPath)
 
   try {
+    let child: ChildProcess
     // This logic around `usesShell` is also used in Windows `getAvailableEditors` implementation
     const usesShell = editorPath.endsWith('.cmd')
     if (usesShell) {
-      spawnCustomIntegration(editorPath, args, {
+      child = spawnCustomIntegration(editorPath, args, {
         ...opts,
         shell: true,
       })
@@ -107,10 +124,11 @@ export async function launchCustomExternalEditor(
       // In macOS we can use `open` if it's an app (i.e. if we have a bundleID),
       // which will open the right executable file for us, we only need the path
       // to the editor .app folder.
-      spawnCustomIntegration('open', ['-a', editorPath, ...args], opts)
+      child = spawnCustomIntegration('open', ['-a', editorPath, ...args], opts)
     } else {
-      spawnCustomIntegration(editorPath, args, opts)
+      child = spawnCustomIntegration(editorPath, args, opts)
     }
+    logSpawnErrors(child, 'custom editor')
   } catch (error) {
     log.error(
       `Error while launching custom editor at path ${customEditor.path} with arguments ${args}`,

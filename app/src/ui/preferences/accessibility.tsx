@@ -70,7 +70,7 @@ export class Accessibility extends React.Component<
     }
 
     return (
-      <span className="link-button-component" style={style}>
+      <span className="link-button-component example-link" style={style}>
         This is an example link
       </span>
     )

@@ -1,6 +1,7 @@
 import * as React from 'react'
 import { Dialog, DialogContent, DialogFooter } from '../../dialog'
 import { Dispatcher } from '../../dispatcher'
+import { sendNonFatalException } from '../../../lib/helpers/non-fatal-exception'
 import { Repository } from '../../../models/repository'
 import {
   WorkingDirectoryStatus,
@@ -47,7 +48,6 @@ interface IConflictsDialogState {
   readonly isCommitting: boolean
   readonly isAborting: boolean
   readonly isFileResolutionOptionsMenuOpen: boolean
-  readonly countResolved: number | null
 }
 
 /**
@@ -59,13 +59,15 @@ export class ConflictsDialog extends React.Component<
   IConflictsDialogProps,
   IConflictsDialogState
 > {
+  /** Whether any file has been resolved yet; drives the "undone" banner. */
+  private hasSeenResolvedFiles = false
+
   public constructor(props: IConflictsDialogProps) {
     super(props)
     this.state = {
       isCommitting: false,
       isAborting: false,
       isFileResolutionOptionsMenuOpen: false,
-      countResolved: null,
     }
   }
 
@@ -99,25 +101,19 @@ export class ConflictsDialog extends React.Component<
     }
   }
 
-  public componentDidUpdate(): void {
-    const { workingDirectory, manualResolutions } = this.props
-
-    const resolvedConflicts = getResolvedFiles(
-      workingDirectory,
-      manualResolutions
-    )
-
-    if (resolvedConflicts.length !== (this.state.countResolved ?? 0)) {
-      this.setState({ countResolved: resolvedConflicts.length })
-    }
-  }
-
   /**
    *  Invokes submit callback and dismisses modal
    */
   private onSubmit = async () => {
     this.setState({ isCommitting: true })
-    await this.props.onSubmit()
+    try {
+      await this.props.onSubmit()
+    } catch (e) {
+      this.setState({ isCommitting: false })
+      const error = e instanceof Error ? e : new Error(String(e))
+      log.error('ConflictsDialog: onSubmit failed', error)
+      sendNonFatalException('multiCommitOperation', error)
+    }
   }
 
   /**
@@ -127,8 +123,15 @@ export class ConflictsDialog extends React.Component<
     e.preventDefault()
 
     this.setState({ isAborting: true })
-    await this.props.onAbort()
-    this.setState({ isAborting: false })
+    try {
+      await this.props.onAbort()
+    } catch (e) {
+      const error = e instanceof Error ? e : new Error(String(e))
+      log.error('ConflictsDialog: onAbort failed', error)
+      sendNonFatalException('multiCommitOperation', error)
+    } finally {
+      this.setState({ isAborting: false })
+    }
   }
 
   private openThisRepositoryInShell = () =>
@@ -146,27 +149,33 @@ export class ConflictsDialog extends React.Component<
   private renderUnmergedFiles(
     files: ReadonlyArray<WorkingDirectoryFileChange>
   ) {
+    let isFirstUnmergedFile = true
     return (
       <ul className="unmerged-file-statuses">
-        {files.map(f =>
-          isConflictedFile(f.status)
-            ? renderUnmergedFile({
-                path: f.path,
-                status: f.status,
-                resolvedExternalEditor: this.props.resolvedExternalEditor,
-                openFileInExternalEditor: this.props.openFileInExternalEditor,
-                repository: this.props.repository,
-                dispatcher: this.props.dispatcher,
-                manualResolution: this.props.manualResolutions.get(f.path),
-                ourBranch: this.props.ourBranch,
-                theirBranch: this.props.theirBranch,
-                isFileResolutionOptionsMenuOpen:
-                  this.state.isFileResolutionOptionsMenuOpen,
-                setIsFileResolutionOptionsMenuOpen:
-                  this.setIsFileResolutionOptionsMenuOpen,
-              })
-            : null
-        )}
+        {files.map(f => {
+          if (!isConflictedFile(f.status)) {
+            return null
+          }
+
+          const isFirstConflictedFile = isFirstUnmergedFile
+          isFirstUnmergedFile = false
+          return renderUnmergedFile({
+            path: f.path,
+            status: f.status,
+            resolvedExternalEditor: this.props.resolvedExternalEditor,
+            openFileInExternalEditor: this.props.openFileInExternalEditor,
+            repository: this.props.repository,
+            dispatcher: this.props.dispatcher,
+            manualResolution: this.props.manualResolutions.get(f.path),
+            ourBranch: this.props.ourBranch,
+            theirBranch: this.props.theirBranch,
+            isFileResolutionOptionsMenuOpen:
+              this.state.isFileResolutionOptionsMenuOpen,
+            setIsFileResolutionOptionsMenuOpen:
+              this.setIsFileResolutionOptionsMenuOpen,
+            isFirstConflictedFile,
+          })
+        })}
       </ul>
     )
   }
@@ -196,15 +205,15 @@ export class ConflictsDialog extends React.Component<
    * files is 0, then there have been conflicts resolved, but they have been
    * undone, we show an undone banner.
    */
-  public renderBanner(conflictedFilesCount: number) {
-    const { countResolved } = this.state
-    if (countResolved === null) {
-      return
+  public renderBanner(conflictedFilesCount: number, countResolved: number) {
+    if (countResolved === 0) {
+      // Only claim resolutions were undone if there ever were any.
+      return this.hasSeenResolvedFiles ? (
+        <DialogSuccess>All resolutions have been undone.</DialogSuccess>
+      ) : undefined
     }
 
-    if (countResolved === 0) {
-      return <DialogSuccess>All resolutions have been undone.</DialogSuccess>
-    }
+    this.hasSeenResolvedFiles = true
 
     if (conflictedFilesCount === 0) {
       return (
@@ -235,6 +244,11 @@ export class ConflictsDialog extends React.Component<
       manualResolutions
     )
 
+    const countResolved = getResolvedFiles(
+      workingDirectory,
+      manualResolutions
+    ).length
+
     const tooltipString =
       conflictedFiles.length > 0
         ? 'Resolve all changes before continuing'
@@ -250,7 +264,7 @@ export class ConflictsDialog extends React.Component<
         loading={this.state.isCommitting}
         disabled={this.state.isCommitting}
       >
-        {this.renderBanner(conflictedFiles.length)}
+        {this.renderBanner(conflictedFiles.length, countResolved)}
         <DialogContent>
           {this.renderContent(unmergedFiles, conflictedFiles.length)}
         </DialogContent>

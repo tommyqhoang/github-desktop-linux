@@ -455,8 +455,10 @@ export class PushPullButton extends React.Component<
       return this.publishRepositoryButton(this.push)
     }
 
+    // An unborn branch has nothing to publish, but the remote may already have
+    // commits, so offer a fetch.
     if (tipState === TipState.Unborn) {
-      return this.unbornRepositoryButton()
+      return this.fetchButton(remoteName, lastFetched, this.fetch)
     }
 
     if (tipState === TipState.Detached) {
@@ -534,18 +536,6 @@ export class PushPullButton extends React.Component<
         icon={octicons.upload}
         style={ToolbarButtonStyle.Subtitle}
         onClick={onClick}
-      />
-    )
-  }
-
-  private unbornRepositoryButton() {
-    return (
-      <ToolbarButton
-        {...this.defaultButtonProps()}
-        title="Publish branch"
-        description="Cannot publish unborn HEAD"
-        icon={octicons.upload}
-        disabled={true}
       />
     )
   }

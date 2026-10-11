@@ -81,12 +81,3 @@ export function caseInsensitiveEquals(x: string, y: string): boolean {
 export function caseInsensitiveCompare(x: string, y: string): number {
   return compare(x.toLowerCase(), y.toLowerCase())
 }
-
-/**
- * Compares the two strings in a case-insensitive manner and returns a value
- * indicating whether one is greater than the other. When the return value is
- * used in a sort operation the comparands will be sorted in descending order.
- */
-export function caseInsensitiveCompareDescending(x: string, y: string): number {
-  return compareDescending(x.toLowerCase(), y.toLowerCase())
-}
