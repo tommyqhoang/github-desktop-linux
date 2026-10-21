@@ -64,8 +64,22 @@ function rebuildNodePty() {
       shell: process.platform === 'win32',
     }
   )
-  if (result.status !== 0) {
-    process.exit(result.status || 1)
+  if (result.status === 0) {
+    return
+  }
+  // Electron's headers can be newer than what node-pty's bundled nan supports.
+  // Fall back to a plain Node-ABI rebuild so installs (CI lint/unit tests)
+  // still succeed; only fail when both attempts fail.
+  console.warn(
+    '[post-install] electron-rebuild of node-pty failed; falling back to npm rebuild'
+  )
+  const fallback = spawnSync('npm', ['rebuild', 'node-pty'], {
+    cwd: Path.join(root, 'app'),
+    stdio: 'inherit',
+    shell: process.platform === 'win32',
+  })
+  if (fallback.status !== 0) {
+    process.exit(fallback.status || 1)
   }
 }
 
