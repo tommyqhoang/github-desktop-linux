@@ -1,6 +1,4 @@
-import { WorkingDirectoryFileChange } from '../../models/status'
-
-export type ChangesTreeRow =
+export type ChangesTreeRow<T extends { readonly path: string }> =
   | {
       readonly kind: 'directory'
       readonly name: string
@@ -10,15 +8,15 @@ export type ChangesTreeRow =
     }
   | {
       readonly kind: 'file'
-      readonly file: WorkingDirectoryFileChange
+      readonly file: T
       readonly depth: number
     }
 
-type IChangesTreeDirectory = {
+type IChangesTreeDirectory<T extends { readonly path: string }> = {
   readonly name: string
   readonly path: string
-  readonly directories: Map<string, IChangesTreeDirectory>
-  readonly files: Array<WorkingDirectoryFileChange>
+  readonly directories: Map<string, IChangesTreeDirectory<T>>
+  readonly files: Array<T>
 }
 
 const directoryNameCollator = new Intl.Collator(undefined, {
@@ -26,11 +24,11 @@ const directoryNameCollator = new Intl.Collator(undefined, {
 })
 
 /** Build a depth-first list of changed files and their containing folders. */
-export function buildChangesTreeRows(
-  files: ReadonlyArray<WorkingDirectoryFileChange>,
+export function buildChangesTreeRows<T extends { readonly path: string }>(
+  files: ReadonlyArray<T>,
   collapsedPaths: ReadonlySet<string>
-): ReadonlyArray<ChangesTreeRow> {
-  const root: IChangesTreeDirectory = {
+): ReadonlyArray<ChangesTreeRow<T>> {
+  const root: IChangesTreeDirectory<T> = {
     name: '',
     path: '',
     directories: new Map(),
@@ -62,8 +60,11 @@ export function buildChangesTreeRows(
     }
   }
 
-  const rows: Array<ChangesTreeRow> = []
-  const appendRows = (directory: IChangesTreeDirectory, depth: number) => {
+  const rows: Array<ChangesTreeRow<T>> = []
+  const appendRows = (
+    directory: IChangesTreeDirectory<T>,
+    depth: number
+  ) => {
     const directories = Array.from(directory.directories.values()).sort(
       (a, b) => directoryNameCollator.compare(a.name, b.name)
     )

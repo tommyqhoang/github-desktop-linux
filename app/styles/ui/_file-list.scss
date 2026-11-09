@@ -46,3 +46,72 @@
     }
   }
 }
+
+.file-list.has-tree-toggle {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+
+  .list {
+    flex: 1;
+    min-height: 0;
+    height: auto;
+  }
+}
+
+.file-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-half);
+  flex: 0 0 auto;
+  height: 30px;
+  padding: 0 var(--spacing);
+  background: var(--box-alt-background-color);
+  border-bottom: 1px solid var(--box-border-color);
+  line-height: 30px;
+
+  &.no-count {
+    justify-content: flex-end;
+  }
+}
+
+.file-list-tree-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 28px;
+  width: 28px;
+  min-width: 28px;
+  padding: 0;
+}
+
+.changed-file-directory-row {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  height: 100%;
+  padding-right: var(--spacing);
+  color: var(--text-secondary-color);
+  font-size: var(--font-size-sm);
+
+  .octicon {
+    flex-shrink: 0;
+  }
+
+  .changed-file-directory-chevron {
+    width: 12px;
+    margin-right: var(--spacing-half);
+  }
+
+  .changed-file-directory-icon {
+    width: 16px;
+    margin-right: var(--spacing-half);
+  }
+
+  .changed-file-directory-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}

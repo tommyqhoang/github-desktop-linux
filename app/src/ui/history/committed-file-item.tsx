@@ -11,11 +11,14 @@ interface ICommittedFileItemProps {
   readonly availableWidth: number
   readonly file: CommittedFileChange
   readonly focused: boolean
+  readonly depth?: number
+  readonly displayPath?: string
 }
 
 export class CommittedFileItem extends React.Component<ICommittedFileItemProps> {
   public render() {
     const { file, focused } = this.props
+    const depth = this.props.depth ?? 0
     const { status } = file
     const fileStatus = mapStatus(status)
 
@@ -26,12 +29,16 @@ export class CommittedFileItem extends React.Component<ICommittedFileItemProps> 
       this.props.availableWidth -
       listItemPadding -
       filePathPadding -
-      statusWidth
+      statusWidth -
+      depth * 12
 
     return (
-      <div className="file">
+      <div
+        className="file"
+        style={{ paddingLeft: `calc(var(--spacing) + ${depth * 12}px)` }}
+      >
         <PathLabel
-          path={file.path}
+          path={this.props.displayPath ?? file.path}
           status={file.status}
           availableWidth={availablePathWidth}
           ariaHidden={true}

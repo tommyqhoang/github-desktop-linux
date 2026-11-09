@@ -1,5 +1,6 @@
 import * as React from 'react'
 import * as Path from 'path'
+import memoizeOne from 'memoize-one'
 
 import { Dispatcher } from '../dispatcher'
 import { IMenuItem } from '../../lib/menu-item'
@@ -20,6 +21,7 @@ import { Account } from '../../models/account'
 import { Author, UnknownAuthor } from '../../models/author'
 import { List, ClickSource } from '../lib/list'
 import { Button } from '../lib/button'
+import { ChangedFileDirectory } from '../lib/changed-file-directory'
 import { Checkbox, CheckboxValue } from '../lib/checkbox'
 import { TextBox } from '../lib/text-box'
 import {
@@ -265,10 +267,14 @@ function getChangesListRows(
   files: ReadonlyArray<WorkingDirectoryFileChange>,
   isTreeView: boolean,
   collapsedPaths: ReadonlySet<string>
-): ReadonlyArray<ChangesTreeRow> {
+): ReadonlyArray<ChangesTreeRow<WorkingDirectoryFileChange>> {
   return isTreeView
     ? buildChangesTreeRows(files, collapsedPaths)
-    : files.map(file => ({ kind: 'file', file, depth: 0 }))
+    : files.map<ChangesTreeRow<WorkingDirectoryFileChange>>(file => ({
+        kind: 'file',
+        file,
+        depth: 0,
+      }))
 }
 
 function getSelectedRowsFromProps(
@@ -309,6 +315,20 @@ export class ChangesList extends React.Component<
 > {
   private headerRef = createObservableRef<HTMLDivElement>()
   private includeAllCheckBoxRef = React.createRef<Checkbox>()
+  private getVisibleRows = memoizeOne(
+    (
+      files: ReadonlyArray<WorkingDirectoryFileChange>,
+      filterText: string,
+      statusFilter: ChangedFilesStatusFilter,
+      isTreeView: boolean,
+      collapsedPaths: ReadonlySet<string>
+    ): ReadonlyArray<ChangesTreeRow<WorkingDirectoryFileChange>> =>
+      getChangesListRows(
+        filterChangedFiles(files, filterText, statusFilter),
+        isTreeView,
+        collapsedPaths
+      )
+  )
 
   public constructor(props: IChangesListProps) {
     super(props)
@@ -353,8 +373,10 @@ export class ChangesList extends React.Component<
   }
 
   private get visibleRows() {
-    return getChangesListRows(
-      this.visibleFiles,
+    return this.getVisibleRows(
+      this.props.workingDirectory.files,
+      this.state.filterText,
+      this.state.statusFilter,
       this.state.isTreeView,
       this.state.collapsedPaths
     )
@@ -458,7 +480,13 @@ export class ChangesList extends React.Component<
     const listRow = this.visibleRows[row]
 
     if (listRow.kind === 'directory') {
-      return this.renderDirectoryRow(listRow)
+      return (
+        <ChangedFileDirectory
+          name={listRow.name}
+          depth={listRow.depth}
+          expanded={listRow.expanded}
+        />
+      )
     }
 
     const {
@@ -526,31 +554,6 @@ export class ChangesList extends React.Component<
         depth={depth}
         displayPath={displayPath}
       />
-    )
-  }
-
-  private renderDirectoryRow(
-    row: Extract<ChangesTreeRow, { kind: 'directory' }>
-  ): React.JSX.Element {
-    return (
-      <div
-        className="changes-list-directory"
-        style={{ paddingLeft: `${row.depth * 12 + 10}px` }}
-      >
-        <Octicon
-          className="changes-list-directory-chevron"
-          symbol={row.expanded ? octicons.chevronDown : octicons.chevronRight}
-        />
-        <Octicon
-          className="changes-list-directory-icon"
-          symbol={
-            row.expanded
-              ? octicons.fileDirectoryOpenFill
-              : octicons.fileDirectory
-          }
-        />
-        <span className="changes-list-directory-name">{row.name}</span>
-      </div>
     )
   }
 
