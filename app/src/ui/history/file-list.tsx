@@ -5,6 +5,7 @@ import { mapStatus } from '../../lib/status'
 
 import { AppFileStatusKind, CommittedFileChange } from '../../models/status'
 import { ClickSource, List } from '../lib/list'
+import { Dispatcher } from '../dispatcher'
 import { Button } from '../lib/button'
 import { ChangedFileDirectory } from '../lib/changed-file-directory'
 import { Octicon } from '../octicons'
@@ -14,7 +15,9 @@ import { buildChangesTreeRows } from '../changes/changes-tree'
 import type { ChangesTreeRow } from '../changes/changes-tree'
 
 interface IFileListProps {
+  readonly dispatcher: Dispatcher
   readonly files: ReadonlyArray<CommittedFileChange>
+  readonly changedFilesTreeView: boolean
   readonly selectedFile: CommittedFileChange | null
   readonly onSelectedFileChanged: (file: CommittedFileChange) => void
   readonly onRowDoubleClick: (row: number, source: ClickSource) => void
@@ -29,19 +32,32 @@ interface IFileListProps {
 
 interface IFileListState {
   readonly focusedRow: number | null
-  readonly isTreeView: boolean
   readonly collapsedPaths: ReadonlySet<string>
   readonly selectedDirectoryPath: string | null
 }
 
 /** Display changed files for commits, stashes, and pull requests. */
 export class FileList extends React.Component<IFileListProps, IFileListState> {
+  private buildVisibleRows = memoizeOne(
+    (
+      files: ReadonlyArray<CommittedFileChange>,
+      changedFilesTreeView: boolean,
+      collapsedPaths: ReadonlySet<string>
+    ): ReadonlyArray<ChangesTreeRow<CommittedFileChange>> =>
+      changedFilesTreeView
+        ? buildChangesTreeRows(files, collapsedPaths)
+        : files.map<ChangesTreeRow<CommittedFileChange>>(file => ({
+            kind: 'file',
+            file,
+            depth: 0,
+          }))
+  )
+
   public constructor(props: IFileListProps) {
     super(props)
 
     this.state = {
       focusedRow: null,
-      isTreeView: false,
       collapsedPaths: new Set(),
       selectedDirectoryPath: null,
     }
@@ -51,31 +67,20 @@ export class FileList extends React.Component<IFileListProps, IFileListState> {
     if (nextProps.files !== this.props.files) {
       this.setState({ focusedRow: null, selectedDirectoryPath: null })
     } else if (
-      nextProps.selectedFile?.path !== this.props.selectedFile?.path
+      nextProps.changedFilesTreeView !== this.props.changedFilesTreeView
     ) {
+      this.setState({ focusedRow: null, selectedDirectoryPath: null })
+    } else if (nextProps.selectedFile?.path !== this.props.selectedFile?.path) {
       this.setState({ selectedDirectoryPath: null })
     }
   }
 
-  private buildVisibleRows = memoizeOne(
-    (
-      files: ReadonlyArray<CommittedFileChange>,
-      isTreeView: boolean,
-      collapsedPaths: ReadonlySet<string>
-    ): ReadonlyArray<ChangesTreeRow<CommittedFileChange>> =>
-      isTreeView
-        ? buildChangesTreeRows(files, collapsedPaths)
-        : files.map<ChangesTreeRow<CommittedFileChange>>(file => ({
-            kind: 'file',
-            file,
-            depth: 0,
-          }))
-  )
-
-  private get visibleRows(): ReadonlyArray<ChangesTreeRow<CommittedFileChange>> {
+  private get visibleRows(): ReadonlyArray<
+    ChangesTreeRow<CommittedFileChange>
+  > {
     return this.buildVisibleRows(
       this.props.files,
-      this.state.isTreeView,
+      this.props.changedFilesTreeView,
       this.state.collapsedPaths
     )
   }
@@ -105,7 +110,7 @@ export class FileList extends React.Component<IFileListProps, IFileListState> {
 
     const { file, depth } = listRow
     const displayPath =
-      this.state.isTreeView &&
+      this.props.changedFilesTreeView &&
       depth > 0 &&
       file.status.kind !== AppFileStatusKind.Renamed &&
       file.status.kind !== AppFileStatusKind.Copied
@@ -124,9 +129,9 @@ export class FileList extends React.Component<IFileListProps, IFileListState> {
   }
 
   private selectedRowsForFile(): ReadonlyArray<number> {
-    const { selectedDirectoryPath, isTreeView } = this.state
+    const { selectedDirectoryPath } = this.state
     const visibleRows = this.visibleRows
-    if (isTreeView && selectedDirectoryPath !== null) {
+    if (this.props.changedFilesTreeView && selectedDirectoryPath !== null) {
       const directoryIndex = visibleRows.findIndex(
         row => row.kind === 'directory' && row.path === selectedDirectoryPath
       )
@@ -191,11 +196,9 @@ export class FileList extends React.Component<IFileListProps, IFileListState> {
   }
 
   private onTreeViewToggle = () => {
-    this.setState({
-      isTreeView: !this.state.isTreeView,
-      selectedDirectoryPath: null,
-      focusedRow: null,
-    })
+    return this.props.dispatcher.setChangedFilesTreeView(
+      !this.props.changedFilesTreeView
+    )
   }
 
   private onDirectoryToggle = (path: string) => {
@@ -206,7 +209,7 @@ export class FileList extends React.Component<IFileListProps, IFileListState> {
       collapsedPaths.add(path)
     }
 
-    const visibleRows = this.state.isTreeView
+    const visibleRows = this.props.changedFilesTreeView
       ? buildChangesTreeRows(this.props.files, collapsedPaths)
       : this.visibleRows
     const directoryRow = visibleRows.findIndex(
@@ -256,7 +259,7 @@ export class FileList extends React.Component<IFileListProps, IFileListState> {
           size="small"
           className="file-list-tree-toggle"
           ariaLabel="Toggle folder tree view"
-          ariaPressed={this.state.isTreeView}
+          ariaPressed={this.props.changedFilesTreeView}
           tooltip="Toggle folder tree view"
           disabled={files.length === 0}
           onClick={this.onTreeViewToggle}
@@ -287,7 +290,7 @@ export class FileList extends React.Component<IFileListProps, IFileListState> {
           invalidationProps={{
             files: this.props.files,
             focusedRow: this.state.focusedRow,
-            isTreeView: this.state.isTreeView,
+            changedFilesTreeView: this.props.changedFilesTreeView,
             collapsedPaths: this.state.collapsedPaths,
             selectedDirectoryPath: this.state.selectedDirectoryPath,
           }}

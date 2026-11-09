@@ -25,17 +25,22 @@ export class CommittedFileItem extends React.Component<ICommittedFileItemProps> 
     const listItemPadding = 10 * 2
     const statusWidth = 16
     const filePathPadding = 5
+    const treeIndent = depth > 0 ? depth * 12 + 36 : 0
     const availablePathWidth =
       this.props.availableWidth -
       listItemPadding -
       filePathPadding -
       statusWidth -
-      depth * 12
+      treeIndent
 
     return (
       <div
         className="file"
-        style={{ paddingLeft: `calc(var(--spacing) + ${depth * 12}px)` }}
+        style={
+          treeIndent > 0
+            ? { paddingLeft: `calc(var(--spacing) + ${treeIndent}px)` }
+            : undefined
+        }
       >
         <PathLabel
           path={this.props.displayPath ?? file.path}

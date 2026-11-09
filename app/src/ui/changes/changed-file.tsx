@@ -50,6 +50,7 @@ export class ChangedFile extends React.Component<IChangedFileProps, {}> {
     const checkboxWidth = 20
     const statusWidth = 16
     const filePadding = 5
+    const treeIndent = depth > 0 ? depth * 12 + 16 : 0
 
     const availablePathWidth =
       availableWidth -
@@ -57,7 +58,7 @@ export class ChangedFile extends React.Component<IChangedFileProps, {}> {
       checkboxWidth -
       filePadding -
       statusWidth -
-      depth * 12
+      treeIndent
 
     const includedText =
       this.props.include === true
@@ -73,7 +74,11 @@ export class ChangedFile extends React.Component<IChangedFileProps, {}> {
     return (
       <div
         className="file"
-        style={{ paddingLeft: `calc(var(--spacing) + ${depth * 12}px)` }}
+        style={
+          treeIndent > 0
+            ? { paddingLeft: `calc(var(--spacing) + ${treeIndent}px)` }
+            : undefined
+        }
       >
         <TooltippedContent
           tooltip={checkboxTooltip}

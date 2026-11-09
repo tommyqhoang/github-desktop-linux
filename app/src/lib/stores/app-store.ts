@@ -482,6 +482,8 @@ const hideWhitespaceInHistoryDiffKey = 'hide-whitespace-in-diff'
 const hideWhitespaceInPullRequestDiffDefault = false
 const hideWhitespaceInPullRequestDiffKey =
   'hide-whitespace-in-pull-request-diff'
+const changedFilesTreeViewDefault = false
+const changedFilesTreeViewKey = 'changed-files-tree-view'
 
 const commitSpellcheckEnabledDefault = true
 const commitSpellcheckEnabledKey = 'commit-spellcheck-enabled'
@@ -655,6 +657,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
     hideWhitespaceInHistoryDiffDefault
   private hideWhitespaceInPullRequestDiff: boolean =
     hideWhitespaceInPullRequestDiffDefault
+  private changedFilesTreeView: boolean = changedFilesTreeViewDefault
   /** Whether or not the spellchecker is enabled for commit summary and description */
   private commitSpellcheckEnabled: boolean = commitSpellcheckEnabledDefault
   private showSideBySideDiff: boolean = ShowSideBySideDiffDefault
@@ -1221,6 +1224,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
       hideWhitespaceInChangesDiff: this.hideWhitespaceInChangesDiff,
       hideWhitespaceInHistoryDiff: this.hideWhitespaceInHistoryDiff,
       hideWhitespaceInPullRequestDiff: this.hideWhitespaceInPullRequestDiff,
+      changedFilesTreeView: this.changedFilesTreeView,
       showSideBySideDiff: this.showSideBySideDiff,
       selectedShell: this.selectedShell,
       repositoryFilterText: this.repositoryFilterText,
@@ -2472,6 +2476,10 @@ export class AppStore extends TypedBaseStore<IAppState> {
     this.hideWhitespaceInPullRequestDiff = getBoolean(
       hideWhitespaceInPullRequestDiffKey,
       false
+    )
+    this.changedFilesTreeView = getBoolean(
+      changedFilesTreeViewKey,
+      changedFilesTreeViewDefault
     )
     this.commitSpellcheckEnabled = getBoolean(
       commitSpellcheckEnabledKey,
@@ -6262,6 +6270,14 @@ export class AppStore extends TypedBaseStore<IAppState> {
   public _changeImageDiffType(type: ImageDiffType): Promise<void> {
     this.imageDiffType = type
     localStorage.setItem(imageDiffTypeKey, JSON.stringify(this.imageDiffType))
+    this.emitUpdate()
+
+    return Promise.resolve()
+  }
+
+  public _setChangedFilesTreeView(value: boolean): Promise<void> {
+    this.changedFilesTreeView = value
+    setBoolean(changedFilesTreeViewKey, value)
     this.emitUpdate()
 
     return Promise.resolve()

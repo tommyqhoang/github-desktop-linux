@@ -42,6 +42,7 @@ import { Emoji } from '../../lib/emoji'
 interface ISelectedCommitsProps {
   readonly repository: Repository
   readonly dispatcher: Dispatcher
+  readonly changedFilesTreeView: boolean
   readonly emoji: Map<string, Emoji>
   readonly selectedCommits: ReadonlyArray<Commit>
   readonly shasInDiff: ReadonlyArray<string>
@@ -261,7 +262,9 @@ export class SelectedCommits extends React.Component<
 
     return (
       <FileList
+        dispatcher={this.props.dispatcher}
         files={files}
+        changedFilesTreeView={this.props.changedFilesTreeView}
         onSelectedFileChanged={this.onFileSelected}
         selectedFile={this.props.selectedFile}
         availableWidth={availableWidth}

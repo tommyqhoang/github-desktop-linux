@@ -305,6 +305,9 @@ export interface IAppState {
   /** Whether we should hide white space changes in the pull request diff */
   readonly hideWhitespaceInPullRequestDiff: boolean
 
+  /** Whether changed-file lists should display files in a folder tree. */
+  readonly changedFilesTreeView: boolean
+
   /** Whether we should show side by side diffs */
   readonly showSideBySideDiff: boolean
 

@@ -132,6 +132,7 @@ function getIncludeAllValue(
 }
 
 interface IChangesListProps {
+  readonly changedFilesTreeView: boolean
   readonly repository: Repository
   readonly repositoryAccount: Account | null
   readonly workingDirectory: WorkingDirectoryStatus
@@ -259,7 +260,6 @@ interface IChangesState {
   readonly focusedRow: number | null
   readonly filterText: string
   readonly statusFilter: ChangedFilesStatusFilter
-  readonly isTreeView: boolean
   readonly collapsedPaths: ReadonlySet<string>
 }
 
@@ -333,11 +333,15 @@ export class ChangesList extends React.Component<
   public constructor(props: IChangesListProps) {
     super(props)
     this.state = {
-      selectedRows: getSelectedRowsFromProps(props),
+      selectedRows: getSelectedRowsFromProps(
+        props,
+        '',
+        'all',
+        props.changedFilesTreeView
+      ),
       focusedRow: null,
       filterText: '',
       statusFilter: 'all',
-      isTreeView: false,
       collapsedPaths: new Set(),
     }
   }
@@ -350,14 +354,15 @@ export class ChangesList extends React.Component<
       !arrayEquals(
         nextProps.workingDirectory.files,
         this.props.workingDirectory.files
-      )
+      ) ||
+      nextProps.changedFilesTreeView !== this.props.changedFilesTreeView
     ) {
       this.setState({
         selectedRows: getSelectedRowsFromProps(
           nextProps,
           this.state.filterText,
           this.state.statusFilter,
-          this.state.isTreeView,
+          nextProps.changedFilesTreeView,
           this.state.collapsedPaths
         ),
       })
@@ -377,7 +382,7 @@ export class ChangesList extends React.Component<
       this.props.workingDirectory.files,
       this.state.filterText,
       this.state.statusFilter,
-      this.state.isTreeView,
+      this.props.changedFilesTreeView,
       this.state.collapsedPaths
     )
   }
@@ -396,7 +401,7 @@ export class ChangesList extends React.Component<
         this.props,
         filterText,
         this.state.statusFilter,
-        this.state.isTreeView,
+        this.props.changedFilesTreeView,
         this.state.collapsedPaths
       ),
     })
@@ -412,25 +417,16 @@ export class ChangesList extends React.Component<
         this.props,
         this.state.filterText,
         statusFilter,
-        this.state.isTreeView,
+        this.props.changedFilesTreeView,
         this.state.collapsedPaths
       ),
     })
   }
 
-  private onTreeViewToggle = () => {
-    const isTreeView = !this.state.isTreeView
-    this.setState({
-      isTreeView,
-      selectedRows: getSelectedRowsFromProps(
-        this.props,
-        this.state.filterText,
-        this.state.statusFilter,
-        isTreeView,
-        this.state.collapsedPaths
-      ),
-    })
-  }
+  private onTreeViewToggle = () =>
+    this.props.dispatcher.setChangedFilesTreeView(
+      !this.props.changedFilesTreeView
+    )
 
   private onDirectoryToggle = (path: string) => {
     const collapsedPaths = new Set(this.state.collapsedPaths)
@@ -442,14 +438,14 @@ export class ChangesList extends React.Component<
 
     const visibleRows = getChangesListRows(
       this.visibleFiles,
-      this.state.isTreeView,
+      this.props.changedFilesTreeView,
       collapsedPaths
     )
     const selectedRows = getSelectedRowsFromProps(
       this.props,
       this.state.filterText,
       this.state.statusFilter,
-      this.state.isTreeView,
+      this.props.changedFilesTreeView,
       collapsedPaths
     )
     const directoryRow = visibleRows.findIndex(
@@ -525,7 +521,7 @@ export class ChangesList extends React.Component<
         : includeAll
 
     const displayPath =
-      this.state.isTreeView &&
+      this.props.changedFilesTreeView &&
       depth > 0 &&
       file.status.kind !== AppFileStatusKind.Renamed &&
       file.status.kind !== AppFileStatusKind.Copied
@@ -1329,7 +1325,7 @@ export class ChangesList extends React.Component<
               size="small"
               className="changes-list-tree-toggle"
               ariaLabel="Toggle folder tree view"
-              ariaPressed={this.state.isTreeView}
+              ariaPressed={this.props.changedFilesTreeView}
               tooltip="Toggle folder tree view"
               onClick={this.onTreeViewToggle}
             >
@@ -1351,7 +1347,7 @@ export class ChangesList extends React.Component<
               focusedRow: this.state.focusedRow,
               filterText: this.state.filterText,
               statusFilter: this.state.statusFilter,
-              isTreeView: this.state.isTreeView,
+              changedFilesTreeView: this.props.changedFilesTreeView,
               collapsedPaths: this.state.collapsedPaths,
             }}
             onRowClick={this.onRowClick}

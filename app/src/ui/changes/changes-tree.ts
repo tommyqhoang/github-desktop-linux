@@ -61,10 +61,7 @@ export function buildChangesTreeRows<T extends { readonly path: string }>(
   }
 
   const rows: Array<ChangesTreeRow<T>> = []
-  const appendRows = (
-    directory: IChangesTreeDirectory<T>,
-    depth: number
-  ) => {
+  const appendRows = (directory: IChangesTreeDirectory<T>, depth: number) => {
     const directories = Array.from(directory.directories.values()).sort(
       (a, b) => directoryNameCollator.compare(a.name, b.name)
     )
@@ -73,17 +70,32 @@ export function buildChangesTreeRows<T extends { readonly path: string }>(
       .sort((a, b) => directoryNameCollator.compare(a.path, b.path))
 
     for (const child of directories) {
-      const expanded = !collapsedPaths.has(child.path)
+      let terminalDirectory = child
+      let name = child.name
+      while (
+        terminalDirectory.files.length === 0 &&
+        terminalDirectory.directories.size === 1 &&
+        !collapsedPaths.has(terminalDirectory.path)
+      ) {
+        const onlyChild = terminalDirectory.directories.values().next().value
+        if (onlyChild === undefined) {
+          break
+        }
+        terminalDirectory = onlyChild
+        name += `/${onlyChild.name}`
+      }
+
+      const expanded = !collapsedPaths.has(terminalDirectory.path)
       rows.push({
         kind: 'directory',
-        name: child.name,
-        path: child.path,
+        name,
+        path: terminalDirectory.path,
         depth,
         expanded,
       })
 
       if (expanded) {
-        appendRows(child, depth + 1)
+        appendRows(terminalDirectory, depth + 1)
       }
     }
 

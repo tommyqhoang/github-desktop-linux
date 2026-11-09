@@ -30,6 +30,7 @@ import { DiffOptions } from '../diff/diff-options'
 interface IPullRequestFilesChangedProps {
   readonly repository: Repository
   readonly dispatcher: Dispatcher
+  readonly changedFilesTreeView: boolean
 
   /** The file whose diff should be displayed. */
   readonly selectedFile: CommittedFileChange | null
@@ -284,7 +285,9 @@ export class PullRequestFilesChanged extends React.Component<
         description="Pull request file list"
       >
         <FileList
+          dispatcher={this.props.dispatcher}
           files={files}
+          changedFilesTreeView={this.props.changedFilesTreeView}
           onSelectedFileChanged={this.onFileSelected}
           selectedFile={selectedFile}
           availableWidth={clamp(fileListWidth)}

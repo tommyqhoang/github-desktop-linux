@@ -25,9 +25,7 @@ export class ChangedFileDirectory extends React.PureComponent<IChangedFileDirect
         <Octicon
           className="changed-file-directory-icon"
           symbol={
-            expanded
-              ? octicons.fileDirectoryOpenFill
-              : octicons.fileDirectory
+            expanded ? octicons.fileDirectoryOpenFill : octicons.fileDirectory
           }
         />
         <span className="changed-file-directory-name">{name}</span>

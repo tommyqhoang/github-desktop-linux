@@ -43,6 +43,7 @@ import { Emoji } from '../../lib/emoji'
 const UndoCommitAnimationTimeout = 500
 
 interface IChangesSidebarProps {
+  readonly changedFilesTreeView: boolean
   readonly repository: Repository
   readonly changes: IChangesState
   readonly aheadBehind: IAheadBehind | null
@@ -425,6 +426,7 @@ export class ChangesSidebar extends React.Component<IChangesSidebarProps, {}> {
       <div className="panel" role="tabpanel" aria-labelledby="changes-tab">
         <ChangesList
           ref={this.changesListRef}
+          changedFilesTreeView={this.props.changedFilesTreeView}
           dispatcher={this.props.dispatcher}
           repository={this.props.repository}
           repositoryAccount={repositoryAccount}

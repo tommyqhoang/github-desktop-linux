@@ -21,6 +21,7 @@ interface IStashDiffViewerProps {
   /** Diff to be displayed */
   readonly stashedFileDiff: IDiff | null
   readonly imageDiffType: ImageDiffType
+  readonly changedFilesTreeView: boolean
 
   /** width to use for the files list pane */
   readonly fileListWidth: IConstrainedValue
@@ -145,7 +146,9 @@ export class StashDiffViewer extends React.PureComponent<IStashDiffViewerProps> 
             description="Stash file list"
           >
             <FileList
+              dispatcher={dispatcher}
               files={files}
+              changedFilesTreeView={this.props.changedFilesTreeView}
               onSelectedFileChanged={this.onSelectedFileChanged}
               selectedFile={selectedStashedFile}
               availableWidth={availableWidth}

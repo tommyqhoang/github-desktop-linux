@@ -80,6 +80,7 @@ interface IRepositoryViewProps {
   readonly gitHubUserStore: GitHubUserStore
   readonly onViewCommitOnGitHub: (SHA: string, filePath?: string) => void
   readonly imageDiffType: ImageDiffType
+  readonly changedFilesTreeView: boolean
   readonly hideWhitespaceInChangesDiff: boolean
   readonly hideWhitespaceInHistoryDiff: boolean
   readonly showSideBySideDiff: boolean
@@ -364,6 +365,7 @@ export class RepositoryView extends React.Component<
         repository={this.props.repository}
         dispatcher={this.props.dispatcher}
         changes={this.props.state.changesState}
+        changedFilesTreeView={this.props.changedFilesTreeView}
         aheadBehind={this.props.state.aheadBehind}
         branch={branchName}
         commitAuthor={this.props.state.commitAuthor}
@@ -859,6 +861,7 @@ export class RepositoryView extends React.Component<
           fileListWidth={this.props.stashedFilesWidth}
           repository={this.props.repository}
           dispatcher={this.props.dispatcher}
+          changedFilesTreeView={this.props.changedFilesTreeView}
           askForConfirmationOnDiscardStash={
             this.props.askForConfirmationOnDiscardStash
           }
@@ -903,6 +906,7 @@ export class RepositoryView extends React.Component<
       <SelectedCommits
         repository={this.props.repository}
         dispatcher={this.props.dispatcher}
+        changedFilesTreeView={this.props.changedFilesTreeView}
         selectedCommits={selectedCommits}
         shasInDiff={shasInDiff}
         isContiguous={isContiguous}
