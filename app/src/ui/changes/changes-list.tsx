@@ -19,6 +19,7 @@ import {
 import { Account } from '../../models/account'
 import { Author, UnknownAuthor } from '../../models/author'
 import { List, ClickSource } from '../lib/list'
+import { Button } from '../lib/button'
 import { Checkbox, CheckboxValue } from '../lib/checkbox'
 import { TextBox } from '../lib/text-box'
 import {
@@ -68,6 +69,8 @@ import {
   changedFilesStatusFilters,
   filterChangedFiles,
 } from '../../lib/filter-changed-files'
+import { buildChangesTreeRows } from './changes-tree'
+import type { ChangesTreeRow } from './changes-tree'
 
 const RowHeight = 29
 const StashIcon: OcticonSymbolVariant = {
@@ -254,12 +257,26 @@ interface IChangesState {
   readonly focusedRow: number | null
   readonly filterText: string
   readonly statusFilter: ChangedFilesStatusFilter
+  readonly isTreeView: boolean
+  readonly collapsedPaths: ReadonlySet<string>
+}
+
+function getChangesListRows(
+  files: ReadonlyArray<WorkingDirectoryFileChange>,
+  isTreeView: boolean,
+  collapsedPaths: ReadonlySet<string>
+): ReadonlyArray<ChangesTreeRow> {
+  return isTreeView
+    ? buildChangesTreeRows(files, collapsedPaths)
+    : files.map(file => ({ kind: 'file', file, depth: 0 }))
 }
 
 function getSelectedRowsFromProps(
   props: IChangesListProps,
   filterText: string = '',
-  statusFilter: ChangedFilesStatusFilter = 'all'
+  statusFilter: ChangedFilesStatusFilter = 'all',
+  isTreeView: boolean = false,
+  collapsedPaths: ReadonlySet<string> = new Set()
 ): ReadonlyArray<number> {
   const selectedFileIDs = props.selectedFileIDs
   const visibleFiles = filterChangedFiles(
@@ -267,10 +284,17 @@ function getSelectedRowsFromProps(
     filterText,
     statusFilter
   )
+  const visibleRows = getChangesListRows(
+    visibleFiles,
+    isTreeView,
+    collapsedPaths
+  )
   const selectedRows = []
 
   for (const id of selectedFileIDs) {
-    const ix = visibleFiles.findIndex(file => file.id === id)
+    const ix = visibleRows.findIndex(
+      row => row.kind === 'file' && row.file.id === id
+    )
     if (ix !== -1) {
       selectedRows.push(ix)
     }
@@ -293,6 +317,8 @@ export class ChangesList extends React.Component<
       focusedRow: null,
       filterText: '',
       statusFilter: 'all',
+      isTreeView: false,
+      collapsedPaths: new Set(),
     }
   }
 
@@ -310,7 +336,9 @@ export class ChangesList extends React.Component<
         selectedRows: getSelectedRowsFromProps(
           nextProps,
           this.state.filterText,
-          this.state.statusFilter
+          this.state.statusFilter,
+          this.state.isTreeView,
+          this.state.collapsedPaths
         ),
       })
     }
@@ -324,10 +352,18 @@ export class ChangesList extends React.Component<
     )
   }
 
+  private get visibleRows() {
+    return getChangesListRows(
+      this.visibleFiles,
+      this.state.isTreeView,
+      this.state.collapsedPaths
+    )
+  }
+
   private getOriginalRowFromVisibleRow(row: number) {
-    const file = this.visibleFiles[row]
-    return file !== undefined
-      ? this.props.workingDirectory.findFileIndexByID(file.id)
+    const listRow = this.visibleRows[row]
+    return listRow?.kind === 'file'
+      ? this.props.workingDirectory.findFileIndexByID(listRow.file.id)
       : -1
   }
 
@@ -337,7 +373,9 @@ export class ChangesList extends React.Component<
       selectedRows: getSelectedRowsFromProps(
         this.props,
         filterText,
-        this.state.statusFilter
+        this.state.statusFilter,
+        this.state.isTreeView,
+        this.state.collapsedPaths
       ),
     })
   }
@@ -351,8 +389,55 @@ export class ChangesList extends React.Component<
       selectedRows: getSelectedRowsFromProps(
         this.props,
         this.state.filterText,
-        statusFilter
+        statusFilter,
+        this.state.isTreeView,
+        this.state.collapsedPaths
       ),
+    })
+  }
+
+  private onTreeViewToggle = () => {
+    const isTreeView = !this.state.isTreeView
+    this.setState({
+      isTreeView,
+      selectedRows: getSelectedRowsFromProps(
+        this.props,
+        this.state.filterText,
+        this.state.statusFilter,
+        isTreeView,
+        this.state.collapsedPaths
+      ),
+    })
+  }
+
+  private onDirectoryToggle = (path: string) => {
+    const collapsedPaths = new Set(this.state.collapsedPaths)
+    if (collapsedPaths.has(path)) {
+      collapsedPaths.delete(path)
+    } else {
+      collapsedPaths.add(path)
+    }
+
+    const visibleRows = getChangesListRows(
+      this.visibleFiles,
+      this.state.isTreeView,
+      collapsedPaths
+    )
+    const selectedRows = getSelectedRowsFromProps(
+      this.props,
+      this.state.filterText,
+      this.state.statusFilter,
+      this.state.isTreeView,
+      collapsedPaths
+    )
+    const directoryRow = visibleRows.findIndex(
+      row => row.kind === 'directory' && row.path === path
+    )
+
+    this.setState({
+      collapsedPaths,
+      selectedRows:
+        directoryRow === -1 ? selectedRows : [...selectedRows, directoryRow],
     })
   }
 
@@ -370,6 +455,12 @@ export class ChangesList extends React.Component<
   }
 
   private renderRow = (row: number): React.JSX.Element => {
+    const listRow = this.visibleRows[row]
+
+    if (listRow.kind === 'directory') {
+      return this.renderDirectoryRow(listRow)
+    }
+
     const {
       rebaseConflictState,
       isCommitting,
@@ -377,7 +468,7 @@ export class ChangesList extends React.Component<
       availableWidth,
     } = this.props
 
-    const file = this.visibleFiles[row]
+    const { file, depth } = listRow
     const selection = file.selection.getSelectionType()
     const { submoduleStatus } = file.status
 
@@ -405,6 +496,14 @@ export class ChangesList extends React.Component<
         ? file.status.kind !== AppFileStatusKind.Untracked
         : includeAll
 
+    const displayPath =
+      this.state.isTreeView &&
+      depth > 0 &&
+      file.status.kind !== AppFileStatusKind.Renamed &&
+      file.status.kind !== AppFileStatusKind.Copied
+        ? basename(file.path)
+        : undefined
+
     const disableSelection =
       isCommitting || rebaseConflictState !== null || isUncommittableSubmodule
 
@@ -424,7 +523,34 @@ export class ChangesList extends React.Component<
         disableSelection={disableSelection}
         checkboxTooltip={checkboxTooltip}
         focused={this.state.focusedRow === row}
+        depth={depth}
+        displayPath={displayPath}
       />
+    )
+  }
+
+  private renderDirectoryRow(
+    row: Extract<ChangesTreeRow, { kind: 'directory' }>
+  ): React.JSX.Element {
+    return (
+      <div
+        className="changes-list-directory"
+        style={{ paddingLeft: `${row.depth * 12 + 10}px` }}
+      >
+        <Octicon
+          className="changes-list-directory-chevron"
+          symbol={row.expanded ? octicons.chevronDown : octicons.chevronRight}
+        />
+        <Octicon
+          className="changes-list-directory-icon"
+          symbol={
+            row.expanded
+              ? octicons.fileDirectoryOpenFill
+              : octicons.fileDirectory
+          }
+        />
+        <span className="changes-list-directory-name">{row.name}</span>
+      </div>
     )
   }
 
@@ -790,7 +916,13 @@ export class ChangesList extends React.Component<
     row: number,
     event: React.MouseEvent<HTMLDivElement>
   ) => {
-    const file = this.visibleFiles[row]
+    const listRow = this.visibleRows[row]
+    if (listRow.kind === 'directory') {
+      event.preventDefault()
+      return
+    }
+
+    const { file } = listRow
 
     if (this.props.isCommitting) {
       return
@@ -1038,9 +1170,12 @@ export class ChangesList extends React.Component<
   }
 
   private onRowDoubleClick = (row: number) => {
-    const file = this.visibleFiles[row]
+    const listRow = this.visibleRows[row]
+    if (listRow.kind !== 'file') {
+      return
+    }
 
-    this.props.onOpenItemInExternalEditor(file.path)
+    this.props.onOpenItemInExternalEditor(listRow.file.path)
   }
 
   private onSelectionChanged = (rows: ReadonlyArray<number>) => {
@@ -1048,10 +1183,24 @@ export class ChangesList extends React.Component<
       .map(row => this.getOriginalRowFromVisibleRow(row))
       .filter(row => row !== -1)
 
+    if (rows.length > 0 && originalRows.length === 0) {
+      // Folder rows only control expansion. Keep the currently selected files
+      // selected when a folder row receives pointer or keyboard selection.
+      // The List still needs the folder row indexes for keyboard navigation.
+      this.setState({ selectedRows: rows })
+      return
+    }
+
     this.props.onFileSelectionChanged(originalRows)
   }
 
   private onRowClick = (row: number, source: ClickSource) => {
+    const listRow = this.visibleRows[row]
+    if (listRow?.kind === 'directory') {
+      this.onDirectoryToggle(listRow.path)
+      return
+    }
+
     const originalRow = this.getOriginalRowFromVisibleRow(row)
 
     if (originalRow !== -1) {
@@ -1059,8 +1208,19 @@ export class ChangesList extends React.Component<
     }
   }
 
+  private getRowAriaLabel = (row: number): string | undefined => {
+    const listRow = this.visibleRows[row]
+    if (listRow?.kind !== 'directory') {
+      return undefined
+    }
+
+    const expansionState = listRow.expanded ? 'expanded' : 'collapsed'
+    const action = listRow.expanded ? 'collapse' : 'expand'
+    return `Folder ${listRow.name}, ${expansionState}. Press Enter or Space to ${action}.`
+  }
+
   private onRowKeyDown = (
-    _row: number,
+    row: number,
     event: React.KeyboardEvent<HTMLDivElement>
   ) => {
     // The commit is already in-flight but this check prevents the
@@ -1069,6 +1229,16 @@ export class ChangesList extends React.Component<
       this.props.isCommitting &&
       (event.key === 'Enter' || event.key === ' ')
     ) {
+      event.preventDefault()
+      return
+    }
+
+    const listRow = this.visibleRows[row]
+    if (
+      listRow?.kind === 'directory' &&
+      (event.key === 'Enter' || event.key === ' ')
+    ) {
+      this.onDirectoryToggle(listRow.path)
       event.preventDefault()
     }
 
@@ -1082,7 +1252,7 @@ export class ChangesList extends React.Component<
   public render() {
     const { workingDirectory, rebaseConflictState, isCommitting } = this.props
     const { files } = workingDirectory
-    const visibleFiles = this.visibleFiles
+    const visibleRows = this.visibleRows
 
     const filesPlural = files.length === 1 ? 'file' : 'files'
     const filesDescription = `${files.length} changed ${filesPlural}`
@@ -1151,19 +1321,34 @@ export class ChangesList extends React.Component<
                 </option>
               ))}
             </select>
+            <Button
+              size="small"
+              className="changes-list-tree-toggle"
+              ariaLabel="Toggle folder tree view"
+              ariaPressed={this.state.isTreeView}
+              tooltip="Toggle folder tree view"
+              onClick={this.onTreeViewToggle}
+            >
+              <Octicon symbol={octicons.fileDirectory} />
+            </Button>
           </div>
           <List
             id="changes-list"
-            rowCount={visibleFiles.length}
+            rowCount={visibleRows.length}
             rowHeight={RowHeight}
             rowRenderer={this.renderRow}
             selectedRows={this.state.selectedRows}
+            getRowAriaLabel={this.getRowAriaLabel}
             selectionMode="multi"
             onSelectionChanged={this.onSelectionChanged}
             invalidationProps={{
               workingDirectory: workingDirectory,
               isCommitting: isCommitting,
               focusedRow: this.state.focusedRow,
+              filterText: this.state.filterText,
+              statusFilter: this.state.statusFilter,
+              isTreeView: this.state.isTreeView,
+              collapsedPaths: this.state.collapsedPaths,
             }}
             onRowClick={this.onRowClick}
             onRowDoubleClick={this.onRowDoubleClick}

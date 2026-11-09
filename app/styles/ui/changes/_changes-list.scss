@@ -66,6 +66,47 @@
       flex: 0 0 auto;
       max-width: 45%;
     }
+
+    .changes-list-tree-toggle {
+      align-self: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 28px;
+      width: 28px;
+      min-width: 28px;
+      padding: 0;
+    }
+  }
+}
+
+.changes-list-directory {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  height: 100%;
+  padding-right: var(--spacing);
+  color: var(--text-secondary-color);
+  font-size: var(--font-size-sm);
+
+  .octicon {
+    flex-shrink: 0;
+  }
+
+  .changes-list-directory-chevron {
+    width: 12px;
+    margin-right: var(--spacing-half);
+  }
+
+  .changes-list-directory-icon {
+    width: 16px;
+    margin-right: var(--spacing-half);
+  }
+
+  .changes-list-directory-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }
 

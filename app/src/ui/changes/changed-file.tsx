@@ -16,6 +16,8 @@ interface IChangedFileProps {
   readonly disableSelection: boolean
   readonly checkboxTooltip?: string
   readonly focused: boolean
+  readonly depth?: number
+  readonly displayPath?: string
   readonly onIncludeChanged: (path: string, include: boolean) => void
 }
 
@@ -39,7 +41,9 @@ export class ChangedFile extends React.Component<IChangedFileProps, {}> {
   public render() {
     const { file, availableWidth, disableSelection, checkboxTooltip, focused } =
       this.props
+    const depth = this.props.depth ?? 0
     const { status, path } = file
+    const displayPath = this.props.displayPath ?? path
     const fileStatus = mapStatus(status)
 
     const listItemPadding = 10 * 2
@@ -52,7 +56,8 @@ export class ChangedFile extends React.Component<IChangedFileProps, {}> {
       listItemPadding -
       checkboxWidth -
       filePadding -
-      statusWidth
+      statusWidth -
+      depth * 12
 
     const includedText =
       this.props.include === true
@@ -66,7 +71,10 @@ export class ChangedFile extends React.Component<IChangedFileProps, {}> {
     )} ${includedText}`
 
     return (
-      <div className="file">
+      <div
+        className="file"
+        style={{ paddingLeft: `calc(var(--spacing) + ${depth * 12}px)` }}
+      >
         <TooltippedContent
           tooltip={checkboxTooltip}
           direction={TooltipDirection.EAST}
@@ -84,7 +92,7 @@ export class ChangedFile extends React.Component<IChangedFileProps, {}> {
         </TooltippedContent>
 
         <PathLabel
-          path={path}
+          path={displayPath}
           status={status}
           availableWidth={availablePathWidth}
           ariaHidden={true}
