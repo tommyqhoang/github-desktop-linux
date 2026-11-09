@@ -11,4 +11,8 @@
       margin-right: var(--spacing-half);
     }
   }
+
+  label {
+    min-width: 0;
+  }
 }

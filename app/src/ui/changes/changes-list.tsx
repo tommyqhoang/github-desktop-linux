@@ -1283,6 +1283,7 @@ export class ChangesList extends React.Component<
             ref={this.headerRef}
           >
             <TooltippedContent
+              className="changes-list-checkbox"
               tooltip={selectedChangesDescription}
               direction={TooltipDirection.NORTH}
               openOnFocus={true}
