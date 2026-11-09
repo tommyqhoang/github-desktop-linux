@@ -12,6 +12,99 @@
 
   padding: var(--spacing);
 
+  .commit-message-toggle {
+    align-self: center;
+    position: relative;
+    width: 32px;
+    min-width: 32px;
+    max-width: 32px;
+    height: 4px;
+    min-height: 4px;
+    max-height: 4px;
+    margin: calc(-1 * var(--spacing)) auto 0;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background-color: transparent;
+    cursor: pointer;
+    overflow: visible;
+
+    &::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 32px;
+      height: 4px;
+      border-radius: 999px;
+      background-color: var(--text-secondary-color);
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      transition:
+        width 120ms ease,
+        height 120ms ease,
+        background-color 120ms ease;
+
+      @media (prefers-reduced-motion: reduce) {
+        transition: none;
+      }
+    }
+
+    &::after {
+      content: '';
+      position: absolute;
+      inset: -8px;
+      pointer-events: auto;
+    }
+
+    .octicon {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 10px;
+      height: 10px;
+      color: var(--box-alt-background-color);
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+
+    &:not([aria-disabled='true']):hover {
+      &::before {
+        width: 48px;
+        height: 8px;
+        background-color: var(--text-color);
+      }
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--focus-color);
+      outline-offset: 2px;
+
+      &::before {
+        width: 48px;
+        height: 8px;
+        background-color: var(--text-color);
+      }
+    }
+  }
+
+  .commit-message-fields {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .commit-message-fields[hidden] {
+    display: none;
+  }
+
+  &.is-collapsed {
+    padding: 0;
+
+    .commit-message-toggle {
+      margin: 0 auto;
+    }
+  }
+
   .summary {
     position: relative;
     display: flex;

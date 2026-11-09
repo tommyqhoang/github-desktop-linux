@@ -1,10 +1,10 @@
 import * as React from 'react'
 import classNames from 'classnames'
 import {
-  AutocompletingTextArea,
   AutocompletingInput,
-  IAutocompletionProvider,
+  AutocompletingTextArea,
   CoAuthorAutocompletionProvider,
+  IAutocompletionProvider,
 } from '../autocompletion'
 import { CommitIdentity } from '../../models/commit-identity'
 import { ICommitMessage } from '../../models/commit-message'
@@ -13,16 +13,17 @@ import { Button } from '../lib/button'
 import { Loading } from '../lib/loading'
 import { AuthorInput } from '../lib/author-input/author-input'
 import { FocusContainer } from '../lib/focus-container'
+import { getBoolean, setBoolean } from '../../lib/local-storage'
 import { Octicon, OcticonSymbolVariant } from '../octicons'
 import * as octicons from '../octicons/octicons.generated'
-import { Author, UnknownAuthor, isKnownAuthor } from '../../models/author'
+import { Author, isKnownAuthor, UnknownAuthor } from '../../models/author'
 import { IMenuItem } from '../../lib/menu-item'
 import { Commit, ICommitContext } from '../../models/commit'
 import { startTimer } from '../lib/timing'
 import { CommitWarning, CommitWarningIcon } from './commit-warning'
 import { LinkButton } from '../lib/link-button'
 import { CommitOptions, Foldout, FoldoutType } from '../../lib/app-state'
-import { IAvatarUser, getAvatarUserFromAuthor } from '../../models/avatar'
+import { getAvatarUserFromAuthor, IAvatarUser } from '../../models/avatar'
 import { showContextualMenu } from '../../lib/menu-item'
 import { Account } from '../../models/account'
 import {
@@ -61,10 +62,12 @@ import { RepoRulesMetadataFailureList } from '../repository-rules/repo-rules-fai
 import { formatCommitMessage } from '../../lib/format-commit-message'
 import { useRepoRulesLogic } from '../../lib/helpers/repo-rules'
 import {
-  getAICommitMessageSettings,
   getAICommitMessagesEnabledForRepository,
+  getAICommitMessageSettings,
   hasUsableAICommitMessageSettings,
 } from '../../lib/ai/commit-message-settings'
+
+const commitMessageInputCollapsedKey = 'commitMessageInputCollapsed'
 
 const addAuthorIcon: OcticonSymbolVariant = {
   w: 18,
@@ -188,6 +191,7 @@ interface ICommitMessageProps {
 interface ICommitMessageState {
   readonly summary: string
   readonly description: string | null
+  readonly isCollapsed: boolean
 
   readonly commitMessageAutocompletionProviders: ReadonlyArray<
     IAutocompletionProvider<any>
@@ -259,6 +263,7 @@ export class CommitMessage extends React.Component<
     this.state = {
       summary: commitMessage ? commitMessage.summary : '',
       description: commitMessage ? commitMessage.description : null,
+      isCollapsed: getBoolean(commitMessageInputCollapsedKey, false),
       commitMessageAutocompletionProviders:
         findCommitMessageAutoCompleteProvider(props.autocompletionProviders),
       coAuthorAutocompletionProvider: findCoAuthorAutoCompleteProvider(
@@ -1523,10 +1528,20 @@ export class CommitMessage extends React.Component<
     )
   }
 
+  private onToggleCollapsed = () => {
+    const isCollapsed = !this.state.isCollapsed
+    setBoolean(commitMessageInputCollapsedKey, isCollapsed)
+    this.setState({ isCollapsed })
+  }
+
   public render() {
+    const collapseToggleLabel = this.state.isCollapsed
+      ? 'Expand commit message editor'
+      : 'Collapse commit message editor'
     const className = classNames('commit-message-component', {
       'with-action-bar': this.isActionBarEnabled,
       'with-co-authors': this.isCoAuthorInputVisible,
+      'is-collapsed': this.state.isCollapsed,
     })
 
     const descriptionClassName = classNames('description-field', {
@@ -1566,71 +1581,90 @@ export class CommitMessage extends React.Component<
         onKeyDown={this.onKeyDown}
         ref={this.wrapperRef}
       >
-        <div className={summaryClassName}>
-          {this.renderAvatar()}
-
-          <AutocompletingInput
-            required={true}
-            label={this.props.showInputLabels === true ? 'Summary' : undefined}
-            screenReaderLabel="Commit summary"
-            className={summaryInputClassName}
-            placeholder={placeholder}
-            value={this.state.summary}
-            onValueChanged={this.onSummaryChanged}
-            onElementRef={this.onSummaryInputRef}
-            autocompletionProviders={
-              this.state.commitMessageAutocompletionProviders
-            }
-            aria-describedby={ariaDescribedBy}
-            onContextMenu={this.onAutocompletingInputContextMenu}
-            readOnly={isCommitting === true}
-            spellcheck={commitSpellcheckEnabled}
-          />
-          {showRepoRuleCommitMessageFailureHint &&
-            this.renderRepoRuleCommitMessageFailureHint()}
-          {showSummaryLengthHint && this.renderSummaryLengthHint()}
-        </div>
-
-        {this.state.isRuleFailurePopoverOpen && this.renderRuleFailurePopover()}
-
-        {this.props.showInputLabels === true && (
-          <label htmlFor="commit-message-description">Description</label>
-        )}
-        <FocusContainer
-          className="description-focus-container"
-          onClick={this.onFocusContainerClick}
+        <button
+          type="button"
+          className="commit-message-toggle button-component"
+          aria-expanded={!this.state.isCollapsed}
+          aria-label={collapseToggleLabel}
+          onClick={this.onToggleCollapsed}
         >
-          <AutocompletingTextArea
-            inputId="commit-message-description"
-            className={descriptionClassName}
-            screenReaderLabel={
-              this.props.showInputLabels !== true
-                ? 'Commit description'
-                : undefined
+          <Octicon
+            symbol={
+              this.state.isCollapsed ? octicons.chevronDown : octicons.chevronUp
             }
-            placeholder="Description"
-            value={this.state.description || ''}
-            onValueChanged={this.onDescriptionChanged}
-            autocompletionProviders={
-              this.state.commitMessageAutocompletionProviders
-            }
-            aria-describedby={ariaDescribedBy}
-            ref={this.onDescriptionFieldRef}
-            onElementRef={this.onDescriptionTextAreaRef}
-            onContextMenu={this.onAutocompletingInputContextMenu}
-            readOnly={isCommitting === true}
-            spellcheck={commitSpellcheckEnabled}
           />
-          {this.renderActionBar()}
-        </FocusContainer>
+        </button>
 
-        {this.renderCoAuthorInput()}
+        <div className="commit-message-fields" hidden={this.state.isCollapsed}>
+          <div className={summaryClassName}>
+            {this.renderAvatar()}
 
-        {this.renderAICommitMessageError()}
-        {this.renderAmendCommitNotice()}
-        {this.renderBranchProtectionsRepoRulesCommitWarning()}
+            <AutocompletingInput
+              required={true}
+              label={
+                this.props.showInputLabels === true ? 'Summary' : undefined
+              }
+              screenReaderLabel="Commit summary"
+              className={summaryInputClassName}
+              placeholder={placeholder}
+              value={this.state.summary}
+              onValueChanged={this.onSummaryChanged}
+              onElementRef={this.onSummaryInputRef}
+              autocompletionProviders={
+                this.state.commitMessageAutocompletionProviders
+              }
+              aria-describedby={ariaDescribedBy}
+              onContextMenu={this.onAutocompletingInputContextMenu}
+              readOnly={isCommitting === true}
+              spellcheck={commitSpellcheckEnabled}
+            />
+            {showRepoRuleCommitMessageFailureHint &&
+              this.renderRepoRuleCommitMessageFailureHint()}
+            {showSummaryLengthHint && this.renderSummaryLengthHint()}
+          </div>
 
-        {this.renderSubmitButton()}
+          {this.state.isRuleFailurePopoverOpen &&
+            this.renderRuleFailurePopover()}
+
+          {this.props.showInputLabels === true && (
+            <label htmlFor="commit-message-description">Description</label>
+          )}
+          <FocusContainer
+            className="description-focus-container"
+            onClick={this.onFocusContainerClick}
+          >
+            <AutocompletingTextArea
+              inputId="commit-message-description"
+              className={descriptionClassName}
+              screenReaderLabel={
+                this.props.showInputLabels !== true
+                  ? 'Commit description'
+                  : undefined
+              }
+              placeholder="Description"
+              value={this.state.description || ''}
+              onValueChanged={this.onDescriptionChanged}
+              autocompletionProviders={
+                this.state.commitMessageAutocompletionProviders
+              }
+              aria-describedby={ariaDescribedBy}
+              ref={this.onDescriptionFieldRef}
+              onElementRef={this.onDescriptionTextAreaRef}
+              onContextMenu={this.onAutocompletingInputContextMenu}
+              readOnly={isCommitting === true}
+              spellcheck={commitSpellcheckEnabled}
+            />
+            {this.renderActionBar()}
+          </FocusContainer>
+
+          {this.renderCoAuthorInput()}
+
+          {this.renderAICommitMessageError()}
+          {this.renderAmendCommitNotice()}
+          {this.renderBranchProtectionsRepoRulesCommitWarning()}
+
+          {this.renderSubmitButton()}
+        </div>
         <span className="sr-only" aria-live="polite" aria-atomic="true">
           {this.state.isCommittingStatusMessage}
         </span>
