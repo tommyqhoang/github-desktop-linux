@@ -102,8 +102,10 @@ export class FileList extends React.Component<IFileListProps, IFileListState> {
       return (
         <ChangedFileDirectory
           name={listRow.name}
+          path={listRow.path}
           depth={listRow.depth}
           expanded={listRow.expanded}
+          onToggleFolder={this.onDirectoryToggle}
         />
       )
     }
@@ -174,24 +176,34 @@ export class FileList extends React.Component<IFileListProps, IFileListState> {
     }
   }
 
-  private onRowClick = (row: number, _source: ClickSource) => {
-    const listRow = this.visibleRows[row]
-    if (listRow?.kind === 'directory') {
-      this.onDirectoryToggle(listRow.path)
-    }
-  }
-
   private onRowKeyDown = (
     row: number,
     event: React.KeyboardEvent<HTMLDivElement>
   ) => {
     const listRow = this.visibleRows[row]
-    if (
-      listRow?.kind === 'directory' &&
-      (event.key === 'Enter' || event.key === ' ')
-    ) {
-      this.onDirectoryToggle(listRow.path)
+    if (listRow?.kind !== 'directory') {
+      return
+    }
+
+    if (event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) {
+      return
+    }
+
+    if (event.key === ' ') {
       event.preventDefault()
+      return
+    }
+
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault()
+      if (listRow.expanded) {
+        this.onDirectoryToggle(listRow.path)
+      }
+    } else if (event.key === 'ArrowRight') {
+      event.preventDefault()
+      if (!listRow.expanded) {
+        this.onDirectoryToggle(listRow.path)
+      }
     }
   }
 
@@ -226,8 +238,10 @@ export class FileList extends React.Component<IFileListProps, IFileListState> {
     const listRow = this.visibleRows[row]
     if (listRow?.kind === 'directory') {
       const expansionState = listRow.expanded ? 'expanded' : 'collapsed'
-      const action = listRow.expanded ? 'collapse' : 'expand'
-      return `Folder ${listRow.path}, ${expansionState}. Press Enter or Space to ${action}.`
+      return (
+        `Folder ${listRow.path}, ${expansionState}. ` +
+        'Use Left or Right Arrow to collapse or expand.'
+      )
     }
 
     if (listRow === undefined) {
@@ -280,7 +294,6 @@ export class FileList extends React.Component<IFileListProps, IFileListState> {
           rowHeight={29}
           selectedRows={this.selectedRowsForFile()}
           onSelectedRowChanged={this.onSelectedRowChanged}
-          onRowClick={this.onRowClick}
           onRowDoubleClick={this.onRowDoubleClick}
           onRowKeyDown={this.onRowKeyDown}
           onRowContextMenu={this.onRowContextMenu}

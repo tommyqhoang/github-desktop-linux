@@ -131,6 +131,15 @@ function getIncludeAllValue(
   }
 }
 
+function isUncommittableSubmoduleFile(file: WorkingDirectoryFileChange) {
+  const { submoduleStatus } = file.status
+  return (
+    submoduleStatus !== undefined &&
+    file.status.kind === AppFileStatusKind.Modified &&
+    !submoduleStatus.commitChanged
+  )
+}
+
 interface IChangesListProps {
   readonly changedFilesTreeView: boolean
   readonly repository: Repository
@@ -459,6 +468,21 @@ export class ChangesList extends React.Component<
     })
   }
 
+  private onDirectoryIncludeToggle = (path: string) => {
+    const files = this.visibleFiles.filter(
+      file =>
+        file.path.startsWith(`${path}/`) && !isUncommittableSubmoduleFile(file)
+    )
+    if (files.length === 0) {
+      return
+    }
+
+    const include = !files.every(
+      file => file.selection.getSelectionType() === DiffSelectionType.All
+    )
+    this.props.onFilesIncludeChanged(files, include)
+  }
+
   private onIncludeAllChanged = (event: React.FormEvent<HTMLInputElement>) => {
     const include = event.currentTarget.checked
     const isFiltering =
@@ -479,8 +503,10 @@ export class ChangesList extends React.Component<
       return (
         <ChangedFileDirectory
           name={listRow.name}
+          path={listRow.path}
           depth={listRow.depth}
           expanded={listRow.expanded}
+          onToggleFolder={this.onDirectoryToggle}
         />
       )
     }
@@ -495,11 +521,7 @@ export class ChangesList extends React.Component<
     const { file, depth } = listRow
     const selection = file.selection.getSelectionType()
     const { submoduleStatus } = file.status
-
-    const isUncommittableSubmodule =
-      submoduleStatus !== undefined &&
-      file.status.kind === AppFileStatusKind.Modified &&
-      !submoduleStatus.commitChanged
+    const isUncommittableSubmodule = isUncommittableSubmoduleFile(file)
 
     const isPartiallyCommittableSubmodule =
       submoduleStatus !== undefined &&
@@ -1196,7 +1218,6 @@ export class ChangesList extends React.Component<
   private onRowClick = (row: number, source: ClickSource) => {
     const listRow = this.visibleRows[row]
     if (listRow?.kind === 'directory') {
-      this.onDirectoryToggle(listRow.path)
       return
     }
 
@@ -1214,8 +1235,11 @@ export class ChangesList extends React.Component<
     }
 
     const expansionState = listRow.expanded ? 'expanded' : 'collapsed'
-    const action = listRow.expanded ? 'collapse' : 'expand'
-    return `Folder ${listRow.name}, ${expansionState}. Press Enter or Space to ${action}.`
+    return (
+      `Folder ${listRow.name}, ${expansionState}. ` +
+      'Use Left or Right Arrow to collapse or expand. ' +
+      'Press Space to stage or unstage files in this folder.'
+    )
   }
 
   private onRowKeyDown = (
@@ -1233,12 +1257,32 @@ export class ChangesList extends React.Component<
     }
 
     const listRow = this.visibleRows[row]
-    if (
-      listRow?.kind === 'directory' &&
-      (event.key === 'Enter' || event.key === ' ')
-    ) {
-      this.onDirectoryToggle(listRow.path)
+    if (listRow?.kind !== 'directory') {
+      return
+    }
+
+    if (event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) {
+      return
+    }
+
+    if (event.key === ' ') {
       event.preventDefault()
+      if (this.props.rebaseConflictState === null) {
+        this.onDirectoryIncludeToggle(listRow.path)
+      }
+      return
+    }
+
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault()
+      if (listRow.expanded) {
+        this.onDirectoryToggle(listRow.path)
+      }
+    } else if (event.key === 'ArrowRight') {
+      event.preventDefault()
+      if (!listRow.expanded) {
+        this.onDirectoryToggle(listRow.path)
+      }
     }
 
     return
