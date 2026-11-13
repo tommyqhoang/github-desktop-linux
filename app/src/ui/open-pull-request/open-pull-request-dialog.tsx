@@ -22,6 +22,7 @@ import { ComputedAction } from '../../models/computed-action'
 interface IOpenPullRequestDialogProps {
   readonly repository: Repository
   readonly dispatcher: Dispatcher
+  readonly changedFilesTreeView: boolean
 
   /**
    * The IRepositoryState.pullRequestState
@@ -171,6 +172,7 @@ export class OpenPullRequestDialog extends React.Component<IOpenPullRequestDialo
       <PullRequestFilesChanged
         diff={diff}
         dispatcher={dispatcher}
+        changedFilesTreeView={this.props.changedFilesTreeView}
         externalEditorLabel={externalEditorLabel}
         fileListWidth={fileListWidth}
         files={files}

@@ -42,6 +42,7 @@ import { Emoji } from '../../lib/emoji'
 interface ISelectedCommitsProps {
   readonly repository: Repository
   readonly dispatcher: Dispatcher
+  readonly changedFilesTreeView: boolean
   readonly emoji: Map<string, Emoji>
   readonly selectedCommits: ReadonlyArray<Commit>
   readonly shasInDiff: ReadonlyArray<string>
@@ -260,27 +261,17 @@ export class SelectedCommits extends React.Component<
     const availableWidth = clamp(this.props.commitSummaryWidth) - 1
 
     return (
-      <>
-        {this.renderFileHeader()}
-        <FileList
-          files={files}
-          onSelectedFileChanged={this.onFileSelected}
-          selectedFile={this.props.selectedFile}
-          availableWidth={availableWidth}
-          onContextMenu={this.onContextMenu}
-          onRowDoubleClick={this.onRowDoubleClick}
-        />
-      </>
-    )
-  }
-
-  private renderFileHeader() {
-    const fileCount = this.props.changesetData.files.length
-    const filesPlural = fileCount === 1 ? 'file' : 'files'
-    return (
-      <div className="file-list-header">
-        {fileCount} changed {filesPlural}
-      </div>
+      <FileList
+        dispatcher={this.props.dispatcher}
+        files={files}
+        changedFilesTreeView={this.props.changedFilesTreeView}
+        onSelectedFileChanged={this.onFileSelected}
+        selectedFile={this.props.selectedFile}
+        availableWidth={availableWidth}
+        onContextMenu={this.onContextMenu}
+        onRowDoubleClick={this.onRowDoubleClick}
+        showFileCount={true}
+      />
     )
   }
 

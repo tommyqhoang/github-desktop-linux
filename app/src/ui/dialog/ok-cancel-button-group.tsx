@@ -116,7 +116,9 @@ export class OkCancelButtonGroup extends React.Component<
       event.preventDefault()
       if (event.currentTarget.form) {
         // https://stackoverflow.com/a/12820780/2114
-        event.currentTarget.form.dispatchEvent(new Event('submit'))
+        event.currentTarget.form.dispatchEvent(
+          new Event('submit', { bubbles: true, cancelable: true })
+        )
       }
     }
   }
@@ -139,7 +141,9 @@ export class OkCancelButtonGroup extends React.Component<
       event.preventDefault()
       if (event.currentTarget.form) {
         // https://stackoverflow.com/a/12820780/2114
-        event.currentTarget.form.dispatchEvent(new Event('reset'))
+        event.currentTarget.form.dispatchEvent(
+          new Event('reset', { bubbles: true, cancelable: true })
+        )
       }
     }
   }

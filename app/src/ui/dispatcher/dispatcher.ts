@@ -2226,6 +2226,11 @@ export class Dispatcher {
     return this.appStore._changeImageDiffType(type)
   }
 
+  /** Change whether changed-file lists display files as a folder tree. */
+  public setChangedFilesTreeView(value: boolean): Promise<void> {
+    return this.appStore._setChangedFilesTreeView(value)
+  }
+
   /** Change the hide whitespace in changes diff setting */
   public onHideWhitespaceInChangesDiffChanged(
     hideWhitespaceInDiff: boolean,

@@ -21,6 +21,11 @@
     align-items: center;
     justify-content: space-between;
 
+    > .changes-list-checkbox {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
     .checkbox-component {
       align-items: center;
       height: 100%;
@@ -36,6 +41,7 @@
         position: absolute;
         left: 0;
         width: 100%;
+        box-sizing: border-box;
         padding: 0 30px;
         text-align: center;
 
@@ -63,8 +69,22 @@
     }
 
     select {
+      @include textboxish;
+
       flex: 0 0 auto;
       max-width: 45%;
+      padding: 0 var(--spacing-half);
+    }
+
+    .changes-list-tree-toggle {
+      align-self: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 28px;
+      width: 28px;
+      min-width: 28px;
+      padding: 0;
     }
   }
 }

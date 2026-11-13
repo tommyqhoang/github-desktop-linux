@@ -2754,6 +2754,7 @@ export class App extends React.Component<IAppProps, IAppState> {
         return (
           <OpenPullRequestDialog
             key="open-pull-request"
+            changedFilesTreeView={this.state.changedFilesTreeView}
             prBaseBranches={prBaseBranches}
             currentBranch={currentBranch}
             defaultBranch={defaultBranch}
@@ -3714,6 +3715,7 @@ export class App extends React.Component<IAppProps, IAppState> {
           gitHubUserStore={this.props.gitHubUserStore}
           onViewCommitOnGitHub={this.onViewCommitOnGitHub}
           imageDiffType={state.imageDiffType}
+          changedFilesTreeView={state.changedFilesTreeView}
           hideWhitespaceInChangesDiff={state.hideWhitespaceInChangesDiff}
           hideWhitespaceInHistoryDiff={state.hideWhitespaceInHistoryDiff}
           showDiffCheckMarks={state.showDiffCheckMarks}
